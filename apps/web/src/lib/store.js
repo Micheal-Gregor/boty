@@ -8,19 +8,48 @@ import { botActions } from "@boty/engine/bots";
 import { loadContent } from "./content.js";
 
 const { economy, decks, flavor } = loadContent();
+const AI_DELAY = 650; // ms between AI seats, so you can watch the table move
+const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
-/** UI state. `rev` bumps on every change so Svelte re-renders off the live engine state. */
-export const ui = writable({ screen: "setup", game: null, ctx: null, flavor, economy, error: null, rev: 0 });
+/** UI state. `view` is a fresh plain-data snapshot of the engine state on every change — the
+ * engine mutates its objects in place, so the UI must read a new-reference snapshot or Svelte
+ * won't see the change. `rev` bumps on every change. */
+export const ui = writable({
+  screen: "setup", game: null, view: null, ctx: null, flavor, economy, error: null, rev: 0,
+  aiActing: null, threat: null, picking: null, reckoning: null, final: null,
+});
 
 let game = null;
 let ai = {}; // playerId -> strategy string, or null for a human seat
 
-function push(patch = {}) {
-  ui.update((v) => ({ ...v, game, rev: v.rev + 1, error: null, ...patch }));
+/** Deep-copy the UI-relevant slice of engine state into plain data (new references). */
+function viewOf() {
+  if (!game) return null;
+  const s = game.state;
+  return {
+    turn: s.turn, activePlayerIndex: s.activePlayerIndex, over: s.over, phase: s.phase,
+    log: s.log.slice(-8),
+    players: s.players.map((p) => ({
+      id: p.id, name: p.name, service: p.service, cash: p.cash, bankrupt: p.bankrupt, building: p.building,
+      tradesmen: p.tradesmen.map((t) => ({ ...t })),
+      equipment: p.equipment.map((e) => ({ ...e })),
+      jobs: p.jobs.map((j) => ({ ...j, assigned_tradesmen: [...j.assigned_tradesmen] })),
+      invoices: p.invoices.map((i) => ({ ...i })),
+      payables: p.payables.map((a) => ({ ...a })),
+      hand: p.hand.map((c) => ({ ...c })),
+    })),
+  };
 }
 
+function push(patch = {}) {
+  ui.update((v) => ({ ...v, game, view: viewOf(), rev: v.rev + 1, ...patch }));
+}
+function fail(msg) { ui.update((v) => ({ ...v, rev: v.rev + 1, error: msg })); }
+
 export const services = economy.services;
-export const equipmentDefs = economy.equipment;
+export const isAI = (playerId) => !!ai[playerId];
+const player = (id) => game.state.players.find((p) => p.id === id);
+const handHas = (p, type) => p.hand.some((c) => c.type === type);
 
 /** Start a new game. seats: [{ name, service, strategy|null }]. */
 export function newGame(seats) {
@@ -32,61 +61,139 @@ export function newGame(seats) {
   ai = {};
   game.state.players.forEach((p, i) => { ai[p.id] = seats[i].strategy ?? null; });
   const ctx = game.start();
-  push({ screen: "board", ctx });
-  autoPlayAI();
+  push({ screen: "board", ctx, error: null, aiActing: null, threat: null, picking: null, reckoning: null, final: null });
+  runAI();
 }
 
 /** Run an engine action for the current (human) player, catching illegal moves. */
 export function act(fn) {
-  try {
-    fn(game);
-    push();
-  } catch (e) {
-    ui.update((v) => ({ ...v, rev: v.rev + 1, error: e?.message ?? String(e) }));
+  try { fn(game); push({ error: null }); }
+  catch (e) { fail(e?.message ?? String(e)); }
+}
+
+// --- Threats (Sabotage / Sue) + the response window --------------------------------------
+
+export function startPick(type) { push({ picking: type, error: null }); }
+export function cancelPick() { push({ picking: null }); }
+
+export function playSabotage(jobId) {
+  push({ picking: null });
+  try { game.playSabotage(jobId); } catch (e) { return fail(e?.message ?? String(e)); }
+  resolveThreat();
+}
+
+export function playSue(debtorId, payableId, slick = false) {
+  push({ picking: null });
+  try { game.sue(debtorId, payableId, { slick }); } catch (e) { return fail(e?.message ?? String(e)); }
+  resolveThreat();
+}
+
+/** If the threatened player is AI, auto-respond; otherwise surface a modal for the human. */
+function resolveThreat() {
+  const t = game.state.pendingThreat;
+  if (!t) return push({ error: null });
+  const targetId = t.type === "sabotage" ? t.ownerId : t.debtorId;
+  if (ai[targetId]) { aiRespond(t); push({ error: null, threat: null }); afterAct(); }
+  else push({ error: null, threat: viewThreat(t) });
+}
+
+function aiRespond(t) {
+  const target = player(t.type === "sabotage" ? t.ownerId : t.debtorId);
+  if (t.type === "sabotage") {
+    game.respondToThreat({ counter: handHas(target, "rush") }); // AI always rushes if it can
+  } else {
+    const canFight = target.cash >= economy.civil.deposit;
+    game.respondToThreat({ contest: canFight, ownLawyer: handHas(target, "slick_lawyer") });
   }
 }
 
-/** End the current player's turn, then let any AI seats take theirs. */
+/** The human target responds via the modal. */
+export function respond(decision) {
+  try { game.respondToThreat(decision); } catch (e) { return fail(e?.message ?? String(e)); }
+  push({ threat: null, error: null });
+  afterAct();
+}
+
+function viewThreat(t) {
+  if (t.type === "sabotage") {
+    const owner = player(t.ownerId);
+    const job = owner.jobs.find((j) => j.id === t.jobId);
+    return { type: "sabotage", targetName: owner.name, jobName: job?.name ?? t.jobId, canCounter: handHas(owner, "rush") };
+  }
+  const debtor = player(t.debtorId);
+  const ap = debtor.payables.find((a) => a.id === t.payableId);
+  return { type: "sue", targetName: debtor.name, amount: ap?.amount, canLawyer: handHas(debtor, "slick_lawyer"), deposit: economy.civil.deposit, canAfford: debtor.cash >= economy.civil.deposit };
+}
+
+/** After any action that might end a player's options (here: just refresh / continue). */
+function afterAct() {
+  if (game.state.over) return; // shouldn't be here mid-turn
+}
+
+// --- Turn flow ---------------------------------------------------------------------------
+
 export function endTurn() {
+  if (game.state.pendingThreat) return fail("Resolve the response window first");
   const ctx = game.endTurn();
-  finishOrContinue(ctx);
+  if (ctx.reckoning) return enterReckoning(ctx.order);
+  if (ctx.over) return push({ screen: "gala", ctx, final: ctx });
+  push({ ctx, error: null });
+  runAI();
 }
 
-function finishOrContinue(ctx) {
-  if (ctx.reckoning) {
-    // M2: auto-settle the books (interactive Last Licks UI is a follow-up).
-    const final = game.closeBooks();
-    push({ screen: "gala", ctx, final });
-    return;
-  }
-  if (ctx.over) {
-    push({ screen: "gala", ctx, final: ctx });
-    return;
-  }
-  push({ ctx });
-  autoPlayAI();
-}
-
-/** While it's an AI seat's turn, play it and advance — until a human is up or the game ends. */
-function autoPlayAI() {
+/** Step through AI seats with a pause so the human can watch the table move. */
+async function runAI() {
   let lastCtx = null;
   let guard = 0;
   while (guard++ < 100) {
     const p = game.currentPlayer;
-    if (game.state.over || !ai[p.id]) break; // human's turn (or done)
+    if (game.state.over || !ai[p.id]) break;
     if (game.state.players.every((x) => x.bankrupt)) break;
-    try { botActions(game, ai[p.id]); } catch { /* bot plays best-effort */ }
+    push({ aiActing: p.name });
+    await sleep(AI_DELAY);
+    try { botActions(game, ai[p.id]); } catch { /* best effort */ }
     const ctx = game.endTurn();
-    if (ctx.reckoning) { const final = game.closeBooks(); push({ screen: "gala", ctx, final }); return; }
-    if (ctx.over) { push({ screen: "gala", ctx, final: ctx }); return; }
-    lastCtx = ctx; // the next player's begin-turn ctx (with their fresh draw)
+    if (ctx.reckoning) { push({ aiActing: null }); return enterReckoning(ctx.order); }
+    if (ctx.over) return push({ aiActing: null, screen: "gala", ctx, final: ctx });
+    lastCtx = ctx;
   }
-  push(lastCtx ? { ctx: lastCtx } : {});
+  push({ aiActing: null, ...(lastCtx ? { ctx: lastCtx } : {}) });
+}
+
+// --- The Final Reckoning (Last Licks) ----------------------------------------------------
+
+let reckon = null; // { order, idx }
+
+function enterReckoning(order) {
+  reckon = { order, idx: -1 };
+  push({ screen: "reckoning", reckoning: reckon, aiActing: null });
+  advanceSeat();
+}
+
+function advanceSeat() {
+  reckon.idx += 1;
+  if (reckon.idx >= reckon.order.length) {
+    const final = game.closeBooks();
+    reckon = null;
+    return push({ screen: "gala", final, reckoning: null });
+  }
+  const id = reckon.order[reckon.idx];
+  game.seatReckoning(id);
+  if (ai[id]) return advanceSeat(); // AI seats take no last licks (bots don't litigate)
+  push({ reckoning: { ...reckon } }); // human seat: render the reckoning screen
+}
+
+export function reckoningDone() {
+  if (game.state.pendingThreat) return fail("Resolve the response window first");
+  advanceSeat();
 }
 
 export function restart() {
   game = null;
-  push({ screen: "setup", ctx: null, final: null });
+  push({ screen: "setup", ctx: null, final: null, threat: null, picking: null, reckoning: null, aiActing: null, error: null });
 }
 
-export function isAI(playerId) { return !!ai[playerId]; }
+// Dev-only debug hook for manual/automated testing in the browser console.
+if (typeof window !== "undefined" && import.meta.env?.DEV) {
+  window.__boty = { ui, getGame: () => game, refresh: () => push({}) };
+}

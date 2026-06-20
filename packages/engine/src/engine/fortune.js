@@ -44,6 +44,7 @@ export function drawFortune(state, player, count) {
   // Carry each card's cosmetic flavor onto its summary — a season-specific variant if the card
   // has one (flavor_by_season), else its plain flavor.
   return cards.map((card) => ({
+    cardId: card.id, // stable key for art lookup in the UI
     flavor: card.flavor_by_season?.[season] ?? card.flavor ?? null,
     ...resolveCard(state, player, card),
   }));

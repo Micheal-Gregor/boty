@@ -1,12 +1,13 @@
 <script>
-  import { ui, act, endTurn, isAI } from "../lib/store.js";
-  import { seasonFor, findBuilding, findEquipment } from "@boty/engine";
+  import { ui, act, endTurn, isAI, startPick } from "../lib/store.js";
+  import { seasonFor, findBuilding } from "@boty/engine";
   import Shop from "../components/Shop.svelte";
+  import Art from "../components/Art.svelte";
 
-  const s = $derived($ui.game?.state);
+  const s = $derived($ui.view);
   const econ = $derived($ui.economy);
   const me = $derived(s ? s.players[s.activePlayerIndex] : null);
-  const season = $derived(s ? seasonFor(s) : null);
+  const season = $derived(s ? seasonFor({ turn: s.turn, economy: econ, flavor: $ui.flavor }) : null);
   const drawn = $derived($ui.ctx?.drawn ?? []);
   const rivals = $derived(s ? s.players.filter((_, i) => i !== s.activePlayerIndex) : []);
   const logTail = $derived(s ? s.log.slice(-6) : []);
@@ -27,6 +28,10 @@
     <span class="turn">▶ {me.name}'s turn</span>
   </header>
 
+  {#if $ui.aiActing}
+    <div class="ai-banner">🤖 {$ui.aiActing} is working the phones…</div>
+  {/if}
+
   <div class="columns">
     <!-- Community / Fortune -->
     <section class="panel community">
@@ -34,7 +39,7 @@
       {#if drawn.length}
         {#each drawn as d}
           <div class="card fortune">
-            <div class="art-slot">[art: {d.name}]</div>
+            <Art kind="cards" id={d.cardId} label={d.name} />
             <div class="card-name">{d.name}</div>
             {#if d.flavor}<div class="flavor">“{d.flavor}”</div>{/if}
             <div class="effect">{d.text}</div>
@@ -60,6 +65,10 @@
         {#if nextBuilding}
           <button onclick={() => act((g) => g.relocate(nextBuilding.id))}>Move → {nextBuilding.name}</button>
         {/if}
+        {#if me.hand.some((c) => c.type === "sabotage")}
+          <button class="hostile" onclick={() => startPick("sabotage")}>⚔️ Sabotage…</button>
+        {/if}
+        <button class="hostile" onclick={() => startPick("sue")}>⚖️ Sue…</button>
         <button class="end" onclick={endTurn}>End turn ▶</button>
       </div>
     </section>

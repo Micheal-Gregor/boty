@@ -1,10 +1,11 @@
 <script>
   import { ui, act } from "../lib/store.js";
   import { findBuilding, findEquipment } from "@boty/engine";
+  import Art from "./Art.svelte";
 
   let { player, econ, handHas, nextBuilding } = $props();
 
-  const turn = $derived($ui.game.state.turn);
+  const turn = $derived($ui.view?.turn ?? 0);
   const bld = $derived(findBuilding(econ, player.building));
   const idle = $derived(player.tradesmen.filter((t) => !t.assignedJob).length);
   const overhead = $derived(
@@ -33,7 +34,7 @@
   <div class="slots">
     {#each player.tradesmen as t}
       <div class="slot person" class:busy={t.assignedJob}>
-        <div class="art-slot sm">[portrait]</div>
+        <Art kind="portraits" id={t.id} label="portrait" small />
         <div class="slot-id">{t.id}</div>
         <div class="muted">{t.assignedJob ? "on " + t.assignedJob : "idle"}</div>
       </div>
@@ -47,7 +48,7 @@
   <div class="slots">
     {#each player.equipment as e}
       <div class="slot gear">
-        <div class="art-slot sm">[art]</div>
+        <Art kind="equipment" id={e.defId} label={findEquipment(econ, e.defId).name} small />
         <div class="slot-id">{findEquipment(econ, e.defId).name}</div>
         <div class="muted">{e.owned ? "owned" : "rented"}</div>
         {#if e.owned}
@@ -105,7 +106,7 @@
     <h3>Hand</h3>
     <div class="hand">
       {#each player.hand as c}<span class="chip">{c.name}</span>{/each}
-      <span class="muted">(Sabotage / Sue UI coming next)</span>
+      <span class="muted">(play Rush / Buy Time on a job; Sabotage / Sue from the action bar)</span>
     </div>
   {/if}
 </div>

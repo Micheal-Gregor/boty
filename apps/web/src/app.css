@@ -94,3 +94,26 @@ main { max-width: 1200px; margin: 0 auto; padding: 16px; }
 .standings li.winner { outline: 2px solid var(--accent); }
 .standings li.bankrupt { opacity: 0.55; }
 .crown { font-size: 1.2rem; margin: 16px 0; }
+
+/* Art */
+.art-img { width: 100%; border-radius: 6px; display: block; margin-bottom: 4px; object-fit: cover; }
+.art-img.sm { height: 48px; }
+
+/* AI pacing */
+.ai-banner { background: var(--panel-2); border: 1px solid var(--accent); border-radius: 8px; padding: 8px 12px; margin-bottom: 10px; color: var(--accent); font-weight: 600; }
+
+/* Hostile actions */
+button.hostile { background: #5a2330; color: #ffd9d2; }
+
+/* Overlays / modals */
+.overlay { position: fixed; inset: 0; background: rgba(8, 6, 13, 0.7); display: flex; align-items: center; justify-content: center; z-index: 50; }
+.modal { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 20px; width: min(440px, 92vw); max-height: 80vh; overflow: auto; }
+.modal.threat { border-color: var(--accent); }
+.modal .row { display: flex; gap: 8px; flex-wrap: wrap; margin: 12px 0; }
+.modal button.target { display: block; width: 100%; text-align: left; margin: 4px 0; background: var(--panel-2); color: var(--ink); border: 1px solid var(--line); }
+.modal button.target:hover { border-color: var(--accent); }
+button:disabled { opacity: 0.4; cursor: not-allowed; }
+
+/* Reckoning */
+.banner.lastlicks { border: 1px solid var(--accent); background: var(--panel-2); }
+.lead { margin: 6px 0 12px; }
