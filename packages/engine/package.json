@@ -6,7 +6,9 @@
   "main": "index.js",
   "exports": {
     ".": "./index.js",
-    "./content-fs": "./src/engine/content-fs.js"
+    "./content-fs": "./src/engine/content-fs.js",
+    "./bots": "./tools/bot.js",
+    "./data/*": "./data/*"
   },
   "bin": {
     "order-to-cash": "bin/cli.js"
@@ -15,7 +17,8 @@
     "index.js",
     "src",
     "data",
-    "bin"
+    "bin",
+    "tools"
   ],
   "scripts": {
     "start": "node bin/cli.js",
