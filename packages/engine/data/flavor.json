@@ -1,0 +1,15 @@
+{
+  "_comment": "Pure immersion flavor (Small-town Americana). NO mechanical impact — it only drives the header banner, the season announcements, and the year-end award ceremony. The current season is derived from turn / max_turns (4 seasons across the fiscal year), so it scales if you retune the year length. Rename the town/bureau/award freely.",
+
+  "town": "Maple Hollow",
+  "bureau": "Maple Hollow Better Business Bureau",
+  "award": "Business of the Year",
+
+  "seasons": ["Spring", "Summer", "Fall", "Winter"],
+  "season_intros": {
+    "Spring": "🌱 Spring on Main Street — a fresh fiscal year opens in Maple Hollow.",
+    "Summer": "☀️ Summer — the busy season; everyone's books are open at the BBB.",
+    "Fall": "🍂 Fall — collections tighten and the standings start to matter.",
+    "Winter": "❄️ Winter sets in — the Business of the Year gala is around the corner."
+  }
+}

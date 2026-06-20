@@ -1,0 +1,19 @@
+{
+  "_comment": "Job-progress deck (Dial 4). One card is drawn against each Active job each turn (after work burns). Target spread: neutral/minor ~40%, positive ~25%, negative ~25%, decisive ~10% — keep decisive low so jobs feel dramatic, not arbitrary. `copies` is expanded by the loader. Effects: work (± work_done), pay (± job value), cost (immediate cash hit), deadline (± turns), decisive ('success' completes now / 'failure' fails the job). Empty effect = nothing happens. The `flavor` field is pure immersion and has no mechanical effect.",
+
+  "cards": [
+    { "slice": "neutral",  "copies": 4, "id": "routine_day",      "name": "Routine day",                 "effect": {},                        "flavor": "Just another day on the job." },
+    { "slice": "neutral",  "copies": 2, "id": "minor_setback",    "name": "Minor setback",               "effect": { "work": -1 },            "flavor": "A part shows up wrong; you improvise." },
+    { "slice": "neutral",  "copies": 2, "id": "found_efficiency", "name": "Found a small efficiency",    "effect": { "work": 1 },             "flavor": "You find a shortcut the Pettigrews never figured out." },
+
+    { "slice": "positive", "copies": 3, "id": "ahead_schedule",   "name": "Ahead of schedule",           "effect": { "work": 2 },             "flavor": "The crew's in a groove and pulls ahead of the clock." },
+    { "slice": "positive", "copies": 2, "id": "client_tip",       "name": "Happy client tips extra",     "effect": { "pay": 2 },              "flavor": "The client's so pleased they slip you a little extra." },
+
+    { "slice": "negative", "copies": 2, "id": "rework_needed",    "name": "Rework needed",               "effect": { "work": -2 },            "flavor": "The inspector makes you tear it out and do it by the book." },
+    { "slice": "negative", "copies": 2, "id": "cost_overrun",     "name": "Material cost overrun",       "effect": { "cost": 2 },             "flavor": "Materials run over the bid and you eat the difference." },
+    { "slice": "negative", "copies": 1, "id": "change_order",     "name": "Change-order dispute",        "effect": { "pay": -2 },             "flavor": "The client changes their mind, then docks the bill for the trouble." },
+
+    { "slice": "decisive", "copies": 1, "id": "flawless",         "name": "Flawless execution",          "effect": { "decisive": "success" }, "flavor": "Everything clicks — a flawless job folks will talk about at Dot's." },
+    { "slice": "decisive", "copies": 1, "id": "catastrophe",      "name": "Catastrophic failure",        "effect": { "decisive": "failure" }, "flavor": "It all goes sideways; the job's a write-off and your name's mud for a week." }
+  ]
+}

@@ -1,0 +1,26 @@
+{
+  "name": "@boty/engine",
+  "version": "0.1.0",
+  "description": "Order to Cash — game engine: pure rules + content. Runs in Node, the browser (Vite), and Deno. Server-authoritative by design.",
+  "type": "module",
+  "main": "index.js",
+  "exports": {
+    ".": "./index.js",
+    "./content-fs": "./src/engine/content-fs.js"
+  },
+  "bin": {
+    "order-to-cash": "bin/cli.js"
+  },
+  "files": [
+    "index.js",
+    "src",
+    "data",
+    "bin"
+  ],
+  "scripts": {
+    "start": "node bin/cli.js",
+    "test": "node test/smoke.js && node test/stage2.js && node test/stage3.js && node test/stage4.js",
+    "tune": "node tools/tune.js"
+  },
+  "license": "UNLICENSED"
+}
