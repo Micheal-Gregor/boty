@@ -7,6 +7,8 @@
   import TargetPicker from "./components/TargetPicker.svelte";
   import ResponseModal from "./components/ResponseModal.svelte";
   import CourtModal from "./components/CourtModal.svelte";
+  import DamagesModal from "./components/DamagesModal.svelte";
+  import SettleModal from "./components/SettleModal.svelte";
 </script>
 
 <main>
@@ -21,7 +23,9 @@
   {/if}
 
   <!-- Overlays render above any screen -->
+  <SettleModal />
   <CourtModal />
+  <DamagesModal />
   <TargetPicker />
   <ResponseModal />
 </main>

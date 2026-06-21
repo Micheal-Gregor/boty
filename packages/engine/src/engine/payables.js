@@ -48,7 +48,7 @@ export function payPayable(state, player, payableId) {
 export function processDuePayables(state, player) {
   const lines = [];
   for (const ap of [...player.payables]) {
-    if (ap.settled || ap.in_court || ap.pending || state.turn < ap.due_turn) continue;
+    if (ap.settled || ap.in_court || ap.in_settle || ap.pending || state.turn < ap.due_turn) continue;
     lines.push(...(ap.is_npc ? dodgeNpc(state, player, ap) : tickPlayerWindow(state, player, ap)));
   }
   return lines;
@@ -68,9 +68,11 @@ function dodgeNpc(state, player, ap) {
   if (roll === 6) {
     const settle = Math.ceil(ap.amount * e.npc_demand.settle_fraction);
     if (player.cash >= settle) {
-      player.cash -= settle;
-      removeAp(player, ap);
-      return [`🤝 ${player.name} rolled a 6 — settled ${ap.vendor} at ${w(settle)} (50%)`];
+      // Offer the settlement — the player chooses to take it or keep dodging (resolved via
+      // game.resolveSettle / autoResolveSettle).
+      ap.in_settle = true;
+      state.pendingSettle.push({ playerId: player.id, payableId: ap.id, vendor: ap.vendor, amount: ap.amount, settle });
+      return [`🤝 ${player.name} rolled a 6 on ${ap.vendor} — offered settlement: pay ${w(settle)} (50%) to clear, or keep dodging`];
     }
     return [`🎲 ${player.name} rolled a 6 on ${ap.vendor} but can't afford the 50% settlement — keeps dodging`];
   }

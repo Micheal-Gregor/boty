@@ -16,8 +16,11 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
  * won't see the change. `rev` bumps on every change. */
 export const ui = writable({
   screen: "setup", game: null, view: null, ctx: null, flavor, economy, error: null, rev: 0,
-  aiActing: null, threat: null, picking: null, reckoning: null, final: null, court: null,
+  aiActing: null, threat: null, picking: null, reckoning: null, final: null, court: null, damages: null, settle: null,
 });
+
+const declinedDamages = new Set(); // jobIds the human chose not to sue over
+const openDamages = () => game.damagesCases.filter((c) => !declinedDamages.has(c.jobId));
 
 let game = null;
 let ai = {}; // playerId -> strategy string, or null for a human seat
@@ -59,6 +62,7 @@ export function newGame(seats) {
   });
   game.state.flavor = flavor;
   ai = {};
+  declinedDamages.clear();
   game.state.players.forEach((p, i) => { ai[p.id] = seats[i].strategy ?? null; });
   const ctx = game.start();
   push({ screen: "board", ctx, error: null, aiActing: null, threat: null, picking: null, reckoning: null, final: null, court: null });
@@ -92,17 +96,17 @@ export function playSue(debtorId, payableId, slick = false) {
 function resolveThreat() {
   const t = game.state.pendingThreat;
   if (!t) return push({ error: null });
-  const targetId = t.type === "sabotage" ? t.ownerId : t.debtorId;
-  if (ai[targetId]) { aiRespond(t); push({ error: null, threat: null }); afterAct(); }
+  const targetId = t.type === "sabotage" ? t.ownerId : t.type === "damages" ? t.contractorId : t.debtorId;
+  if (ai[targetId]) { aiRespond(t, targetId); push({ error: null, threat: null }); refreshDamages(); }
   else push({ error: null, threat: viewThreat(t) });
 }
 
-function aiRespond(t) {
-  const target = player(t.type === "sabotage" ? t.ownerId : t.debtorId);
+function aiRespond(t, targetId) {
+  const target = player(targetId);
   if (t.type === "sabotage") {
     game.respondToThreat({ counter: handHas(target, "rush") }); // AI always rushes if it can
   } else {
-    const canFight = target.cash >= economy.civil.deposit;
+    const canFight = target.cash >= economy.civil.legal_fee;
     game.respondToThreat({ contest: canFight, ownLawyer: handHas(target, "slick_lawyer") });
   }
 }
@@ -111,7 +115,7 @@ function aiRespond(t) {
 export function respond(decision) {
   try { game.respondToThreat(decision); } catch (e) { return fail(e?.message ?? String(e)); }
   push({ threat: null, error: null });
-  afterAct();
+  refreshDamages();
 }
 
 function viewThreat(t) {
@@ -120,9 +124,29 @@ function viewThreat(t) {
     const job = owner.jobs.find((j) => j.id === t.jobId);
     return { type: "sabotage", targetName: owner.name, jobName: job?.name ?? t.jobId, canCounter: handHas(owner, "rush") };
   }
+  if (t.type === "damages") {
+    const contractor = player(t.contractorId);
+    return { type: "damages", targetName: contractor.name, jobName: t.jobName, amount: t.value, canLawyer: handHas(contractor, "slick_lawyer") };
+  }
   const debtor = player(t.debtorId);
   const ap = debtor.payables.find((a) => a.id === t.payableId);
   return { type: "sue", targetName: debtor.name, amount: ap?.amount, canLawyer: handHas(debtor, "slick_lawyer") };
+}
+
+// --- Damages claims (the hirer sues a contractor who botched their routed job) -------------
+
+function refreshDamages() {
+  push({ damages: !game.state.pendingThreat && openDamages().length ? openDamages() : null });
+}
+
+export function sueDamagesUI(jobId, slick = false) {
+  try { game.sueDamages(jobId, { slick }); } catch (e) { return fail(e?.message ?? String(e)); }
+  resolveThreat();
+}
+
+export function skipDamages(jobId) {
+  declinedDamages.add(jobId);
+  refreshDamages();
 }
 
 /** After any action that might end a player's options (here: just refresh / continue). */
@@ -133,6 +157,7 @@ function afterAct() {
 // --- Turn flow ---------------------------------------------------------------------------
 
 export function endTurn() {
+  if (game.state.pendingSettle.length) return fail("Answer the settlement offer first");
   if (game.state.pendingCourt.length) return fail("Resolve your court case first");
   if (game.state.pendingThreat) return fail("Resolve the response window first");
   const ctx = game.endTurn();
@@ -153,8 +178,9 @@ async function advanceUntilHuman(initialCtx) {
   while (!game.state.over) {
     const p = game.currentPlayer;
     if (!ai[p.id]) break; // human is up
-    push({ aiActing: p.name, court: null });
+    push({ aiActing: p.name, court: null, settle: null });
     await sleep(AI_DELAY);
+    if (game.settleCases.length) game.autoResolveSettle();
     if (game.courtCases.length) game.autoResolveCourt();
     if (game.damagesCases.length) game.autoResolveDamages();
     try { botActions(game, ai[p.id]); } catch { /* best effort */ }
@@ -164,7 +190,18 @@ async function advanceUntilHuman(initialCtx) {
     lastCtx = ctx;
   }
   if (game.state.over) return;
-  push({ aiActing: null, ctx: lastCtx, error: null, court: game.courtCases.length ? [...game.courtCases] : null });
+  push({
+    aiActing: null, ctx: lastCtx, error: null,
+    settle: game.settleCases.length ? [...game.settleCases] : null,
+    court: game.courtCases.length ? [...game.courtCases] : null,
+    damages: openDamages().length ? openDamages() : null,
+  });
+}
+
+/** Accept or decline a natural-6 settlement offer. */
+export function resolveSettleUI(payableId, accept) {
+  try { game.resolveSettle(payableId, { accept }); } catch (e) { return fail(e?.message ?? String(e)); }
+  push({ settle: game.settleCases.length ? [...game.settleCases] : null });
 }
 
 // --- The Final Reckoning (Last Licks) ----------------------------------------------------
@@ -197,7 +234,8 @@ export function reckoningDone() {
 
 export function restart() {
   game = null;
-  push({ screen: "setup", ctx: null, final: null, threat: null, picking: null, reckoning: null, aiActing: null, error: null, court: null });
+  declinedDamages.clear();
+  push({ screen: "setup", ctx: null, final: null, threat: null, picking: null, reckoning: null, aiActing: null, error: null, court: null, damages: null, settle: null });
 }
 
 // Dev-only debug hook for manual/automated testing in the browser console.

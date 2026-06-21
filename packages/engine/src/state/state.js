@@ -150,6 +150,7 @@ export function createGame(economy, playerSeeds, options = {}) {
     pendingThreat: null, // active response window, if any
     pendingCourt: [], // NPC court cases awaiting the defendant's lawyer decision
     pendingDamages: [], // botched routed jobs the hirer may sue over (damages → the bank)
+    pendingSettle: [], // natural-6 settlement offers awaiting accept/decline
     turn: 1, // 1-based round counter; game ends after round === max_turns completes
     activePlayerIndex: 0,
     over: false,

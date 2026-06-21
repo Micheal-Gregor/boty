@@ -131,6 +131,13 @@ async function playTurn(ask, game, ctx) {
     return game.endTurn();
   }
 
+  // Settlement offers (a natural 6 on the Demand Roll): pay 50% to clear, or keep dodging.
+  for (const c of [...game.settleCases]) {
+    const ans = await ask(`  🤝 ${c.vendor}: settle for ${c.settle} W (50%)? (y/n): `);
+    if (ans === null) return null;
+    console.log("  " + game.resolveSettle(c.payableId, { accept: ans.trim().toLowerCase().startsWith("y") }));
+  }
+
   // NPC court (failed a Demand Roll): the defendant may play a Slick Lawyer (−1 defence).
   for (const c of [...game.courtCases]) {
     const hasLawyer = ctx.player.hand.some((card) => card.type === "slick_lawyer");

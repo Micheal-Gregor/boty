@@ -14,10 +14,20 @@
           <button onclick={() => respond({ counter: false })}>Let it land</button>
         </div>
         {#if !t.canCounter}<p class="muted">No Rush in your hand.</p>{/if}
+      {:else if t.type === "damages"}
+        <h2>⚖️ {t.targetName}, you're sued for botching {t.jobName}</h2>
+        <p>{t.amount} W in damages, paid to the bank if you lose. You <strong>walk on a 1–3
+          (50%)</strong>; a Slick Lawyer pushes that to 1–5. Defending costs a 1 W legal fee.
+          Concede and you just pay the {t.amount} W.</p>
+        <div class="row">
+          <button onclick={() => respond({ contest: true })}>Defend</button>
+          {#if t.canLawyer}<button onclick={() => respond({ contest: true, ownLawyer: true })}>🧑‍⚖️ Defend + Slick Lawyer</button>{/if}
+          <button onclick={() => respond({ contest: false })}>Concede</button>
+        </div>
       {:else}
         <h2>⚖️ {t.targetName}, you're being sued for {t.amount} W</h2>
-        <p>Defend the case — you <strong>walk on a 1–3 (50%)</strong>, and a Slick Lawyer pushes
-          that to 1–5. Win → the debt stands; lose → you pay {t.amount} W. Defending costs a
+        <p>Defend the case — you <strong>walk on a 1–2 (33%)</strong>, and a Slick Lawyer pushes
+          that to 1–4. Win → the debt stands; lose → you pay {t.amount} W. Defending costs a
           1 W legal fee. Or fold and just pay.</p>
         <div class="row">
           <button onclick={() => respond({ contest: true })}>Defend</button>

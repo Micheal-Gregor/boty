@@ -73,23 +73,26 @@ function npcPayable(turn = 5) {
 }
 {
   const { g, p } = npcPayable();
-  g.state.die = scriptedDie([6]); // 1st-dodge natural 6 → settle at 50%
+  g.state.die = scriptedDie([6]); // natural 6 → settlement OFFER (player chooses)
   const before = p.cash;
   payables.processDuePayables(g.state, p);
-  assert.equal(p.payables.length, 0, "settled away");
-  assert.equal(p.cash, before - Math.ceil(6 * economy.npc_demand.settle_fraction), "paid 50% to settle");
-  ok("Demand Roll natural 6 on 1st dodge → settle at 50%");
+  assert.equal(g.state.pendingSettle.length, 1, "natural 6 → settlement offered, not auto-taken");
+  g.resolveSettle(g.state.pendingSettle[0].payableId, { accept: true });
+  assert.equal(p.payables.length, 0, "accepted → settled away");
+  assert.equal(p.cash, before - Math.ceil(6 * economy.npc_demand.settle_fraction), "paid 50%");
+  ok("Demand Roll natural 6 → settlement offer; accepting pays 50%");
 }
 {
-  // A natural 6 now offers a settlement on ANY dodge (no more "forgiven on the 5th").
+  // Decline keeps the debt (you keep dodging). Available on ANY round (no "forgiven on the 5th").
   const { g, p, ap } = npcPayable();
   ap.turns_dodged = economy.npc_demand.max_dodges - 1; // next dodge is the last
   g.state.die = scriptedDie([6]);
   const before = p.cash;
   payables.processDuePayables(g.state, p);
-  assert.equal(p.payables.length, 0, "settled away on the natural 6");
-  assert.equal(p.cash, before - Math.ceil(6 * economy.npc_demand.settle_fraction), "paid 50%");
-  ok("Demand Roll natural 6 settles (50%) on any round, including the last");
+  g.resolveSettle(g.state.pendingSettle[0].payableId, { accept: false });
+  assert.equal(p.payables.length, 1, "declined → debt stands, keeps dodging");
+  assert.equal(p.cash, before, "no payment on decline");
+  ok("Demand Roll natural 6 offer (any round); declining keeps the debt");
 }
 {
   const FEE = economy.civil.legal_fee;

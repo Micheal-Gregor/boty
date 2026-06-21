@@ -44,6 +44,7 @@ export class Game {
    */
   runProgress() {
     if (this.state.over) return [];
+    if (this.state.pendingSettle.length) throw new GameError("Answer the settlement offer first");
     if (this.state.pendingCourt.length) throw new GameError("Resolve your court case first");
     if (this.state.pendingThreat) throw new GameError("Resolve the pending response window first");
     const player = this.currentPlayer;
@@ -125,6 +126,7 @@ export class Game {
       drawn,
       canAct, // a bankrupt player has no action phase
       court: [...this.state.pendingCourt], // NPC court cases to resolve before acting
+      settle: [...this.state.pendingSettle], // natural-6 settlement offers to answer
     };
   }
 
@@ -132,6 +134,7 @@ export class Game {
 
   #act(fn, finalLegal = false) {
     if (this.state.over) throw new GameError("The game is over");
+    if (this.state.pendingSettle.length) throw new GameError("Answer the settlement offer first");
     if (this.state.pendingCourt.length) throw new GameError("Resolve your court case first");
     if (this.state.pendingThreat) throw new GameError("Resolve the pending response window first");
     if (this.state.phase === "reckoning" && !finalLegal) {
@@ -202,6 +205,42 @@ export class Game {
       const owner = this.state.players.find((p) => p.id === c.playerId);
       const lawyer = useLawyer && owner.hand.some((x) => x.type === "slick_lawyer");
       lines.push(this.resolveCourt(c.payableId, { lawyer }));
+    }
+    return lines;
+  }
+
+  // --- Settlement offers (a natural 6 on the Demand Roll) ---------------------------------
+
+  /** Settlement offers awaiting the player's accept/decline. */
+  get settleCases() { return this.state.pendingSettle; }
+
+  /** Accept (pay 50%, clear) or decline (keep dodging) a settlement offer. */
+  resolveSettle(payableId, { accept }) {
+    const i = this.state.pendingSettle.findIndex((c) => c.payableId === payableId);
+    if (i < 0) throw new GameError(`No settlement offer for "${payableId}"`);
+    const [c] = this.state.pendingSettle.splice(i, 1);
+    const player = this.state.players.find((p) => p.id === c.playerId);
+    const ap = player.payables.find((a) => a.id === c.payableId);
+    if (ap) ap.in_settle = false;
+    let line;
+    if (accept && ap) {
+      player.cash -= c.settle;
+      player.payables = player.payables.filter((a) => a.id !== c.payableId);
+      line = `🤝 ${player.name} took the settlement — paid ${w(c.settle)} to clear ${c.vendor}`;
+    } else {
+      line = `🎲 ${player.name} declined the settlement on ${c.vendor} — keeps dodging`;
+    }
+    this.state.log.push(line);
+    return line;
+  }
+
+  /** Resolve all settlement offers (AI/CLI/harness): take them if affordable, else decline. */
+  autoResolveSettle({ take = true } = {}) {
+    const lines = [];
+    while (this.state.pendingSettle.length) {
+      const c = this.state.pendingSettle[0];
+      const player = this.state.players.find((p) => p.id === c.playerId);
+      lines.push(this.resolveSettle(c.payableId, { accept: take && player.cash >= c.settle }));
     }
     return lines;
   }
