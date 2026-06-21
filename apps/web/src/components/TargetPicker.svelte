@@ -1,5 +1,5 @@
 <script>
-  import { ui, playSabotage, playSue, cancelPick } from "../lib/store.js";
+  import { ui, playSabotage, playSue, playFavor, cancelPick } from "../lib/store.js";
 
   const s = $derived($ui.view);
   const meId = $derived(s ? s.players[s.activePlayerIndex].id : null);
@@ -19,6 +19,13 @@
         )
       : [],
   );
+  const favorTargets = $derived(
+    type === "favor" && s
+      ? s.players.filter((p) => p.id !== meId).flatMap((p) =>
+          (p.modifiers ?? []).map((m) => ({ owner: p, mod: m })),
+        )
+      : [],
+  );
 </script>
 
 {#if type}
@@ -33,6 +40,15 @@
           </button>
         {:else}
           <p class="muted">No rival jobs to sabotage right now.</p>
+        {/each}
+      {:else if type === "favor"}
+        <h2>🪙 Favor — cut a rival's standing card short</h2>
+        {#each favorTargets as t}
+          <button class="target" onclick={() => playFavor(t.owner.id, t.mod.id)}>
+            {t.owner.name}: {t.mod.name} <span class="muted">{t.mod.positive ? "(cancel it)" : "(drag it out)"}</span>
+          </button>
+        {:else}
+          <p class="muted">No rival has a standing card to favor right now.</p>
         {/each}
       {:else}
         <h2>⚖️ Sue — collect a debt owed to you</h2>

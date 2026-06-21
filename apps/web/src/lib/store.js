@@ -59,6 +59,7 @@ function viewOf() {
       invoices: p.invoices.map((i) => ({ ...i })),
       payables: p.payables.map((a) => ({ ...a })),
       defects: p.defects.map((d) => ({ ...d })),
+      modifiers: p.modifiers.map((m) => ({ ...m })),
       hand: p.hand.map((c) => ({ ...c })),
     })),
   };
@@ -112,6 +113,13 @@ export function playSue(debtorId, payableId, slick = false) {
   push({ picking: null });
   try { game.sue(debtorId, payableId, { slick }); } catch (e) { return fail(e?.message ?? String(e)); }
   resolveThreat();
+}
+
+/** Play a Favor on a rival's standing modifier. */
+export function playFavor(targetId, modId) {
+  push({ picking: null });
+  try { game.playFavor(targetId, modId); playSfx("gavel", 0.4); } catch (e) { return fail(e?.message ?? String(e)); }
+  push({ error: null });
 }
 
 /** If the threatened player is AI, auto-respond; otherwise surface a modal for the human. */

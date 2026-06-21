@@ -160,6 +160,11 @@
     </div>
   </div>
 
+  {#if player.modifiers?.length}
+    <h3>Standing cards</h3>
+    <div class="hand">{#each player.modifiers as m}<span class="chip" title={m.name}>{m.positive ? "🛡️" : "⚠️"} {m.name}</span>{/each}</div>
+  {/if}
+
   {#if player.hand.length}
     <h3>Hand</h3>
     <div class="hand">

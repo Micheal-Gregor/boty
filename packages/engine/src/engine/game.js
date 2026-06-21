@@ -10,6 +10,7 @@ import * as jobs from "./jobs.js";
 import * as cards from "./cards.js";
 import * as payables from "./payables.js";
 import * as defects from "./defects.js";
+import * as modifiers from "./modifiers.js";
 import { drawFortune } from "./fortune.js";
 import { getawayThreshold, rollGetaway, getawayOdds } from "./litigation.js";
 import { w } from "./economy.js";
@@ -171,6 +172,16 @@ export class Game {
   cancelRental(instanceId) { return this.#act((p) => shop.cancelRental(this.state, p, instanceId)); }
   relocate(buildingId) { return this.#act((p) => shop.relocate(this.state, p, buildingId)); }
   improveShop() { return this.#act((p) => shop.improveShop(this.state, p)); }
+  buyService(kind) { return this.#act((p) => modifiers.buyService(this.state, p, kind)); }
+  playFavor(targetId, modId) {
+    return this.#act((p) => {
+      if (!cards.hasCardType(p, "favor")) throw new GameError(`${p.name} has no Favor card to play`);
+      const target = this.#playerById(targetId);
+      const line = modifiers.favorModifier(this.state, target, modId);
+      cards.takeFromHand(p, cards.findHandCard(p, "favor").index);
+      return line;
+    });
+  }
 
   assignJob(jobId, tradesmanId) { return this.#act((p) => jobs.assign(this.state, p, jobId, tradesmanId)); }
   holdJob(jobId) { return this.#act((p) => jobs.hold(this.state, p, jobId)); }

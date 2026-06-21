@@ -141,6 +141,7 @@ export function createPlayer(economy, { name, service }) {
     payables: [],
     invoices: [],
     defects: [], // unfixed code violations — fine + productivity drag until repaired
+    modifiers: [], // persistent world cards in play (insurance, marketing, …)
     // The general ledger — every transaction posts here (WORLD.md). Opens with the owner's capital.
     ledger: [
       { turn: 1, memo: "Opening capital", lines: [

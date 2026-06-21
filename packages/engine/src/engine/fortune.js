@@ -12,6 +12,7 @@
 import { w } from "./economy.js";
 import { createJob, createPayable, createTradesman, createDefect } from "../state/state.js";
 import { cashIn, cashOut, ACCT } from "../state/ledger.js";
+import { bearLoss, marketingInjection } from "./modifiers.js";
 import { resolveCivilEvent } from "./payables.js";
 import { releaseTradesman } from "./jobs.js";
 import { seasonName } from "./season.js";
@@ -41,6 +42,8 @@ function cashLine(card, amount) {
 /** Phase 2 — draw `count` Fortune cards for the player and resolve each. Returns summaries. */
 export function drawFortune(state, player, count) {
   const cards = state.deck.drawN(count);
+  const injected = marketingInjection(player); // marketing brings in extra work
+  if (injected) cards.unshift(injected);
   const season = seasonName(state);
   // Carry each card's cosmetic flavor onto its summary — a season-specific variant if the card
   // has one (flavor_by_season), else its plain flavor.
@@ -97,9 +100,15 @@ function resolveCard(state, player, card) {
     case "windfall":
     case "shock": {
       const amount = cashEffect(player, card);
-      if (amount >= 0) cashIn(state, player, ACCT.OTHER_INCOME, amount, card.name);
-      else cashOut(state, player, ACCT.REPAIRS, -amount, card.name);
-      return { type: card.type, name: card.name, cash: amount, text: cashLine(card, amount) };
+      if (amount >= 0) {
+        cashIn(state, player, ACCT.OTHER_INCOME, amount, card.name);
+        return { type: card.type, name: card.name, cash: amount, text: cashLine(card, amount) };
+      }
+      // A loss — insurance turns it into a deductible (the rest is covered).
+      const { borne, covered, insured } = bearLoss(player, -amount);
+      cashOut(state, player, ACCT.REPAIRS, borne, card.name);
+      const note = insured && covered > 0 ? ` — insured: paid the ${w(borne)} deductible, ${w(covered)} covered` : "";
+      return { type: card.type, name: card.name, cash: -borne, text: cashLine(card, -borne) + note };
     }
     case "retirement": {
       // A tradesperson retires; you immediately hire a replacement (pay the sign-on fee). Net

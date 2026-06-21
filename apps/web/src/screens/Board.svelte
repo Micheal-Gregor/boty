@@ -135,11 +135,16 @@
         <button onclick={() => act((g) => g.rentEquipment("basic"))}>Rent Basic</button>
         <button onclick={() => act((g) => g.rentEquipment("pro"))}>Rent Pro</button>
         <button title="Capital improvement: +1 capacity, goes to the balance sheet (not an expense)" onclick={() => act((g) => g.improveShop())}>Improve shop</button>
+        {#if !me.modifiers?.some((m) => m.kind === "insurance")}<button title="A premium each turn turns shocks into deductibles" onclick={() => act((g) => g.buyService("insurance"))}>Buy Insurance</button>{/if}
+        {#if !me.modifiers?.some((m) => m.kind === "marketing")}<button title="A premium each turn brings in extra work" onclick={() => act((g) => g.buyService("marketing"))}>Buy Marketing</button>{/if}
         {#if nextBuilding}
           <button onclick={() => act((g) => g.relocate(nextBuilding.id))}>Move → {nextBuilding.name}</button>
         {/if}
         {#if me.hand.some((c) => c.type === "sabotage")}
           <button class="hostile" onclick={() => startPick("sabotage")}>⚔️ Sabotage…</button>
+        {/if}
+        {#if me.hand.some((c) => c.type === "favor")}
+          <button class="hostile" onclick={() => startPick("favor")}>🪙 Favor…</button>
         {/if}
         <button class="hostile" onclick={() => startPick("sue")}>⚖️ Sue…</button>
         <button class="end" onclick={endTurn}>End turn ▶</button>
