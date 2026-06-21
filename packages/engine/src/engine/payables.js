@@ -48,7 +48,7 @@ export function payPayable(state, player, payableId) {
 export function processDuePayables(state, player) {
   const lines = [];
   for (const ap of [...player.payables]) {
-    if (ap.settled || ap.in_court || state.turn < ap.due_turn) continue;
+    if (ap.settled || ap.in_court || ap.pending || state.turn < ap.due_turn) continue;
     lines.push(...(ap.is_npc ? dodgeNpc(state, player, ap) : tickPlayerWindow(state, player, ap)));
   }
   return lines;

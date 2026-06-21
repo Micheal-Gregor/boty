@@ -292,10 +292,78 @@ export class Game {
   respondToThreat(decision = {}) {
     const t = this.state.pendingThreat;
     if (!t) throw new GameError("No pending response window");
-    const msg = t.type === "sabotage" ? this.#resolveSabotage(t, decision) : this.#resolveSue(t, decision);
+    const msg = t.type === "sabotage" ? this.#resolveSabotage(t, decision)
+      : t.type === "damages" ? this.#resolveDamages(t, decision)
+      : this.#resolveSue(t, decision);
     this.state.pendingThreat = null;
     this.state.log.push(msg);
     return msg;
+  }
+
+  // --- Damages suit: a botched routed job. Hirer sues contractor; damages → the BANK. --------
+
+  /** Open damages claims the current player (as hirer) may sue over. */
+  get damagesCases() {
+    return this.state.pendingDamages.filter((c) => c.hirerId === this.currentPlayer.id);
+  }
+
+  /** Sue the contractor who botched your routed job for damages (= the job value, to the bank). */
+  sueDamages(jobId, opts = {}) {
+    if (this.state.over) throw new GameError("The game is over");
+    if (this.state.pendingCourt.length || this.state.pendingThreat) throw new GameError("Resolve the open matter first");
+    const hirer = this.currentPlayer;
+    const claim = this.state.pendingDamages.find((c) => c.jobId === jobId && c.hirerId === hirer.id);
+    if (!claim) throw new GameError(`No damages claim for "${jobId}"`);
+    let hirerLawyers = 0;
+    if (opts.slick) { const f = cards.findHandCard(hirer, "slick_lawyer"); cards.takeFromHand(hirer, f.index); hirerLawyers = 1; }
+    this.state.pendingDamages = this.state.pendingDamages.filter((c) => c !== claim);
+    this.state.pendingThreat = {
+      type: "damages", jobId, hirerId: hirer.id, contractorId: claim.contractorId,
+      value: claim.value, jobName: claim.jobName, accuserLawyers: hirerLawyers, counterableBy: ["slick_lawyer"],
+    };
+    const contractor = this.#playerById(claim.contractorId);
+    const msg = `⚖️ ${hirer.name} sues ${contractor.name} for botching ${claim.jobName} — ${w(claim.value)} in damages${hirerLawyers ? ", slick lawyer in tow" : ""}. ${contractor.name} may defend.`;
+    this.state.log.push(msg);
+    return { threat: this.state.pendingThreat, message: msg };
+  }
+
+  #resolveDamages(t, { contest = true, ownLawyer = false }) {
+    const e = this.state.economy;
+    const hirer = this.#playerById(t.hirerId);
+    const contractor = this.#playerById(t.contractorId);
+    if (!contest) {
+      contractor.cash -= t.value; // concede → pay the damages to the bank
+      return `🏳️ ${contractor.name} concedes — ${w(t.value)} in damages to the bank.`;
+    }
+    let defLawyers = 0;
+    if (ownLawyer) {
+      if (!cards.hasCardType(contractor, "slick_lawyer")) throw new GameError(`${contractor.name} has no Slick Lawyer`);
+      cards.takeFromHand(contractor, cards.findHandCard(contractor, "slick_lawyer").index);
+      defLawyers = 1;
+    }
+    const g = getawayThreshold(e, e.civil.getaway_dispute, defLawyers, t.accuserLawyers);
+    const res = rollGetaway(this.state.die, g);
+    const FEE = e.civil.legal_fee;
+    hirer.cash -= FEE;
+    contractor.cash -= FEE;
+    if (res.getsAway) {
+      return `⚖️ ${contractor.name} WALKS the damages suit (rolled ${res.roll} ≤ ${g}, ${getawayOdds(g)}) — no damages; ${w(FEE)} fee each.`;
+    }
+    contractor.cash -= t.value;
+    return `⚖️ ${hirer.name} WINS — ${contractor.name} pays ${w(t.value)} in damages to the bank (rolled ${res.roll} > ${g}); ${w(FEE)} fee each.`;
+  }
+
+  /** Auto-resolve pending damages claims for AI/CLI/harness: the hirer sues if it can spare a fee. */
+  autoResolveDamages() {
+    const lines = [];
+    for (const c of [...this.damagesCases]) {
+      const hirer = this.currentPlayer;
+      if (hirer.cash <= this.state.economy.civil.legal_fee * 2) continue; // skip if too poor to bother
+      this.sueDamages(c.jobId);
+      const contractor = this.#playerById(c.contractorId);
+      lines.push(this.respondToThreat({ contest: cards.hasCardType(contractor, "slick_lawyer") }));
+    }
+    return lines;
   }
 
   #resolveSabotage(t, { counter }) {
@@ -335,8 +403,9 @@ export class Game {
       cards.takeFromHand(debtor, cards.findHandCard(debtor, "slick_lawyer").index);
       defLawyers = 1;
     }
-    // Getaway roll at the dispute base (50%); each Slick Lawyer shifts ±2. Legal fee 1 W each.
-    const g = getawayThreshold(e, e.civil.getaway_dispute, defLawyers, t.creditorLawyers);
+    // Refusing to pay for delivered work is the clearly-wrong case → owed base (walk on 1–2).
+    // Each Slick Lawyer shifts ±2. Legal fee 1 W each.
+    const g = getawayThreshold(e, e.civil.getaway_owed, defLawyers, t.creditorLawyers);
     const res = rollGetaway(this.state.die, g);
     const FEE = e.civil.legal_fee;
     creditor.cash -= FEE;

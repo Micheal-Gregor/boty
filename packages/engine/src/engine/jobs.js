@@ -13,7 +13,7 @@
 //     jobs faster.
 
 import { GameError, findEquipment, findBuilding, w } from "./economy.js";
-import { createInvoice, createPayable } from "../state/state.js";
+import { createInvoice } from "../state/state.js";
 
 const PROGRESSING = new Set(["Queued", "Active", "OnHold"]);
 
@@ -124,23 +124,20 @@ function freeTradesmen(player, job) {
 }
 
 /**
- * Enforcement teeth for abandoned forced jobs: the contractor took a deposit and didn't
- * deliver, so the client (the wronged party) gets a player payable for the deposit and may sue
- * to recover it. Returns a log line, or null for a non-forced / NPC-client job.
+ * A routed job the contractor failed to deliver. The hirer's liability is cleared (no delivery,
+ * no debt), and the hirer gets the right to sue the contractor for damages (the job's value,
+ * paid to the bank) within the sue window. Returns a log line, or null for a non-routed job.
  */
-function loseForcedJob(state, contractor, job) {
-  if (!job.forced_target || !job.deposit) return null;
-  const client = state.players.find((p) => p.id === job.forced_target);
-  if (!client) return null;
-  const ap = createPayable({
-    vendor: `${contractor.name} — abandoned ${job.name}`,
-    amount: job.deposit,
-    dueTurn: state.turn, // immediately late: the sue window opens at the contractor's next upkeep
-    isNpc: false,
-    creditorId: client.id,
+function botchRoutedJob(state, contractor, job) {
+  if (!job.hirer_id) return null;
+  const hirer = state.players.find((p) => p.id === job.hirer_id);
+  if (!hirer) return null;
+  hirer.payables = hirer.payables.filter((a) => a.job_id !== job.id); // liability cleared
+  state.pendingDamages.push({
+    hirerId: hirer.id, contractorId: contractor.id, jobId: job.id, jobName: job.name,
+    value: job.value, window: state.economy.sue_window,
   });
-  contractor.payables.push(ap);
-  return `↳ ${contractor.name} owes ${client.name} the ${w(job.deposit)} deposit (${ap.id}) — ${client.name} may sue`;
+  return `↳ ${contractor.name} botched ${hirer.name}'s ${job.name} — ${hirer.name}'s ${w(job.value)} liability cleared; they may sue for damages`;
 }
 
 // --- Upkeep: clocks + expiry ------------------------------------------------------------
@@ -163,7 +160,7 @@ export function expireOverdue(state, player) {
           ? `⚠ ${player.name}'s ${job.name} (${job.id}) blew its deadline while in progress — expired, exposed, no pay`
           : `${player.name}'s ${job.name} (${job.id}) expired in queue — no penalty, just no pay`,
       );
-      const owed = loseForcedJob(state, player, job);
+      const owed = botchRoutedJob(state, player, job);
       if (owed) lines.push(owed);
     }
   }
@@ -216,15 +213,16 @@ export function runJobProgress(state, player) {
       note += `, ${card.name}${outcome ? ` (${outcome})` : ""}${card.flavor ? ` — “${card.flavor}”` : ""}`;
       if (job.state === "Expired") {
         lines.push(`✗ ${player.name}'s ${job.name} (${job.id}) — ${note}: failed, no pay`);
-        const owed = loseForcedJob(state, player, job);
+        const owed = botchRoutedJob(state, player, job);
         if (owed) lines.push(owed);
         continue;
       }
     }
 
     if (job.work_done >= job.work_amount) {
+      const note2 = completionNote(state, job);
       completeJob(state, player, job);
-      lines.push(`✔ ${player.name} completed ${job.name} (${job.id}) — invoice for ${w(job.value - job.deposit)} (collects in ${state.economy.invoice_terms} turns) [${note}]`);
+      lines.push(`✔ ${player.name} completed ${job.name} (${job.id}) — ${note2} [${note}]`);
     } else {
       lines.push(`… ${player.name}: ${job.name} (${job.id}) ${job.work_done}/${job.work_amount}, due turn ${job.deadline_turn} [${note}]`);
     }
@@ -261,7 +259,24 @@ function completeJob(state, player, job) {
   job.state = "Complete";
   freeTradesmen(player, job);
   player.jobs = player.jobs.filter((j) => j.id !== job.id);
-  player.invoices.push(createInvoice(job, state.turn, state.economy.invoice_terms));
+  if (job.hirer_id) {
+    // Routed job delivered: the hirer's pending AP now comes DUE — they pay the contractor
+    // (this player) or refuse and face a suit. No NPC invoice; the contractor's pay is the AP.
+    const hirer = state.players.find((p) => p.id === job.hirer_id);
+    const ap = hirer?.payables.find((a) => a.job_id === job.id);
+    if (ap) { ap.pending = false; ap.due_turn = state.turn + state.economy.invoice_terms; }
+  } else {
+    player.invoices.push(createInvoice(job, state.turn, state.economy.invoice_terms));
+  }
+}
+
+/** Did a routed job just complete? (For the contractor's completion log line.) */
+function completionNote(state, job) {
+  if (job.hirer_id) {
+    const hirer = state.players.find((p) => p.id === job.hirer_id);
+    return `delivered for ${hirer?.name ?? "the hirer"} — they owe ${w(job.value)} (collects when they pay)`;
+  }
+  return `invoice for ${w(job.value)} (collects in ${state.economy.invoice_terms} turns)`;
 }
 
 /** Complete a job immediately (used by a Reckoning Rush that finishes the work). */
@@ -271,14 +286,15 @@ export function completeNow(state, player, job) {
 
 /**
  * Abandon a job outright (used by a Reckoning Sabotage — there's no work phase left to lose it
- * the normal way). Frees the crew; a forced job hands the client a suable deposit debt.
+ * the normal way). Frees the crew; a routed job clears the hirer's liability + opens a damages
+ * claim.
  */
 export function abandonJob(state, player, job) {
   freeTradesmen(player, job);
   job.state = "Expired";
   job.exposed = true;
   player.jobs = player.jobs.filter((j) => j.id !== job.id);
-  return loseForcedJob(state, player, job);
+  return botchRoutedJob(state, player, job);
 }
 
 // --- Upkeep: invoice collection ---------------------------------------------------------

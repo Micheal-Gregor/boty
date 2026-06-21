@@ -156,6 +156,7 @@ async function advanceUntilHuman(initialCtx) {
     push({ aiActing: p.name, court: null });
     await sleep(AI_DELAY);
     if (game.courtCases.length) game.autoResolveCourt();
+    if (game.damagesCases.length) game.autoResolveDamages();
     try { botActions(game, ai[p.id]); } catch { /* best effort */ }
     const ctx = game.endTurn();
     if (ctx.reckoning) { push({ aiActing: null }); return enterReckoning(ctx.order); }

@@ -26,6 +26,7 @@ function runToEnd(game, strategyFor) {
   while (!ctx.over && guard++ < 500) {
     if (ctx.reckoning) { game.closeBooks(); break; } // bots don't take last licks; just settle AR
     if (game.courtCases.length) game.autoResolveCourt(); // resolve NPC court before acting
+    if (game.damagesCases.length) game.autoResolveDamages(); // sue botched routed jobs
     if (ctx.canAct) botActions(game, strategyFor(game.currentPlayer));
     ctx = game.endTurn();
   }

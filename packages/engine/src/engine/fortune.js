@@ -55,34 +55,39 @@ export function drawFortune(state, player, count) {
  * ties break to the lowest seat). Routing forced work toward the leader gives the deck a lever
  * against a runaway. Returns null when the contractor is the only solvent player.
  */
-function pickClient(state, contractor) {
-  const candidates = state.players.filter((p) => p !== contractor && !p.bankrupt);
-  if (candidates.length === 0) return null;
-  return candidates.reduce((best, p) => (p.cash > best.cash ? p : best));
+/**
+ * Find a player with the given trade to take a routed job: another solvent player whose service
+ * matches and who isn't already holding a routed job (one such job per player). Returns null if
+ * none — the drawer then does the job themselves (NPC fallback).
+ */
+function pickContractor(state, hirer, trade) {
+  return state.players.find(
+    (p) => p !== hirer && !p.bankrupt && p.service === trade && !p.jobs.some((j) => j.hirer_id),
+  ) ?? null;
 }
 
 function resolveCard(state, player, card) {
   switch (card.type) {
     case "job": {
       const job = createJob(card, state.turn);
-      player.jobs.push(job);
-      let extra = "";
-      if (card.forced) {
-        // Forced player-to-player job: a client commissions the contractor and pays a deposit
-        // up front (a forced transaction). With no other player available, it falls back to an
-        // NPC client — a plain sticky job with no deposit and no suable abandonment.
-        const client = pickClient(state, player);
-        if (client) {
-          job.forced_target = client.id;
-          client.cash -= job.deposit;
-          player.cash += job.deposit;
-          extra = ` — commissioned by ${client.name}, ${w(job.deposit)} deposit paid up front`;
-        } else {
-          job.deposit = 0;
-          extra = " — (no client at the table; NPC job)";
+      // Trade-routed: if this job needs a trade the drawer lacks, route it to a player who has
+      // that trade — they do the work, the drawer (hirer) owes the contract value on completion.
+      if (job.required_trade && player.service !== job.required_trade) {
+        const contractor = pickContractor(state, player, job.required_trade);
+        if (contractor) {
+          job.hirer_id = player.id;
+          contractor.jobs.push(job);
+          player.payables.push(createPayable({
+            vendor: `${contractor.name} (${job.name})`, amount: job.value, dueTurn: null,
+            isNpc: false, creditorId: contractor.id, jobId: job.id, pending: true,
+          }));
+          return { type: "job", name: card.name, job, routedTo: contractor.id,
+            text: `routed to ${contractor.name} (the ${job.required_trade}) — you owe ${w(job.value)} on completion` };
         }
       }
-      return { type: "job", name: card.name, job, text: `new job ${job.id} (${w(job.value)}, due turn ${job.deadline_turn})${extra}` };
+      // Otherwise it's the drawer's own job.
+      player.jobs.push(job);
+      return { type: "job", name: card.name, job, text: `new job ${job.id} (${w(job.value)}, due turn ${job.deadline_turn})` };
     }
     case "windfall":
     case "shock": {

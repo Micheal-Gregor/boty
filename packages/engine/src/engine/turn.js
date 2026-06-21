@@ -33,6 +33,7 @@ export function runUpkeep(state, player) {
   lines.push(...expireOverdue(state, player));
   lines.push(...collectInvoices(state, player));
   lines.push(...processDuePayables(state, player));
+  lines.push(...tickDamagesClaims(state, player));
 
   const o = overheadFor(state, player);
   player.cash -= o.total;
@@ -44,6 +45,17 @@ export function runUpkeep(state, player) {
     lines.push(`💀 ${player.name} cannot cover overhead (${w(player.cash)}) and is BANKRUPT — out of the game.`);
   }
   return { overhead: o, lines };
+}
+
+/** Tick down the current player's damages-claim windows; drop any that expire unsued. */
+function tickDamagesClaims(state, player) {
+  const lines = [];
+  for (const c of state.pendingDamages.filter((x) => x.hirerId === player.id)) {
+    c.window -= 1;
+    if (c.window <= 0) lines.push(`${player.name}'s damages claim over ${c.jobName} lapsed unsued.`);
+  }
+  state.pendingDamages = state.pendingDamages.filter((c) => c.hirerId !== player.id || c.window > 0);
+  return lines;
 }
 
 /** True once every player is bankrupt — the game cannot continue. */

@@ -261,70 +261,82 @@ function sabotageGame() {
   ok("Class Action force-settles every player's AP at full value");
 }
 
-// --- Forced player-to-player jobs ---------------------------------------------------------
+// --- Trade-routed player-to-player jobs ---------------------------------------------------
 import { drawFortune } from "../src/engine/fortune.js";
 import * as jobs from "../src/engine/jobs.js";
 
-const forcedCard = { type: "job", id: "sub", name: "Subcontract", value: 12, work_amount: 9, deadline: 4, min_tradesmen: 1, max_tradesmen: 2, required_equipment: null, droppable: false, forced: { deposit: 4 } };
+const routedCard = { type: "job", id: "plumb", name: "Plumbing job", value: 10, work_amount: 6, deadline: 4, min_tradesmen: 1, max_tradesmen: 2, required_equipment: null, droppable: true, required_trade: "plumber" };
+function routedGame() {
+  resetIds();
+  const g = new Game(economy, [{ name: "Hirer", service: "mechanic" }, { name: "Plumber", service: "plumber" }], { seed: 1, fortune: [routedCard] });
+  return { g, hirer: g.state.players[0], plumber: g.state.players[1] };
+}
 
 {
-  // Draw: the client (richest other player) pays the deposit to the contractor.
-  resetIds();
-  const g = new Game(economy, [{ name: "Contractor", service: "mechanic" }, { name: "Client", service: "plumber" }], { seed: 1, fortune: [forcedCard] });
-  const contractor = g.state.players[0];
-  const client = g.state.players[1];
-  client.cash += 5; // make Client the richer one so it's chosen
-  const c0 = contractor.cash, k0 = client.cash;
-  const [drawn] = drawFortune(g.state, contractor, 1);
-  const job = drawn.job;
-  assert.equal(job.forced_target, client.id, "client assigned to forced job");
-  assert.equal(contractor.cash, c0 + 4, "contractor received the deposit");
-  assert.equal(client.cash, k0 - 4, "client paid the deposit");
-  ok("forced job: client pays the deposit to the contractor up front");
-
-  // Complete it on time → contractor invoices only the rest (value − deposit).
-  g.state.die = scriptedDie([]); // no rolls expected
-  contractor.equipment.push({ id: "E1", defId: "pro", owned: true }); // speed 3
-  jobs.assign(g.state, contractor, job.id);
-  // 9 work at speed 3 → 3 turns; bump work_done to finish in one progress call.
-  job.work_done = 6;
-  jobs.runJobProgress(g.state, contractor);
-  assert.equal(contractor.invoices.length, 1);
-  assert.equal(contractor.invoices[0].amount, 12 - 4, "invoice is the rest after the deposit");
-  ok("forced job completed: only the rest (value − deposit) is invoiced");
+  // The mechanic draws a plumbing job → routes to the plumber; hirer gets a pending AP.
+  const { g, hirer, plumber } = routedGame();
+  const [drawn] = drawFortune(g.state, hirer, 1);
+  assert.equal(hirer.jobs.length, 0, "hirer doesn't keep a job they can't do");
+  assert.equal(plumber.jobs.length, 1, "the plumber gets the job");
+  assert.equal(drawn.job.hirer_id, hirer.id, "job tagged with the hirer");
+  assert.equal(hirer.payables.length, 1, "hirer holds a pending AP for the value");
+  assert.ok(hirer.payables[0].pending && hirer.payables[0].creditor_id === plumber.id && hirer.payables[0].amount === 10);
+  ok("trade-routed: a job you can't do routes to the player who can; you owe the value");
 }
 {
-  // Abandon: contractor lets the forced job expire → client gets a suable payable.
-  resetIds();
-  const g = new Game(economy, [{ name: "Contractor", service: "mechanic" }, { name: "Client", service: "plumber" }], { seed: 1, fortune: [forcedCard] });
-  const contractor = g.state.players[0];
-  const client = g.state.players[1];
-  const [drawn] = drawFortune(g.state, contractor, 1);
+  // Completion: the AP comes due (no NPC invoice); the hirer pays → the plumber is paid.
+  const { g, hirer, plumber } = routedGame();
+  const [drawn] = drawFortune(g.state, hirer, 1);
+  const job = drawn.job;
+  jobs.assign(g.state, plumber, job.id);
+  job.work_done = 5;
+  jobs.runJobProgress(g.state, plumber);
+  assert.equal(plumber.invoices.length, 0, "contractor gets no NPC invoice — the hirer pays");
+  const ap = hirer.payables[0];
+  assert.equal(ap.pending, false, "the AP is now due");
+  const p0 = plumber.cash;
+  payables.payPayable(g.state, hirer, ap.id);
+  assert.equal(plumber.cash, p0 + 10, "paying the AP pays the plumber the contract value");
+  ok("trade-routed completion: the hirer's AP comes due; paying it pays the contractor");
+}
+{
+  // Botch: the contractor fails it → hirer's liability CLEARS + a damages claim opens.
+  const { g, hirer, plumber } = routedGame();
+  const [drawn] = drawFortune(g.state, hirer, 1);
   const job = drawn.job;
   g.state.turn = job.deadline_turn + 1; // overdue
-  jobs.expireOverdue(g.state, contractor);
-  assert.equal(contractor.jobs.length, 0, "forced job expired");
-  assert.equal(contractor.payables.length, 1, "abandonment created a payable");
-  const ap = contractor.payables[0];
-  assert.equal(ap.amount, 4, "owes the deposit");
-  assert.equal(ap.creditor_id, client.id, "owed to the client");
-  assert.equal(ap.is_npc, false, "it's a player payable (suable)");
-  ok("forced job abandoned → client holds a suable player-payable for the deposit");
+  jobs.expireOverdue(g.state, plumber);
+  assert.equal(hirer.payables.length, 0, "hirer's liability cleared — no delivery, no debt");
+  assert.equal(g.state.pendingDamages.length, 1, "a damages claim opened");
+  assert.equal(g.state.pendingDamages[0].hirerId, hirer.id);
+  ok("trade-routed botch: hirer's liability clears + opens a damages claim");
 }
 {
-  // 1-player fallback: no client → plain NPC job, no deposit, no payable on abandon.
-  resetIds();
-  const g = new Game(economy, [{ name: "Solo", service: "mechanic" }], { seed: 1, fortune: [forcedCard] });
-  const p = g.currentPlayer;
-  const c0 = p.cash;
-  const [drawn] = drawFortune(g.state, p, 1);
-  assert.equal(drawn.job.forced_target, null, "no client at the table");
-  assert.equal(drawn.job.deposit, 0, "no deposit");
-  assert.equal(p.cash, c0, "cash unchanged");
+  // The damages suit: hirer sues → contractor pays the BANK (hirer doesn't pocket it).
+  const { g, hirer, plumber } = routedGame();
+  const [drawn] = drawFortune(g.state, hirer, 1);
   g.state.turn = drawn.job.deadline_turn + 1;
-  jobs.expireOverdue(g.state, p);
-  assert.equal(p.payables.length, 0, "NPC fallback: no suable payable on abandon");
-  ok("forced job with no client falls back to a plain NPC job");
+  jobs.expireOverdue(g.state, plumber);
+  // hirer is player 0 (current). Sue, plumber defends without a lawyer, roll above the line → loses.
+  g.sue; // (no-op ref)
+  g.state.die = scriptedDie([4]); // dispute base 3 → roll 4 > 3 → contractor LOSES
+  const p0 = plumber.cash, h0 = hirer.cash;
+  g.sueDamages(drawn.job.id);
+  g.respondToThreat({ contest: true });
+  assert.equal(plumber.cash, p0 - 10 - FEE, "contractor pays 10 damages to the bank + the fee");
+  assert.equal(hirer.cash, h0 - FEE, "hirer pays only the fee — doesn't pocket the damages");
+  ok("trade-routed damages: contractor pays the BANK; the hirer just sinks a rival");
+}
+{
+  // Fallback: nobody at the table has the trade → the drawer does it themselves.
+  resetIds();
+  const g = new Game(economy, [{ name: "Solo", service: "mechanic" }], { seed: 1, fortune: [routedCard] });
+  const p = g.currentPlayer;
+  const [drawn] = drawFortune(g.state, p, 1);
+  assert.equal(drawn.job.hirer_id, null, "not routed");
+  assert.equal(p.jobs.length, 1, "the drawer keeps it as their own job");
+  assert.equal(p.payables.length, 0, "no AP");
+  ok("trade-routed fallback: no trade-holder → the drawer does the job");
 }
 
 // --- The Final Reckoning -----------------------------------------------------------------
@@ -363,26 +375,27 @@ const forcedCard = { type: "job", id: "sub", name: "Subcontract", value: 12, wor
   ok("closeBooks: AR collects in full, AP untouched, winner is the most cash");
 }
 {
-  // Reckoning sabotage buries a forced job → the client gets a suable deposit debt.
+  // Reckoning sabotage buries a rival's ROUTED job → opens a damages claim for the hirer.
   resetIds();
   const econ = { ...economy, max_turns: 1 };
-  const g = new Game(econ, [{ name: "Client", service: "welder" }, { name: "Rival", service: "plumber" }], { seed: 1 });
-  const client = g.state.players[0];
+  const g = new Game(econ, [{ name: "Hirer", service: "welder" }, { name: "Rival", service: "plumber" }], { seed: 1 });
+  const hirer = g.state.players[0];
   const rival = g.state.players[1];
-  client.hand.push({ id: "sab", type: "sabotage", counterable_by: ["rush"] });
-  // Rival is mid-way through a forced job commissioned by Client.
-  rival.jobs.push({ id: "JF", name: "Subcontract", work_amount: 10, work_done: 4, deadline_turn: 9, state: "Active", assigned_tradesmen: [], min_tradesmen: 1, max_tradesmen: 2, required_equipment: null, required_building_tier: 1, equipment_per_tradesman: false, droppable: false, forced_target: client.id, deposit: 4, exposed: false });
+  hirer.hand.push({ id: "sab", type: "sabotage", counterable_by: ["rush"] });
+  // Rival is mid-way through a routed job the Hirer commissioned.
+  rival.jobs.push({ id: "JF", name: "Plumbing job", value: 10, work_amount: 10, work_done: 4, deadline_turn: 9, state: "Active", assigned_tradesmen: [], min_tradesmen: 1, max_tradesmen: 2, required_equipment: null, required_building_tier: 1, equipment_per_tradesman: false, droppable: true, required_trade: "plumber", hirer_id: hirer.id, exposed: false });
+  hirer.payables.push(createPayable({ vendor: "Rival", amount: 10, dueTurn: null, isNpc: false, creditorId: rival.id, jobId: "JF", pending: true }));
   let ctx = g.start();
   let safety = 0;
   while (!ctx.over && !ctx.reckoning && safety++ < 50) ctx = g.endTurn();
   assert.ok(ctx.reckoning, "reached the reckoning");
-  g.seatReckoning(client.id);
+  g.seatReckoning(hirer.id);
   g.playSabotage("JF");
   g.respondToThreat({ counter: false }); // Rival has no Rush
-  assert.ok(!rival.jobs.some((j) => j.id === "JF"), "the forced job is buried");
-  const debt = rival.payables.find((a) => a.creditor_id === client.id);
-  assert.ok(debt && debt.amount === 4, "Rival now owes Client the 4 W deposit — suable");
-  ok("Reckoning Sabotage buries a rival's forced job → suable deposit debt");
+  assert.ok(!rival.jobs.some((j) => j.id === "JF"), "the routed job is buried");
+  assert.equal(hirer.payables.length, 0, "hirer's liability cleared");
+  assert.ok(g.state.pendingDamages.some((c) => c.jobId === "JF" && c.hirerId === hirer.id), "a damages claim opened");
+  ok("Reckoning Sabotage buries a rival's routed job → liability clears + damages claim");
 }
 {
   // A reckoning action that isn't a final play (e.g. hire) is refused.
