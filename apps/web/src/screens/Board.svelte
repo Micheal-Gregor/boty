@@ -1,5 +1,6 @@
 <script>
-  import { ui, act, endTurn, isAI, startPick, viewCard, cardInLine } from "../lib/store.js";
+  import { ui, act, endTurn, isAI, startPick, viewCard, cardInLine, skipAITurns } from "../lib/store.js";
+  import { muted, toggleMute, playSfx, playMusic } from "../lib/sound.js";
   import { seasonFor, findBuilding } from "@boty/engine";
   import Shop from "../components/Shop.svelte";
   import Art from "../components/Art.svelte";
@@ -22,31 +23,44 @@
     return econ.buildings.find((b) => (b.tier ?? 1) === (here.tier ?? 1) + 1) ?? null;
   });
   const handHas = (type) => me?.hand.some((c) => c.type === type);
+  const aiTurn = $derived($ui.aiActing); // an object {name, drew, lines} while a rival plays
   // Trade → art slug (most services are one word; HVAC technician is the exception).
   const tradeSlug = (svc) => (svc === "HVAC technician" ? "hvac" : svc.toLowerCase());
 
-  // On a fresh turn that dealt cards, flip to the Fortune tab so you watch the draw, then you
+  // On YOUR fresh turn that dealt cards, flip to the Fortune tab so you watch the draw, then you
   // tap over to your shop to act. (On wide screens all three are columns, so this is a no-op.)
   let lastSig = $state("");
   $effect(() => {
     const sig = s ? `${s.turn}:${s.activePlayerIndex}` : "";
     if (sig && sig !== lastSig) {
       lastSig = sig;
-      if (drawn.length) tab = "fortune";
+      if (!aiTurn && drawn.length) { tab = "fortune"; playSfx("deal", 0.5); }
     }
   });
+  // While a rival plays, sit on the Table tab so you watch the open books move.
+  $effect(() => { if (aiTurn) tab = "table"; });
+  // Seasonal ambient loop — switches when the season turns (no-op until music files exist).
+  $effect(() => { if (seasonSlug) playMusic(seasonSlug); });
 </script>
 
-<div class="board">
+<div class="board season-{seasonSlug}">
   <header class="banner">
     <span class="town">{$ui.flavor?.town ?? "Order to Cash"}</span>
     <span class="season">{season?.name}</span>
     <span class="round">round {s.turn} / {econ.max_turns}</span>
     <span class="turn">▶ {me.name}'s turn</span>
+    <button class="mute" aria-label="toggle sound" title={$muted ? "sound off" : "sound on"} onclick={toggleMute}>{$muted ? "🔇" : "🔊"}</button>
   </header>
 
-  {#if $ui.aiActing}
-    <div class="ai-banner">🤖 {$ui.aiActing} is working the phones…</div>
+  {#if aiTurn}
+    <div class="ai-banner">
+      <div class="ai-head">
+        <span>🤖 <strong>{aiTurn.name}</strong> is working the phones…</span>
+        <button class="skip" onclick={skipAITurns}>Skip ▶▶</button>
+      </div>
+      {#if aiTurn.drew?.length}<div class="ai-drew">drew: {aiTurn.drew.join(", ")}</div>{/if}
+      {#if aiTurn.lines?.length}<ul class="ai-log">{#each aiTurn.lines as l}<li>{l}</li>{/each}</ul>{/if}
+    </div>
   {/if}
 
   <div class="tabs">
@@ -111,7 +125,7 @@
       </div>
       <Shop player={me} {econ} {handHas} {nextBuilding} />
       {#if $ui.error}<p class="error">✗ {$ui.error}</p>{/if}
-      <div class="actions">
+      <fieldset class="actions" disabled={!!aiTurn}>
         <button onclick={() => act((g) => g.hire())}>Hire (+1)</button>
         <button onclick={() => act((g) => g.buyEquipment("basic"))}>Buy Basic Tools</button>
         <button onclick={() => act((g) => g.buyEquipment("pro"))}>Buy Pro Rig</button>
@@ -125,7 +139,7 @@
         {/if}
         <button class="hostile" onclick={() => startPick("sue")}>⚖️ Sue…</button>
         <button class="end" onclick={endTurn}>End turn ▶</button>
-      </div>
+      </fieldset>
     </section>
   </div>
 

@@ -65,7 +65,8 @@ main { max-width: 1200px; margin: 0 auto; padding: 16px; }
 .shop-stage { margin-bottom: 8px; }
 
 .panel { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 12px; }
-.actions { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 12px; }
+.actions { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 12px; border: 0; padding: 0; min-width: 0; }
+.actions[disabled] { opacity: 0.45; }
 
 @media (min-width: 900px) {
   .tabs { display: grid; grid-template-columns: 0.9fr 1.5fr 1fr; gap: 12px; align-items: start; }
@@ -121,8 +122,13 @@ main { max-width: 1200px; margin: 0 auto; padding: 16px; }
 .art-img { width: 100%; border-radius: 6px; display: block; margin-bottom: 4px; object-fit: cover; }
 .art-img.sm { height: 48px; }
 
-/* AI pacing */
-.ai-banner { background: var(--panel-2); border: 1px solid var(--accent); border-radius: 8px; padding: 8px 12px; margin-bottom: 10px; color: var(--accent); font-weight: 600; }
+/* AI pacing + watchability */
+.ai-banner { background: var(--panel-2); border: 1px solid var(--accent); border-radius: 8px; padding: 8px 12px; margin-bottom: 10px; color: var(--accent); }
+.ai-head { display: flex; align-items: center; justify-content: space-between; font-weight: 600; }
+.ai-head .skip { background: transparent; color: var(--accent); border: 1px solid var(--accent); padding: 2px 10px; font-size: 0.75rem; border-radius: 6px; }
+.ai-drew { color: var(--ink); font-weight: 400; font-size: 0.82rem; margin-top: 4px; }
+.ai-log { list-style: none; padding: 0; margin: 6px 0 0; font-size: 0.78rem; color: var(--muted); font-weight: 400; }
+.ai-log li { padding: 1px 0; }
 
 /* Hostile actions */
 button.hostile { background: #5a2330; color: #ffd9d2; }
@@ -170,3 +176,14 @@ button.card.fortune:hover { border-color: var(--accent); }
 .modal.card-detail h2 { border: 0; }
 .modal.card-detail .flavor { color: var(--muted); font-style: italic; margin: 4px 0; }
 .modal.card-detail .effect { font-size: 0.95rem; }
+
+/* E3 — sound toggle + seasonal accent */
+.banner .mute { background: transparent; border: 0; font-size: 1.05rem; padding: 2px 6px; cursor: pointer; }
+.banner .mute:hover { filter: brightness(1.2); }
+.season-spring { --season: #6fbf73; }
+.season-summer { --season: #f0c33a; }
+.season-fall   { --season: #e0863a; }
+.season-winter { --season: #82b6dd; }
+.board .banner { border-top: 2px solid var(--season, transparent); }
+.board .banner .season { color: var(--season, var(--accent)); font-weight: 600; }
+.board .town-stage .art-slot { border-color: var(--season, var(--line)); }

@@ -6,6 +6,7 @@ import { writable } from "svelte/store";
 import { Game } from "@boty/engine";
 import { botActions } from "@boty/engine/bots";
 import { loadContent } from "./content.js";
+import { unlockAudio, playSfx } from "./sound.js";
 
 const { economy, decks, flavor } = loadContent();
 const AI_DELAY = 650; // ms between AI seats, so you can watch the table move
@@ -34,7 +35,7 @@ export function cardInLine(line) {
   return cardsByNameLen.find((c) => line.includes(c.name)) ?? null;
 }
 /** Open / close the card detail modal. */
-export function viewCard(card) { if (card) push({ cardView: card }); }
+export function viewCard(card) { if (card) { playSfx("flip", 0.4); push({ cardView: card }); } }
 export function closeCard() { push({ cardView: null }); }
 
 let game = null;
@@ -73,6 +74,7 @@ const handHas = (p, type) => p.hand.some((c) => c.type === type);
 
 /** Start a new game. seats: [{ name, service, strategy|null }]. */
 export function newGame(seats) {
+  unlockAudio(); // the Start click is our user gesture — lets the browser make sound
   game = new Game(economy, seats.map((s) => ({ name: s.name, service: s.service })), {
     ...decks,
     seed: (Math.random() * 2 ** 32) >>> 0,
@@ -88,7 +90,8 @@ export function newGame(seats) {
 
 /** Run an engine action for the current (human) player, catching illegal moves. */
 export function act(fn) {
-  try { fn(game); push({ error: null }); }
+  if (game && ai[game.currentPlayer.id]) return; // a rival is acting — ignore stray human input
+  try { fn(game); playSfx("click", 0.3); push({ error: null }); }
   catch (e) { fail(e?.message ?? String(e)); }
 }
 
@@ -115,7 +118,7 @@ function resolveThreat() {
   if (!t) return push({ error: null });
   const targetId = t.type === "sabotage" ? t.ownerId : t.type === "damages" ? t.contractorId : t.debtorId;
   if (ai[targetId]) { aiRespond(t, targetId); push({ error: null, threat: null }); refreshDamages(); }
-  else push({ error: null, threat: viewThreat(t) });
+  else { playSfx("gavel", 0.5); push({ error: null, threat: viewThreat(t) }); }
 }
 
 function aiRespond(t, targetId) {
@@ -179,7 +182,7 @@ export function endTurn() {
   if (game.state.pendingThreat) return fail("Resolve the response window first");
   const ctx = game.endTurn();
   if (ctx.reckoning) return enterReckoning(ctx.order);
-  if (ctx.over) return push({ screen: "gala", ctx, final: ctx });
+  if (ctx.over) { playSfx("chime", 0.5); return push({ screen: "gala", ctx, final: ctx }); }
   advanceUntilHuman(ctx);
 }
 
@@ -189,24 +192,41 @@ export function resolveCourtUI(payableId, lawyer) {
   push({ court: game.courtCases.length ? [...game.courtCases] : null });
 }
 
-/** Step through AI seats (auto-resolving their court + acting) until a human is up. */
+let skipAI = false;
+/** Fast-forward the rest of the AI phase (the "Skip ▶▶" button). */
+export function skipAITurns() { skipAI = true; }
+
+/**
+ * Step through AI seats until a human is up — but make it WATCHABLE: for each rival, announce
+ * their turn, show what they drew and the moves they made (the new log lines), and pace it so you
+ * can follow the table change seat by seat. Skippable.
+ */
 async function advanceUntilHuman(initialCtx) {
+  skipAI = false;
   let lastCtx = initialCtx;
   while (!game.state.over) {
     const p = game.currentPlayer;
     if (!ai[p.id]) break; // human is up
-    push({ aiActing: p.name, court: null, settle: null });
-    await sleep(AI_DELAY);
+    const drew = (lastCtx?.drawn ?? []).map((d) => d.name); // what the deck just dealt this rival
+    push({ aiActing: { name: p.name, drew, lines: [] }, court: null, settle: null });
+    if (!skipAI) await sleep(450);
+
+    const before = game.state.log.length;
     if (game.settleCases.length) game.autoResolveSettle();
     if (game.courtCases.length) game.autoResolveCourt();
     if (game.damagesCases.length) game.autoResolveDamages();
     try { botActions(game, ai[p.id]); } catch { /* best effort */ }
+    const lines = game.state.log.slice(before).slice(-5); // this rival's moves this turn
+
     const ctx = game.endTurn();
     if (ctx.reckoning) { push({ aiActing: null }); return enterReckoning(ctx.order); }
-    if (ctx.over) return push({ aiActing: null, screen: "gala", ctx, final: ctx });
+    if (ctx.over) { playSfx("chime", 0.5); return push({ aiActing: null, screen: "gala", ctx, final: ctx }); }
+    push({ aiActing: { name: p.name, drew, lines } }); // recap + the updated table snapshot
+    if (!skipAI) await sleep(800);
     lastCtx = ctx;
   }
   if (game.state.over) return;
+  if (game.settleCases.length || game.courtCases.length || openDamages().length) playSfx("gavel", 0.5);
   push({
     aiActing: null, ctx: lastCtx, error: null,
     settle: game.settleCases.length ? [...game.settleCases] : null,
@@ -236,6 +256,7 @@ function advanceSeat() {
   if (reckon.idx >= reckon.order.length) {
     const final = game.closeBooks();
     reckon = null;
+    playSfx("chime", 0.5);
     return push({ screen: "gala", final, reckoning: null });
   }
   const id = reckon.order[reckon.idx];

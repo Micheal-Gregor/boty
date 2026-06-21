@@ -49,11 +49,21 @@ Trade slugs: `mechanic`, `plumber`, `electrician`, `pipefitter`, `welder`, `hvac
 `project/tower`, `project/shopping-center`, `project/city-hall`, `project/hospital`,
 `project/lodge` (Hunting & Fishing Lodge).
 
-### Sound (E3)
-| Folder (`sound/…`) | What | ~Count |
-|---|---|---|
-| `music/` | Seasonal ambient loops + a short opening/gala sting | ~8 |
-| `sfx/` | Card flip, cash/collect, gavel, hammer/work, hire, bankruptcy knell… | ~15 |
+### Sound (E3 — wired; drop files and they play)
+The game already calls these IDs — drop a matching file and it sounds, no code change:
+
+| Path | Fires when |
+|---|---|
+| `sound/music/spring.<ext>` (also `summer`, `fall`, `winter`) | the seasonal ambient loop, switches as the year turns |
+| `sound/sfx/deal.<ext>` | the Fortune deck deals your cards |
+| `sound/sfx/flip.<ext>` | you open a card's detail |
+| `sound/sfx/gavel.<ext>` | a court / sue / damages / settlement window opens |
+| `sound/sfx/click.<ext>` | a shop action lands (hire, buy, factor, pay…) — keep this one subtle |
+| `sound/sfx/chime.<ext>` | the year ends — the Gala |
+
+More SFX can be added later (cash chime on collect, hammer on job complete, bankruptcy knell) by
+wiring a new `playSfx("id")` call. Formats: `.mp3` / `.ogg` / `.m4a` / `.wav`. A mute toggle in the
+header (persisted) and the browser autoplay gate (sound unlocks on the Start click) are handled.
 
 ## Existing IDs to match
 
