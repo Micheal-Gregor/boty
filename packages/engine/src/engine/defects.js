@@ -7,6 +7,7 @@
 
 import { GameError, w } from "./economy.js";
 import { createPayable } from "../state/state.js";
+import { cashOut, ACCT } from "../state/ledger.js";
 
 /** Total work-per-turn your unfixed defects drag off your active jobs. */
 export function defectPenalty(player) {
@@ -17,7 +18,7 @@ export function defectPenalty(player) {
 export function tickDefects(state, player) {
   const lines = [];
   for (const d of player.defects) {
-    player.cash -= d.fine;
+    cashOut(state, player, ACCT.LICENSES, d.fine, `${d.name} fine`);
     lines.push(`🚧 ${player.name}: ${d.name} unfixed — ${w(d.fine)} fine, −${d.productivity_hit} output until repaired`);
   }
   return lines;

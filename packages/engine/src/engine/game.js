@@ -3,6 +3,7 @@
 // never mutates state directly; it asks the Game, and the Game enforces the rules.
 
 import { createGame } from "../state/state.js";
+import { cashIn, cashOut, ACCT } from "../state/ledger.js";
 import { GameError } from "./economy.js";
 import * as shop from "./shop.js";
 import * as jobs from "./jobs.js";
@@ -97,8 +98,7 @@ export class Game {
     const lines = ["— The books close. Receivables settle in full —"];
     for (const p of this.state.players) {
       const total = p.invoices.reduce((s, i) => s + i.amount, 0);
-      if (total > 0) lines.push(`  ${p.name} collects ${w(total)} in receivables`);
-      p.cash += total;
+      if (total > 0) { lines.push(`  ${p.name} collects ${w(total)} in receivables`); cashIn(this.state, p, ACCT.AR, total, "Year-end receivables"); }
       p.invoices = [];
     }
     this.state.log.push(...lines);
@@ -228,7 +228,7 @@ export class Game {
     if (ap) ap.in_settle = false;
     let line;
     if (accept && ap) {
-      player.cash -= c.settle;
+      cashOut(this.state, player, ACCT.COGS_SUB, c.settle, `Settled ${c.vendor}`);
       player.payables = player.payables.filter((a) => a.id !== c.payableId);
       line = `🤝 ${player.name} took the settlement — paid ${w(c.settle)} to clear ${c.vendor}`;
     } else {
@@ -375,7 +375,7 @@ export class Game {
     const hirer = this.#playerById(t.hirerId);
     const contractor = this.#playerById(t.contractorId);
     if (!contest) {
-      contractor.cash -= t.value; // concede → pay the damages to the bank
+      cashOut(this.state, contractor, ACCT.LEGAL, t.value, "Damages — conceded");
       return `🏳️ ${contractor.name} concedes — ${w(t.value)} in damages to the bank.`;
     }
     let defLawyers = 0;
@@ -387,12 +387,12 @@ export class Game {
     const g = getawayThreshold(e, e.civil.getaway_dispute, defLawyers, t.accuserLawyers);
     const res = rollGetaway(this.state.die, g);
     const FEE = e.civil.legal_fee;
-    hirer.cash -= FEE;
-    contractor.cash -= FEE;
+    cashOut(this.state, hirer, ACCT.LEGAL, FEE, "Damages — fee");
+    cashOut(this.state, contractor, ACCT.LEGAL, FEE, "Damages — fee");
     if (res.getsAway) {
       return `⚖️ ${contractor.name} WALKS the damages suit (rolled ${res.roll} ≤ ${g}, ${getawayOdds(g)}) — no damages; ${w(FEE)} fee each.`;
     }
-    contractor.cash -= t.value;
+    cashOut(this.state, contractor, ACCT.LEGAL, t.value, "Damages — lost");
     return `⚖️ ${hirer.name} WINS — ${contractor.name} pays ${w(t.value)} in damages to the bank (rolled ${res.roll} > ${g}); ${w(FEE)} fee each.`;
   }
 
@@ -442,8 +442,8 @@ export class Game {
     const shortNote = collectible < ap.amount ? ` — only ${w(collectible)} of the ${w(ap.amount)} was collectible` : "";
 
     if (!contest) {
-      debtor.cash -= collectible;
-      creditor.cash += collectible;
+      cashOut(this.state, debtor, ACCT.COGS_SUB, collectible, "Folded — paid the creditor");
+      cashIn(this.state, creditor, ACCT.REVENUE, collectible, `Collected from ${debtor.name}`);
       settle();
       return `🏳️ ${debtor.name} folds rather than fight it — pays ${creditor.name} ${w(collectible)}${shortNote}.`;
     }
@@ -458,13 +458,13 @@ export class Game {
     const g = getawayThreshold(e, e.civil.getaway_owed, defLawyers, t.creditorLawyers);
     const res = rollGetaway(this.state.die, g);
     const FEE = e.civil.legal_fee;
-    creditor.cash -= FEE;
-    debtor.cash -= FEE;
+    cashOut(this.state, creditor, ACCT.LEGAL, FEE, "Suit — fee");
+    cashOut(this.state, debtor, ACCT.LEGAL, FEE, "Suit — fee");
     if (res.getsAway) {
       return `⚖️ ${debtor.name} WALKS (rolled ${res.roll} ≤ ${g}, ${getawayOdds(g)}) — debt stands; ${w(FEE)} legal fee each.`;
     }
-    debtor.cash -= collectible;
-    creditor.cash += collectible;
+    cashOut(this.state, debtor, ACCT.COGS_SUB, collectible, "Lost the suit — paid");
+    cashIn(this.state, creditor, ACCT.REVENUE, collectible, `Won suit vs ${debtor.name}`);
     settle();
     return `⚖️ ${creditor.name} WINS (${debtor.name} rolled ${res.roll} > ${g}) — collects ${w(collectible)}${shortNote}; ${w(FEE)} legal fee each.`;
   }

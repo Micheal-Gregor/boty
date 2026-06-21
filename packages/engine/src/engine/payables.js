@@ -6,6 +6,7 @@
 import { GameError, w } from "./economy.js";
 import { createPayable } from "../state/state.js";
 import { getawayThreshold, rollGetaway, getawayOdds } from "./litigation.js";
+import { post, cashIn, cashOut, ACCT } from "../state/ledger.js";
 
 const playerById = (state, id) => state.players.find((p) => p.id === id);
 
@@ -18,7 +19,11 @@ export function factorInvoice(state, player, invoiceId) {
   if (!inv) throw new GameError(`No invoice "${invoiceId}"`);
   const fee = Math.ceil(inv.amount * state.economy.factoring_fee);
   const proceeds = inv.amount - fee;
-  player.cash += proceeds;
+  post(state, player, `Factor ${inv.id}`, [
+    { acct: ACCT.CASH, amt: proceeds },
+    { acct: ACCT.PROF_FEES, amt: fee }, // the factoring discount is a financing cost
+    { acct: ACCT.AR, amt: -inv.amount }, // clears the receivable
+  ]);
   player.invoices = player.invoices.filter((i) => i.id !== invoiceId);
   return `${player.name} factored ${inv.id} (${w(inv.amount)}) for ${w(proceeds)} now — ${w(fee)} fee`;
 }
@@ -44,7 +49,7 @@ export function factorClaim(state, player, payableId) {
   const collectible = Math.max(0, Math.min(ap.amount, debtor.cash));
   const fee = Math.ceil(collectible * state.economy.factoring_fee);
   const proceeds = collectible - fee;
-  player.cash += proceeds;
+  cashIn(state, player, ACCT.OTHER_INCOME, proceeds, "Sold a debt to collections");
   // Hand the debt to collections: NPC-style bill + a guaranteed lawyer in court.
   ap.is_npc = true;
   ap.creditor_id = null;
@@ -66,10 +71,10 @@ export function payPayable(state, player, payableId) {
   const ap = player.payables.find((a) => a.id === payableId);
   if (!ap) throw new GameError(`No payable "${payableId}"`);
   if (player.cash < ap.amount) throw new GameError(`${player.name} can't cover ${w(ap.amount)} (has ${w(player.cash)})`);
-  player.cash -= ap.amount;
+  cashOut(state, player, ACCT.COGS_SUB, ap.amount, `Pay ${ap.vendor}`);
   if (!ap.is_npc && ap.creditor_id) {
     const creditor = playerById(state, ap.creditor_id);
-    if (creditor) creditor.cash += ap.amount;
+    if (creditor) cashIn(state, creditor, ACCT.REVENUE, ap.amount, `Collect from ${player.name}`);
   }
   player.payables = player.payables.filter((a) => a.id !== payableId);
   return `${player.name} paid ${ap.vendor} ${w(ap.amount)} in full`;
@@ -147,12 +152,12 @@ export function resolveCourt(state, caseEntry, useLawyer, accuserLawyers = 0) {
   const g = getawayThreshold(e, e.civil.getaway_owed, defLawyers, accLawyers);
   const res = rollGetaway(state.die, g);
   if (ap) removeAp(player, ap);
-  player.cash -= e.civil.legal_fee; // legal fee, paid regardless
+  cashOut(state, player, ACCT.LEGAL, e.civil.legal_fee, "Court — legal fee"); // paid regardless
   const tag = defLawyers ? " (lawyered up)" : caseEntry.agencyLawyer ? " (vs collections)" : "";
   if (res.getsAway) {
     return `⚖️ ${player.name}${tag} WALKS — rolled ${res.roll} ≤ ${g} (${getawayOdds(g)}); ${caseEntry.vendor} debt wiped, ${w(e.civil.legal_fee)} legal fee`;
   }
-  player.cash -= caseEntry.amount;
+  cashOut(state, player, ACCT.COGS_SUB, caseEntry.amount, `Court loss — ${caseEntry.vendor}`);
   return `⚖️ ${player.name}${tag} LOSES — rolled ${res.roll} > ${g}; pays ${caseEntry.vendor} ${w(caseEntry.amount)} + ${w(e.civil.legal_fee)} fee`;
 }
 
@@ -177,7 +182,7 @@ export function classAction(state) {
   for (const player of state.players) {
     const total = player.payables.reduce((s, a) => s + a.amount, 0);
     if (total > 0) {
-      player.cash -= total;
+      cashOut(state, player, ACCT.COGS_SUB, total, "Class action settlement");
       player.payables = [];
       lines.push(`   ${player.name} settled ${w(total)} of AP`);
     }
@@ -195,7 +200,7 @@ export function resolveCivilEvent(state, player, card) {
     case "class_action":
       return [...flavor, ...classAction(state)];
     case "windfall":
-      player.cash += card.cash ?? 0;
+      cashIn(state, player, ACCT.OTHER_INCOME, card.cash ?? 0, card.name);
       return [...flavor, `🎀 ${player.name}: ${card.name} — +${w(card.cash ?? 0)}`];
     case "back_taxes":
     case "audit": {
@@ -207,10 +212,10 @@ export function resolveCivilEvent(state, player, card) {
       // An NPC sues the player — a getaway roll at the dispute base (you walk on 1–3, 50%).
       const g = getawayThreshold(e, e.civil.getaway_dispute);
       const res = rollGetaway(state.die, g);
-      player.cash -= e.civil.legal_fee;
+      cashOut(state, player, ACCT.LEGAL, e.civil.legal_fee, `${card.name} — fee`);
       if (res.getsAway) return [...flavor, `⚖️ ${player.name} was sued (${card.name}) and WALKED (rolled ${res.roll} ≤ ${g}) — ${w(e.civil.legal_fee)} fee`];
       const claim = card.amount ?? 5;
-      player.cash -= claim;
+      cashOut(state, player, ACCT.LEGAL, claim, `${card.name} — damages`);
       return [...flavor, `⚖️ ${player.name} was sued (${card.name}) and LOST (rolled ${res.roll} > ${g}) — paid ${w(claim)} + ${w(e.civil.legal_fee)} fee`];
     }
     default:

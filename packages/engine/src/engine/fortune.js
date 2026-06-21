@@ -11,6 +11,7 @@
 
 import { w } from "./economy.js";
 import { createJob, createPayable, createTradesman, createDefect } from "../state/state.js";
+import { cashIn, cashOut, ACCT } from "../state/ledger.js";
 import { resolveCivilEvent } from "./payables.js";
 import { releaseTradesman } from "./jobs.js";
 import { seasonName } from "./season.js";
@@ -96,7 +97,8 @@ function resolveCard(state, player, card) {
     case "windfall":
     case "shock": {
       const amount = cashEffect(player, card);
-      player.cash += amount;
+      if (amount >= 0) cashIn(state, player, ACCT.OTHER_INCOME, amount, card.name);
+      else cashOut(state, player, ACCT.REPAIRS, -amount, card.name);
       return { type: card.type, name: card.name, cash: amount, text: cashLine(card, amount) };
     }
     case "retirement": {
@@ -108,7 +110,7 @@ function resolveCard(state, player, card) {
       releaseTradesman(state, player, retiree.id);
       player.tradesmen = player.tradesmen.filter((t) => t.id !== retiree.id);
       player.tradesmen.push(createTradesman());
-      player.cash -= state.economy.sign_on_fee;
+      cashOut(state, player, ACCT.COGS_LABOUR, state.economy.sign_on_fee, "Retirement — replacement hire");
       return { type: "retirement", name: card.name, text: `👋 ${retiree.id} retired — hired a replacement for ${w(state.economy.sign_on_fee)}` };
     }
     case "gift": {

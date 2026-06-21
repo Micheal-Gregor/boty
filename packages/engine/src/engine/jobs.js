@@ -15,6 +15,7 @@
 import { GameError, findEquipment, findBuilding, w } from "./economy.js";
 import { createInvoice } from "../state/state.js";
 import { defectPenalty } from "./defects.js";
+import { accrue, cashIn, cashOut, ACCT } from "../state/ledger.js";
 
 const PROGRESSING = new Set(["Queued", "Active", "OnHold"]);
 
@@ -260,7 +261,7 @@ function applyProgressCard(state, player, job, card) {
   const parts = [];
   if (e.work) { job.work_done = Math.max(0, job.work_done + e.work); parts.push(`work ${e.work > 0 ? "+" : ""}${e.work}`); }
   if (e.pay) { job.value = Math.max(0, job.value + e.pay); parts.push(`pay ${e.pay > 0 ? "+" : ""}${e.pay}W`); }
-  if (e.cost) { player.cash -= e.cost; parts.push(`cost ${e.cost}W`); }
+  if (e.cost) { cashOut(state, player, ACCT.COGS_SUB, e.cost, "Job overrun"); parts.push(`cost ${e.cost}W`); }
   if (e.deadline) { job.deadline_turn += e.deadline; parts.push(`deadline ${e.deadline > 0 ? "+" : ""}${e.deadline}`); }
   return parts.join(", ");
 }
@@ -278,6 +279,9 @@ function completeJob(state, player, job) {
     if (ap) { ap.pending = false; ap.due_turn = state.turn + terms; }
   } else {
     player.invoices.push(createInvoice(job, state.turn, terms));
+    // Accrual: revenue is EARNED now (Dr AR / Cr revenue) — cash arrives later when the invoice
+    // collects. That gap is the lesson: you can be profitable on paper and short on cash.
+    accrue(state, player, ACCT.AR, ACCT.REVENUE, job.value, `Job earned: ${job.name}`);
   }
 }
 
@@ -293,7 +297,7 @@ export function sellJob(state, player, jobId) {
   const payout = Math.max(1, Math.floor(job.value * state.economy.sell_rate));
   freeTradesmen(player, job);
   player.jobs = player.jobs.filter((j) => j.id !== jobId);
-  player.cash += payout;
+  cashIn(state, player, ACCT.OTHER_INCOME, payout, `Sold ${job.name}`);
   return `${player.name} sold ${job.name} (${job.id}) to the bank for ${w(payout)} rather than let it expire`;
 }
 
@@ -331,7 +335,7 @@ export function collectInvoices(state, player) {
   const lines = [];
   const due = player.invoices.filter((inv) => state.turn >= inv.due_turn);
   for (const inv of due) {
-    player.cash += inv.amount;
+    cashIn(state, player, ACCT.AR, inv.amount, `Collect invoice ${inv.id}`); // Dr cash / Cr AR
     lines.push(`💵 ${player.name} collected invoice ${inv.id} for ${w(inv.amount)}`);
   }
   player.invoices = player.invoices.filter((inv) => state.turn < inv.due_turn);

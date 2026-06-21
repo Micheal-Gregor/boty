@@ -7,6 +7,7 @@
 
 import { GameError, findBuilding, findEquipment, w } from "./economy.js";
 import { createTradesman, createEquipment } from "../state/state.js";
+import { cashIn, cashOut, ACCT } from "../state/ledger.js";
 
 function assertSolvent(player, cost, action) {
   if (player.cash < cost) {
@@ -23,7 +24,7 @@ export function hire(state, player) {
   }
   const fee = state.economy.sign_on_fee;
   assertSolvent(player, fee, "hire");
-  player.cash -= fee;
+  cashOut(state, player, ACCT.COGS_LABOUR, fee, "Hire — sign-on fee");
   const t = createTradesman();
   player.tradesmen.push(t);
   player.hiredThisTurn = true;
@@ -38,7 +39,7 @@ export function fire(state, player, tradesmanId) {
   if (idx < 0) throw new GameError(`No such tradesperson to fire`);
   const fee = state.economy.severance;
   assertSolvent(player, fee, "fire");
-  player.cash -= fee;
+  cashOut(state, player, ACCT.COGS_LABOUR, fee, "Severance");
   const [removed] = player.tradesmen.splice(idx, 1);
   return `${player.name} fired ${removed.id} for ${w(fee)} severance`;
 }
@@ -53,7 +54,7 @@ export function buyEquipment(state, player, defId) {
   const def = findEquipment(state.economy, defId);
   if (!def) throw new GameError(`No equipment "${defId}"`);
   assertSolvent(player, def.buy_cost, `buy ${def.name}`);
-  player.cash -= def.buy_cost;
+  cashOut(state, player, ACCT.EQUIPMENT, def.buy_cost, `Buy ${def.name}`); // capital asset
   const eq = createEquipment(defId, { owned: true });
   player.equipment.push(eq);
   player.acquiredEquipThisTurn = true;
@@ -79,7 +80,7 @@ export function disposeEquipment(state, player, instanceId) {
   const def = findEquipment(state.economy, eq.defId);
   const refund = Math.floor(def.buy_cost * def.disposal_rate);
   player.equipment = player.equipment.filter((e) => e.id !== instanceId);
-  player.cash += refund;
+  cashIn(state, player, ACCT.EQUIPMENT, refund, `Dispose ${def.name}`); // reduce the asset
   return `${player.name} disposed of ${def.name} (${eq.id}) for ${w(refund)} (${Math.round(def.disposal_rate * 100)}% of market)`;
 }
 

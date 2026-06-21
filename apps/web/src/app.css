@@ -74,8 +74,25 @@ main { max-width: 1200px; margin: 0 auto; padding: 16px; }
   .tabview:nth-child(1) { order: 1; } /* Table  → left   */
   .tabview:nth-child(3) { order: 2; } /* Shop   → center */
   .tabview:nth-child(2) { order: 3; } /* Fortune → right  */
-  .tabbar { display: none; }
+  .tabview.books-tab { display: none !important; } /* Books is full-width, not a column */
+  .tabs.books-mode { display: block; }
+  .tabs.books-mode .tabview:not(.books-tab) { display: none !important; }
+  .tabs.books-mode .tabview.books-tab { display: block !important; max-width: 620px; margin: 0 auto; }
+  /* keep a slim tab bar so the Books are reachable on a wide screen */
+  .tabbar { position: static; box-shadow: none; max-width: 360px; margin: 12px auto 0; }
 }
+
+/* The P&L (Books tab) */
+.pl { margin: 10px 0; font-variant-numeric: tabular-nums; }
+.pl-row { display: flex; justify-content: space-between; padding: 3px 0; }
+.pl-row.sub { color: var(--muted); font-size: 0.82rem; padding-left: 14px; }
+.pl-row.total { font-weight: 600; border-top: 1px solid var(--line); margin-top: 4px; }
+.pl-row.margin { font-weight: 600; color: var(--accent); border-top: 1px solid var(--line); margin-top: 4px; }
+.pl-row.net { font-weight: 700; font-size: 1.05rem; border-top: 2px solid var(--accent); margin-top: 6px; padding-top: 7px; }
+.pl-row.net.bad, .cvp strong.bad { color: var(--bad); }
+.cash-vs-profit { margin-top: 14px; background: var(--panel-2); border: 1px solid var(--line); border-radius: 8px; padding: 10px 12px; }
+.cvp { display: flex; justify-content: space-between; align-items: baseline; padding: 2px 0; }
+.cvp strong { font-size: 1.1rem; }
 
 /* Cards & slots */
 .card { background: var(--panel-2); border: 1px solid var(--line); border-radius: 8px; padding: 8px; margin: 6px 0; }

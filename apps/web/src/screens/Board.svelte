@@ -14,6 +14,7 @@
   const season = $derived(s ? seasonFor({ turn: s.turn, economy: econ, flavor: $ui.flavor }) : null);
   const seasonSlug = $derived(season ? season.name.toLowerCase() : "spring");
   const drawn = $derived($ui.ctx?.drawn ?? []);
+  const pnl = $derived(s?.pnl); // the active player's profit & loss, summed from the G/L
   const rivals = $derived(s ? s.players.filter((_, i) => i !== s.activePlayerIndex) : []);
   const logTail = $derived(s ? s.log.slice(-8) : []);
 
@@ -63,7 +64,7 @@
     </div>
   {/if}
 
-  <div class="tabs">
+  <div class="tabs" class:books-mode={tab === "books"}>
     <!-- TABLE: the town stage + the open books + the running log -->
     <section class="tabview" class:active={tab === "table"}>
       <div class="town-stage">
@@ -141,12 +142,35 @@
         <button class="end" onclick={endTurn}>End turn ▶</button>
       </fieldset>
     </section>
+
+    <!-- BOOKS: the profit & loss, straight off the general ledger -->
+    <section class="tabview books-tab" class:active={tab === "books"}>
+      <h2>The books · {me.name}</h2>
+      {#if pnl}
+        <div class="pl">
+          <div class="pl-row total"><span>Revenue</span><span>{pnl.revenue} W</span></div>
+          {#each pnl.revenueLines as l}<div class="pl-row sub"><span>{l.name}</span><span>{l.amount}</span></div>{/each}
+          <div class="pl-row total"><span>− Cost of jobs (COGS)</span><span>{pnl.cogs} W</span></div>
+          {#each pnl.cogsLines as l}<div class="pl-row sub"><span>{l.name}</span><span>({l.amount})</span></div>{/each}
+          <div class="pl-row margin"><span>Gross margin</span><span>{pnl.grossMargin} W</span></div>
+          <div class="pl-row total"><span>− Overhead</span><span>{pnl.overhead} W</span></div>
+          {#each pnl.overheadLines as l}<div class="pl-row sub"><span>{l.name}</span><span>({l.amount})</span></div>{/each}
+          <div class="pl-row net" class:bad={pnl.netIncome < 0}><span>Net income</span><span>{pnl.netIncome} W</span></div>
+        </div>
+        <div class="cash-vs-profit">
+          <div class="cvp"><span class="muted">Net income (on paper)</span><strong class:bad={pnl.netIncome < 0}>{pnl.netIncome} W</strong></div>
+          <div class="cvp"><span class="muted">Cash in the bank</span><strong>{me.cash} W</strong></div>
+          <p class="muted">Profit isn't cash: you book revenue the moment a job's done, but the money lands later — that gap is the whole game.</p>
+        </div>
+      {/if}
+    </section>
   </div>
 
-  <!-- Bottom tab bar — phones only; wide screens show all three as columns -->
+  <!-- Bottom tab bar — also the way to reach the Books on a wide screen -->
   <nav class="tabbar">
     <button class:on={tab === "table"} onclick={() => (tab = "table")}>🗺️<span>Table</span></button>
     <button class:on={tab === "fortune"} onclick={() => (tab = "fortune")}>🃏<span>Fortune</span></button>
     <button class:on={tab === "shop"} onclick={() => (tab = "shop")}>🏪<span>Your shop</span></button>
+    <button class:on={tab === "books"} onclick={() => (tab = "books")}>📒<span>Books</span></button>
   </nav>
 </div>

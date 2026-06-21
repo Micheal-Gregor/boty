@@ -140,6 +140,13 @@ export function createPlayer(economy, { name, service }) {
     payables: [],
     invoices: [],
     defects: [], // unfixed code violations — fine + productivity drag until repaired
+    // The general ledger — every transaction posts here (WORLD.md). Opens with the owner's capital.
+    ledger: [
+      { turn: 1, memo: "Opening capital", lines: [
+        { acct: 1000, amt: economy.starting_cash },
+        { acct: 3000, amt: -economy.starting_cash },
+      ] },
+    ],
   };
 }
 

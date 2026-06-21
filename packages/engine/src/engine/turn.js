@@ -11,6 +11,7 @@ import { findBuilding, findEquipment, w } from "./economy.js";
 import { collectInvoices, expireOverdue } from "./jobs.js";
 import { processDuePayables } from "./payables.js";
 import { tickDefects } from "./defects.js";
+import { post, ACCT } from "../state/ledger.js";
 
 /** Total recurring overhead a player owes each turn: rent + wages + rented-equipment fees. */
 export function overheadFor(state, player) {
@@ -40,7 +41,12 @@ export function runUpkeep(state, player) {
   lines.push(...tickDefects(state, player));
 
   const o = overheadFor(state, player);
-  player.cash -= o.total;
+  post(state, player, "Upkeep — overhead", [
+    { acct: ACCT.RENT, amt: o.rent },
+    { acct: ACCT.COGS_LABOUR, amt: o.wages },
+    { acct: ACCT.COGS_EQUIP, amt: o.equipmentFees },
+    { acct: ACCT.CASH, amt: -o.total },
+  ]);
   lines.push(
     `Upkeep for ${player.name}: rent ${w(o.rent)} + wages ${w(o.wages)} + equipment ${w(o.equipmentFees)} = ${w(o.total)}`,
   );
