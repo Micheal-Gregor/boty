@@ -46,6 +46,9 @@ export function createJob(card, currentTurn) {
     min_tradesmen: card.min_tradesmen,
     max_tradesmen: card.max_tradesmen,
     required_equipment: card.required_equipment ?? null,
+    // Payment terms: turns until the invoice collects after completion (longer terms pay more).
+    // null → the economy default (invoice_terms).
+    terms: card.terms ?? null,
     // To START: your building's tier must be ≥ this (a big job needs a bigger shop).
     required_building_tier: card.required_building_tier ?? 1,
     // To go Active: you must own/rent at least one tool PER assigned tradesperson (gear up
@@ -60,6 +63,26 @@ export function createJob(card, currentTurn) {
     state: "Queued", // Queued | Active | OnHold | Expired | Complete
     assigned_tradesmen: [],
     exposed: false, // set when a STARTED job expires late (matters in later stages)
+  };
+}
+
+/**
+ * A live code-violation / defect on a player's shop. Until fixed it charges `fine` each upkeep
+ * and saps `productivity_hit` work from your jobs. Fixing it (fixDefect) clears it now and books
+ * the `fix_cost` as a payable due `fix_terms` later — routed to a tradesperson if `fix_trade` is
+ * set and someone at the table has it (their AR), else an NPC permit/materials bill.
+ */
+export function createDefect(card, currentTurn) {
+  return {
+    id: genId("D"),
+    card: card.id,
+    name: card.name,
+    since_turn: currentTurn,
+    fine: card.fine ?? 1,
+    fix_cost: card.fix_cost ?? 5,
+    fix_trade: card.fix_trade ?? null,
+    fix_terms: card.fix_terms ?? 2,
+    productivity_hit: card.productivity_hit ?? 1,
   };
 }
 
@@ -91,6 +114,8 @@ export function createPayable({ vendor, amount, dueTurn, isNpc, creditorId = nul
     turns_dodged: 0,
     sue_window_remaining: null, // set to economy.sue_window when a player payable goes late
     settled: false,
+    collections: false, // true once sold to a collections agency (factored player debt)
+    agency_lawyer: false, // collections brings a guaranteed slick lawyer to court
   };
 }
 
@@ -114,6 +139,7 @@ export function createPlayer(economy, { name, service }) {
     jobs: [],
     payables: [],
     invoices: [],
+    defects: [], // unfixed code violations — fine + productivity drag until repaired
   };
 }
 

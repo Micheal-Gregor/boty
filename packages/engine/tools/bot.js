@@ -29,9 +29,17 @@ export function botActions(game, strategy = "balanced") {
   const cap = findBuilding(state.economy, p.building).capacity;
   const waiting = () => p.jobs.filter((j) => ["Queued", "OnHold"].includes(j.state)).length;
 
-  // 1. Pay any due NPC payable if we can and still cover overhead (avoid court).
+  // 1. Pay any DUE bill we can while still covering overhead — NPC vendors (avoid court) and
+  //    delivered player contracts alike (an honest debtor pays the trades; floating only invites
+  //    a collections agency). Pending contracts (job still in progress) aren't due yet.
   for (const ap of [...p.payables]) {
-    if (ap.is_npc && state.turn >= ap.due_turn && p.cash >= ap.amount + over()) tryDo(() => game.payPayable(ap.id));
+    if (!ap.pending && state.turn >= ap.due_turn && p.cash >= ap.amount + over()) tryDo(() => game.payPayable(ap.id));
+  }
+
+  // 1b. Clear code violations while solvent — the fine + output drag usually outweighs the
+  //     deferred repair bill, and a lingering defect quietly strangles throughput.
+  for (const d of [...p.defects]) {
+    if (p.cash > over()) tryDo(() => game.fixDefect(d.id));
   }
 
   // 2. The opening fork (turn 1, lone tradesperson). With equipment now gating half the jobs,
@@ -80,6 +88,16 @@ export function botActions(game, strategy = "balanced") {
     if (!tryDo(() => game.assignJob(job.id))) break;
   }
 
+  // 4b. Cut losses: sell a job that's about to expire and we have no way to start (too big a
+  //     shop/crew, or every hand is busy) — a little cash beats watching it rot.
+  const here2 = findBuilding(state.economy, p.building);
+  const noHands = p.tradesmen.every((t) => t.assignedJob);
+  for (const j of [...p.jobs]) {
+    if (j.hirer_id || !["Queued", "OnHold"].includes(j.state)) continue;
+    const cantStart = j.required_building_tier > (here2.tier ?? 1) || j.min_tradesmen > here2.capacity || noHands;
+    if (j.deadline_turn - state.turn <= 2 && cantStart) tryDo(() => game.sellJob(j.id));
+  }
+
   // 5. Hire — labor shop hires aggressively to the cap; specialist stays lean (≤2); balanced
   //    hires only with a sustained surplus and a backlog.
   const hireThreshold = strategy === "equipment" ? Infinity : strategy === "balanced" ? over() * 6 : over() * 3;
@@ -87,6 +105,13 @@ export function botActions(game, strategy = "balanced") {
   const needBacklog = strategy === "labor" ? 1 : 2;
   if (p.cash > hireThreshold && p.tradesmen.length < maxStaff && waiting() >= needBacklog) tryDo(() => game.hire());
 
-  // 6. If cash is tight, factor the oldest invoice to stay solvent.
+  // 6. Bridge a cash crunch with the AR book: factor an own-job invoice first; if still short,
+  //    sell a rival's debt to collections (cash now, and the agency hounds them with a lawyer).
   if (p.cash < over() && p.invoices.length) tryDo(() => game.factorInvoice(p.invoices[0].id));
+  if (p.cash < over()) {
+    for (const o of state.players) {
+      const claim = o.payables.find((a) => a.creditor_id === p.id && !a.pending && state.turn >= a.due_turn);
+      if (claim && tryDo(() => game.factorClaim(claim.id))) break;
+    }
+  }
 }

@@ -8,6 +8,7 @@ import * as shop from "./shop.js";
 import * as jobs from "./jobs.js";
 import * as cards from "./cards.js";
 import * as payables from "./payables.js";
+import * as defects from "./defects.js";
 import { drawFortune } from "./fortune.js";
 import { getawayThreshold, rollGetaway, getawayOdds } from "./litigation.js";
 import { w } from "./economy.js";
@@ -173,10 +174,13 @@ export class Game {
   assignJob(jobId, tradesmanId) { return this.#act((p) => jobs.assign(this.state, p, jobId, tradesmanId)); }
   holdJob(jobId) { return this.#act((p) => jobs.hold(this.state, p, jobId)); }
   dropJob(jobId) { return this.#act((p) => jobs.drop(this.state, p, jobId)); }
+  sellJob(jobId) { return this.#act((p) => jobs.sellJob(this.state, p, jobId)); }
+  fixDefect(defectId) { return this.#act((p) => defects.fixDefect(this.state, p, defectId)); }
 
   // --- AR / AP ---------------------------------------------------------------------------
 
   factorInvoice(invoiceId) { return this.#act((p) => payables.factorInvoice(this.state, p, invoiceId), true); }
+  factorClaim(payableId) { return this.#act((p) => payables.factorClaim(this.state, p, payableId), true); }
   payPayable(payableId) { return this.#act((p) => payables.payPayable(this.state, p, payableId), true); }
 
   // --- NPC court (a failed Demand Roll). The defendant may play a Slick Lawyer (own lawyer). --
@@ -430,11 +434,18 @@ export class Game {
     const ap = debtor.payables.find((a) => a.id === t.payableId);
     const settle = () => { debtor.payables = debtor.payables.filter((a) => a.id !== t.payableId); };
 
+    // You can't get blood from a stone: a creditor only collects what the debtor can actually
+    // cover (capped at their cash before court costs); any shortfall is uncollectible and the
+    // debt is settled regardless. So suing a near-broke rival nets scraps — the play is to bury
+    // them, not to get paid.
+    const collectible = Math.max(0, Math.min(ap.amount, debtor.cash));
+    const shortNote = collectible < ap.amount ? ` — only ${w(collectible)} of the ${w(ap.amount)} was collectible` : "";
+
     if (!contest) {
-      debtor.cash -= ap.amount;
-      creditor.cash += ap.amount;
+      debtor.cash -= collectible;
+      creditor.cash += collectible;
       settle();
-      return `🏳️ ${debtor.name} folds rather than fight it — pays ${creditor.name} ${w(ap.amount)}.`;
+      return `🏳️ ${debtor.name} folds rather than fight it — pays ${creditor.name} ${w(collectible)}${shortNote}.`;
     }
     let defLawyers = 0;
     if (ownLawyer) {
@@ -452,9 +463,9 @@ export class Game {
     if (res.getsAway) {
       return `⚖️ ${debtor.name} WALKS (rolled ${res.roll} ≤ ${g}, ${getawayOdds(g)}) — debt stands; ${w(FEE)} legal fee each.`;
     }
-    debtor.cash -= ap.amount;
-    creditor.cash += ap.amount;
+    debtor.cash -= collectible;
+    creditor.cash += collectible;
     settle();
-    return `⚖️ ${creditor.name} WINS (${debtor.name} rolled ${res.roll} > ${g}) — collects ${w(ap.amount)}; ${w(FEE)} legal fee each.`;
+    return `⚖️ ${creditor.name} WINS (${debtor.name} rolled ${res.roll} > ${g}) — collects ${w(collectible)}${shortNote}; ${w(FEE)} legal fee each.`;
   }
 }

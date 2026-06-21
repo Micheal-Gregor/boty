@@ -6,9 +6,12 @@
 import assert from "node:assert/strict";
 import { loadEconomy } from "../src/engine/content-fs.js";
 import { Game } from "../src/engine/game.js";
-import { resetIds, createPayable } from "../src/state/state.js";
+import { resetIds, createPayable, createEquipment } from "../src/state/state.js";
 import { getawayThreshold } from "../src/engine/litigation.js";
 import * as payables from "../src/engine/payables.js";
+import * as defects from "../src/engine/defects.js";
+import { runJobProgress } from "../src/engine/jobs.js";
+import { runUpkeep } from "../src/engine/turn.js";
 
 let passed = 0;
 const ok = (label) => { passed++; console.log(`  ✓ ${label}`); };
@@ -42,7 +45,7 @@ function newGame(names = ["Ana"]) {
   ok("getaway math: one Slick Lawyer modifier (±2), clamped to 1–5");
 }
 
-// --- AR factoring (10%) -------------------------------------------------------------------
+// --- AR factoring (fee from economy.factoring_fee) ---------------------------------------
 {
   const g = newGame();
   const p = g.currentPlayer;
@@ -53,6 +56,141 @@ function newGame(names = ["Ana"]) {
   assert.equal(p.cash, before + (10 - fee), "factoring pays amount minus the fee");
   assert.equal(p.invoices.length, 0);
   ok(`AR factoring: 10 W invoice → ${10 - fee} W now (${fee} W fee)`);
+}
+
+// --- Code violations (Pass 2d): fine + productivity drag + routable fix -------------------
+{
+  resetIds();
+  const g = new Game(economy, [{ name: "Ana", service: "mechanic" }, { name: "Eli", service: "electrician" }], { seed: 1 });
+  g.start();
+  const ana = g.state.players[0], eli = g.state.players[1];
+  ana.equipment.push(createEquipment("basic", { owned: true })); // a tool → burn 2, so the drag shows
+  ana.jobs.push({
+    id: "JD", card: "x", name: "Big tune-up", value: 8, work_amount: 40, work_done: 0, deadline_turn: g.state.turn + 12,
+    min_tradesmen: 1, max_tradesmen: 1, required_equipment: null, terms: 1, required_building_tier: 1,
+    equipment_per_tradesman: false, droppable: true, required_trade: null, hirer_id: null, state: "Active",
+    assigned_tradesmen: [ana.tradesmen[0].id], exposed: false,
+  });
+  ana.tradesmen[0].assignedJob = "JD";
+
+  runJobProgress(g.state, ana);
+  const cleanBurn = ana.jobs[0].work_done; // burns the tool's speed with no defect
+
+  ana.defects.push({ id: "D1", card: "code_violation", name: "Failed inspection", since_turn: g.state.turn, fine: 2, fix_cost: 6, fix_trade: "electrician", fix_terms: 2, productivity_hit: 1 });
+  runJobProgress(g.state, ana);
+  assert.equal(cleanBurn - (ana.jobs[0].work_done - cleanBurn), 1, "an unfixed defect drags productivity_hit off the burn");
+
+  const cashBefore = ana.cash;
+  defects.tickDefects(g.state, ana);
+  assert.equal(ana.cash, cashBefore - 2, "an unfixed defect fines you each upkeep");
+
+  g.fixDefect("D1");
+  assert.equal(ana.defects.length, 0, "fixing clears the defect (productivity + fine stop)");
+  const fixAp = ana.payables.find((a) => a.creditor_id === eli.id);
+  assert.ok(fixAp && fixAp.amount === 6 && !fixAp.is_npc, "the fix is booked as a payable to the electrician — their AR");
+  ok("code violation: fine + productivity drag, and the fix routes to a tradesperson as an AP");
+}
+
+// --- Bankruptcy unwinds the folded shop's AR/AP web --------------------------------------
+{
+  resetIds();
+  const g = new Game(economy, [
+    { name: "Folder", service: "plumber" },
+    { name: "Hirer", service: "mechanic" },
+    { name: "Debtor", service: "welder" },
+  ], { seed: 1 });
+  g.start();
+  const [folder, hirer, debtor] = g.state.players;
+
+  // Hirer routed a big contract TO Folder (Folder holds the job; Hirer holds the pending AP).
+  folder.jobs.push({
+    id: "JT", card: "x", name: "Big contract", value: 56, work_amount: 24, work_done: 4, deadline_turn: g.state.turn + 8,
+    min_tradesmen: 3, max_tradesmen: 4, required_equipment: null, terms: 1, required_building_tier: 1,
+    equipment_per_tradesman: false, droppable: true, required_trade: null, hirer_id: hirer.id, state: "Queued",
+    assigned_tradesmen: [], exposed: false,
+  });
+  hirer.payables.push(createPayable({ vendor: "Folder (Big contract)", amount: 56, dueTurn: null, isNpc: false, creditorId: folder.id, jobId: "JT", pending: true }));
+  // Debtor owes Folder for a delivered job; and a damages claim names Folder as contractor.
+  debtor.payables.push(createPayable({ vendor: "Folder (job)", amount: 8, dueTurn: g.state.turn, isNpc: false, creditorId: folder.id }));
+  g.state.pendingDamages.push({ hirerId: hirer.id, contractorId: folder.id, jobId: "old", jobName: "x", value: 5, window: 3 });
+
+  folder.cash = 0; // can't cover overhead → folds at upkeep
+  runUpkeep(g.state, folder);
+  assert.ok(folder.bankrupt, "Folder folds");
+  assert.equal(hirer.payables.filter((a) => a.job_id === "JT").length, 0, "the hirer's dangling 'in progress' contract liability is cleared");
+  assert.equal(debtor.payables.filter((a) => a.creditor_id === folder.id).length, 0, "a debt owed to the folded shop is written off");
+  assert.equal(g.state.pendingDamages.filter((c) => c.contractorId === folder.id).length, 0, "damages claims against the judgment-proof shop are dropped");
+  assert.equal(folder.payables.length + folder.jobs.length + folder.invoices.length, 0, "the folded shop's own books are wiped");
+  ok("bankruptcy unwinds the folded shop's AR/AP web — no dangling contracts left behind");
+}
+
+// --- Factoring a PLAYER debt → sold to collections (guaranteed lawyer) --------------------
+{
+  resetIds();
+  const g = new Game(economy, [{ name: "Ana", service: "mechanic" }, { name: "Boe", service: "plumber" }], { seed: 1 });
+  g.start();
+  const ana = g.state.players[0], boe = g.state.players[1];
+  boe.payables.push(createPayable({ vendor: "Ana (job)", amount: 10, dueTurn: g.state.turn, isNpc: false, creditorId: ana.id, jobId: "j", pending: false }));
+  const apId = boe.payables[0].id;
+  const before = ana.cash;
+  g.factorClaim(apId);
+  const fee = Math.ceil(10 * economy.factoring_fee);
+  assert.equal(ana.cash, before + (10 - fee), "Ana gets the debt value minus the factoring fee");
+  const ap = boe.payables.find((a) => a.id === apId);
+  assert.ok(ap.is_npc && ap.collections && ap.agency_lawyer && ap.creditor_id === null, "debt converts to an NPC-style collections bill with a guaranteed lawyer");
+  ok(`factoring a player debt: cash now (${10 - fee} W) + the agency takes over collection`);
+}
+
+// --- The collections lawyer floors the debtor's getaway in court --------------------------
+{
+  resetIds();
+  const g = new Game(economy, [{ name: "Ana", service: "mechanic" }], { seed: 1 });
+  g.start();
+  const ana = g.state.players[0];
+  ana.payables.push(createPayable({ vendor: "Collections", amount: 10, dueTurn: g.state.turn, isNpc: true }));
+  const apId = ana.payables[0].id;
+  g.state.die = scriptedDie([2]); // owed base 2 → would WALK (1–2); agency lawyer floors to 1 → LOSES
+  const cash0 = ana.cash;
+  payables.resolveCourt(g.state, { playerId: ana.id, payableId: apId, vendor: "Collections", amount: 10, agencyLawyer: true }, false, 0);
+  assert.equal(ana.cash, cash0 - 10 - FEE, "vs collections (guaranteed lawyer), a 2 that would normally walk now loses");
+  ok("collections lawyer: debtor with no lawyer of their own walks only on the minimum roll");
+}
+
+// --- Can't get blood from a stone: collection caps at the debtor's cash -------------------
+{
+  resetIds();
+  const g = new Game(economy, [{ name: "Cred", service: "mechanic" }, { name: "Broke", service: "plumber" }], { seed: 1 });
+  g.start();
+  const cred = g.state.players[0], broke = g.state.players[1];
+  broke.cash = 1; // nearly tapped out, owes 9
+  broke.payables.push(createPayable({ vendor: "Cred (job)", amount: 9, dueTurn: g.state.turn, isNpc: false, creditorId: cred.id }));
+  const ap = broke.payables[0];
+  ap.sue_window_remaining = economy.sue_window;
+  g.state.die = scriptedDie([5]); // owed base 2 → rolling 5 loses
+  const credBefore = cred.cash;
+  g.sue(broke.id, ap.id);
+  g.respondToThreat({ contest: true });
+  // collectible = min(9, 1) = 1; cred nets +1 collected − 1 fee = 0, NOT the full 9.
+  assert.equal(cred.cash, credBefore, "creditor collects only the 1 W the debtor had (net 0 after fee), not the full 9");
+  assert.equal(broke.payables.length, 0, "the debt is settled — the uncollectible remainder is written off");
+  ok("collection caps at the debtor's cash: suing a broke rival nets scraps, not face value");
+}
+
+// --- Factoring prices to collectibility (a broke debt sells for scraps) -------------------
+{
+  resetIds();
+  const g = new Game(economy, [{ name: "Seller", service: "mechanic" }, { name: "Skint", service: "plumber" }], { seed: 1 });
+  g.start();
+  const seller = g.state.players[0], skint = g.state.players[1];
+  skint.cash = 1;
+  skint.payables.push(createPayable({ vendor: "Seller (job)", amount: 10, dueTurn: g.state.turn, isNpc: false, creditorId: seller.id }));
+  const apId = skint.payables[0].id;
+  const before = seller.cash;
+  g.factorClaim(apId);
+  // collectible = min(10, 1) = 1; fee = ceil(1 * 0.2) = 1; proceeds = 0.
+  assert.equal(seller.cash, before, "a near-broke rival's debt fetches ~nothing — the agency won't overpay");
+  assert.ok(skint.payables.find((a) => a.id === apId).collections, "still handed to collections (effectively a kill order)");
+  ok("factoring prices to collectibility, not face value");
 }
 
 // --- NPC Demand Roll: dodge, settle, forgive, court --------------------------------------

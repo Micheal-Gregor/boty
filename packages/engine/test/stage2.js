@@ -188,10 +188,40 @@ function newGame(cards, seed = 1) {
   assert.equal(job.state, "Active", "one worker + one tool → Active");
   g.assignJob(job.id, p.tradesmen[1].id);
   assert.equal(job.state, "OnHold", "second worker with no second tool → auto-held");
+  p.acquiredEquipThisTurn = false; // bypass the 1/turn acquisition cap for this unit test
   g.buyEquipment("basic"); // 2 tools now
   g.runProgress(); // re-evaluates: tools per worker satisfied → Active and burns
   assert.equal(job.state, "Active", "buying the second tool re-activates the held job");
   ok("equipment-per-tradesman gate: the whole crew must be geared");
+}
+
+// --- Payment terms: a job's invoice collects `terms` turns after completion --------------
+{
+  const termsJob = { id: "net90", name: "Net-90 contract", value: 12, work_amount: 1, deadline: 4, terms: 3, min_tradesmen: 1, max_tradesmen: 1, required_equipment: null, droppable: true };
+  const g = newGame([termsJob]);
+  g.start();
+  const p = g.currentPlayer;
+  const job = p.jobs[0];
+  g.assignJob(job.id, p.tradesmen[0].id);
+  g.runProgress(); // burns base_hand_speed (1) → completes
+  assert.equal(p.invoices.length, 1, "completed");
+  assert.equal(p.invoices[0].due_turn, 1 + 3, "invoice honors the job's net-90 terms, not the default invoice_terms");
+  ok("payment terms: longer-term jobs collect later (terms override invoice_terms)");
+}
+
+// --- Sell a job to the bank instead of doing it ------------------------------------------
+{
+  const bigJob = { id: "big", name: "Warehouse job", value: 20, work_amount: 30, deadline: 6, min_tradesmen: 3, max_tradesmen: 4, required_equipment: null, droppable: true };
+  const g = newGame([bigJob]);
+  g.start();
+  const p = g.currentPlayer;
+  const job = p.jobs[0]; // Queued — can't staff 3 in a garage
+  const before = p.cash;
+  const payout = Math.max(1, Math.floor(job.value * economy.sell_rate));
+  g.sellJob(job.id);
+  assert.equal(p.jobs.length, 0, "sold job leaves the queue");
+  assert.equal(p.cash, before + payout, `sold to the bank for ${payout} W (sell_rate ${economy.sell_rate})`);
+  ok("sell a job: small cash from the bank instead of watching a too-big job expire");
 }
 
 console.log(`\nAll Stage 2 smoke checks passed (${passed}).`);

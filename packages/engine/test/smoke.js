@@ -72,6 +72,8 @@ const economy = await loadEconomy();
   assert.equal(p.cash, cashBeforeBuy - economy.equipment.find((e) => e.id === "basic").buy_cost);
   ok("buy equipment charges full buy cost");
 
+  expectRefusal(() => game.rentEquipment("pro"), "a second equipment acquisition the same turn");
+  p.acquiredEquipThisTurn = false; // bypass the 1/turn cap to keep exercising equipment mechanics
   game.rentEquipment("pro");
   assert.equal(p.equipment.filter((e) => !e.owned).length, 1);
   ok("rent equipment adds a rented instance (no upfront cost)");
@@ -111,7 +113,10 @@ const economy = await loadEconomy();
   expectRefusal(() => game.hire(), "any action after relocating this turn");
   // Capacity guard on relocate: can't move into a building smaller than your crew.
   game.endTurn(); // back to Ana next round
-  game.hire(); game.hire(); // garage cap is 2; warehouse holds them fine
+  game.hire();
+  expectRefusal(() => game.hire(), "a second hire the same turn");
+  game.currentPlayer.hiredThisTurn = false; // bypass the 1/turn cap; garage cap is 2
+  game.hire();
   expectRefusal(() => game.relocate("garage"), "relocate into a too-small building");
   ok("relocate switches buildings, ends the turn, and respects capacity");
 }
@@ -123,7 +128,7 @@ const economy = await loadEconomy();
   game.start();
   // Staff up hard and rent gear so overhead outruns the starting cash.
   game.relocate("warehouse"); game.endTurn();
-  for (let i = 0; i < 5; i++) game.hire(); // 6 tradespeople in the warehouse
+  for (let i = 0; i < 5; i++) { game.currentPlayer.hiredThisTurn = false; game.hire(); } // 6 in the warehouse (cap bypassed for the test)
   game.rentEquipment("pro");
 
   let ctx = game.endTurn();

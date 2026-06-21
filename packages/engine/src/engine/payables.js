@@ -11,7 +11,8 @@ const playerById = (state, id) => state.players.find((p) => p.id === id);
 
 // --- AR factoring -----------------------------------------------------------------------
 
-/** Factor an invoice for immediate cash at the factoring fee (the escape valve). */
+/** Factor an NPC invoice (your own completed job) for immediate cash. The client pays the
+ * factor off-screen, so the invoice simply leaves your books. */
 export function factorInvoice(state, player, invoiceId) {
   const inv = player.invoices.find((i) => i.id === invoiceId);
   if (!inv) throw new GameError(`No invoice "${invoiceId}"`);
@@ -20,6 +21,42 @@ export function factorInvoice(state, player, invoiceId) {
   player.cash += proceeds;
   player.invoices = player.invoices.filter((i) => i.id !== invoiceId);
   return `${player.name} factored ${inv.id} (${w(inv.amount)}) for ${w(proceeds)} now — ${w(fee)} fee`;
+}
+
+/**
+ * Factor a PLAYER receivable — a debt a rival owes you (their payable, creditor_id === you).
+ * Same fee as an invoice, but instead of vanishing the debt is SOLD to a collections agency: it
+ * converts to an NPC-style bill on the debtor's books that runs the Demand Roll, and the agency
+ * brings a GUARANTEED slick lawyer to court (agency_lawyer) — so it's much harder for the rival
+ * to dodge. You take the haircut; they take the heat.
+ */
+export function factorClaim(state, player, payableId) {
+  let debtor, ap;
+  for (const d of state.players) {
+    const found = d.payables.find((a) => a.id === payableId && a.creditor_id === player.id);
+    if (found) { debtor = d; ap = found; break; }
+  }
+  if (!ap) throw new GameError(`No receivable "${payableId}" owed to ${player.name}`);
+  if (ap.pending) throw new GameError(`That contract isn't delivered yet — nothing to collect`);
+  // The agency won't pay for more than it can collect: proceeds are priced on what the debtor
+  // can actually cover (their cash), not the face value. A debt from a near-broke rival fetches
+  // almost nothing — you're really just handing the agency a kill order.
+  const collectible = Math.max(0, Math.min(ap.amount, debtor.cash));
+  const fee = Math.ceil(collectible * state.economy.factoring_fee);
+  const proceeds = collectible - fee;
+  player.cash += proceeds;
+  // Hand the debt to collections: NPC-style bill + a guaranteed lawyer in court.
+  ap.is_npc = true;
+  ap.creditor_id = null;
+  ap.collections = true;
+  ap.agency_lawyer = true;
+  ap.turns_dodged = 0;
+  ap.sue_window_remaining = null;
+  ap.vendor = `Collections agency (for ${player.name})`;
+  const priceNote = collectible < ap.amount
+    ? `${w(proceeds)} now (heavily discounted — ${debtor.name} can barely cover it)`
+    : `${w(proceeds)} now (${w(fee)} fee)`;
+  return `${player.name} sold ${debtor.name}'s ${w(ap.amount)} debt to collections for ${priceNote} — the agency will hound ${debtor.name}, lawyer in hand`;
 }
 
 // --- Paying AP --------------------------------------------------------------------------
@@ -81,10 +118,14 @@ function dodgeNpc(state, player, ap) {
   if (ap.turns_dodged < e.npc_demand.max_dodges && roll >= target) {
     return [`🎲 ${player.name} dodged ${ap.vendor} again (rolled ${roll} vs ${target}+), ${w(ap.amount)} still owed`];
   }
-  // Fail → court. Queue it so the defendant can play a Slick Lawyer before the roll.
+  // Fail → court. Queue it so the defendant can play a Slick Lawyer before the roll. A debt sold
+  // to collections brings the agency's guaranteed lawyer (agencyLawyer) — harder to walk.
   ap.in_court = true;
-  state.pendingCourt.push({ playerId: player.id, payableId: ap.id, vendor: ap.vendor, amount: ap.amount });
-  return [`⚖️ ${player.name} failed the Demand Roll on ${ap.vendor} — summoned to court (you walk on 1–2; a Slick Lawyer makes it 1–4)`];
+  state.pendingCourt.push({ playerId: player.id, payableId: ap.id, vendor: ap.vendor, amount: ap.amount, agencyLawyer: !!ap.agency_lawyer });
+  const odds = ap.agency_lawyer
+    ? "the agency's lawyer makes it 1-only unless you lawyer up too"
+    : "you walk on 1–2; a Slick Lawyer makes it 1–4";
+  return [`⚖️ ${player.name} failed the Demand Roll on ${ap.vendor} — summoned to court (${odds})`];
 }
 
 /**
@@ -101,11 +142,13 @@ export function resolveCourt(state, caseEntry, useLawyer, accuserLawyers = 0) {
     const idx = player.hand.findIndex((c) => c.type === "slick_lawyer");
     if (idx >= 0) { player.hand.splice(idx, 1); defLawyers = 1; }
   }
-  const g = getawayThreshold(e, e.civil.getaway_owed, defLawyers, accuserLawyers);
+  // A collections case carries the agency's guaranteed lawyer on the accuser's side.
+  const accLawyers = accuserLawyers + (caseEntry.agencyLawyer ? 1 : 0);
+  const g = getawayThreshold(e, e.civil.getaway_owed, defLawyers, accLawyers);
   const res = rollGetaway(state.die, g);
   if (ap) removeAp(player, ap);
   player.cash -= e.civil.legal_fee; // legal fee, paid regardless
-  const tag = defLawyers ? " (lawyered up)" : "";
+  const tag = defLawyers ? " (lawyered up)" : caseEntry.agencyLawyer ? " (vs collections)" : "";
   if (res.getsAway) {
     return `⚖️ ${player.name}${tag} WALKS — rolled ${res.roll} ≤ ${g} (${getawayOdds(g)}); ${caseEntry.vendor} debt wiped, ${w(e.civil.legal_fee)} legal fee`;
   }

@@ -10,7 +10,7 @@
 //                inert until Stage 4 wires up the response window. No-op if that pile is dry.
 
 import { w } from "./economy.js";
-import { createJob, createPayable, createTradesman } from "../state/state.js";
+import { createJob, createPayable, createTradesman, createDefect } from "../state/state.js";
 import { resolveCivilEvent } from "./payables.js";
 import { releaseTradesman } from "./jobs.js";
 import { seasonName } from "./season.js";
@@ -57,12 +57,16 @@ export function drawFortune(state, player, count) {
  */
 /**
  * Find a player with the given trade to take a routed job: another solvent player whose service
- * matches and who isn't already holding a routed job (one such job per player). Returns null if
- * none — the drawer then does the job themselves (NPC fallback).
+ * matches and who has spare contract capacity. A shop can carry one routed job PER tradesperson
+ * (at least one) — so a bigger crew takes on more contracts, and overcommitting risks botches.
+ * Returns null if none — the drawer then does the job themselves (NPC fallback).
  */
+function routedHeld(p) {
+  return p.jobs.filter((j) => j.hirer_id).length;
+}
 function pickContractor(state, hirer, trade) {
   return state.players.find(
-    (p) => p !== hirer && !p.bankrupt && p.service === trade && !p.jobs.some((j) => j.hirer_id),
+    (p) => p !== hirer && !p.bankrupt && p.service === trade && routedHeld(p) < Math.max(1, p.tradesmen.length),
   ) ?? null;
 }
 
@@ -111,6 +115,12 @@ function resolveCard(state, player, card) {
       const handCard = state.civilHandDeck.draw();
       if (handCard) player.hand.push(handCard);
       return { type: "gift", name: card.name, got: handCard?.name ?? null, text: handCard ? `🃏 drew ${handCard.name} to hand` : "nothing left to draw" };
+    }
+    case "defect": {
+      const defect = createDefect(card, state.turn);
+      player.defects.push(defect);
+      const route = card.fix_trade ? ` (a ${card.fix_trade} fixes it)` : "";
+      return { type: "defect", name: card.name, defect, text: `🚧 code violation: −${defect.productivity_hit} output and ${w(defect.fine)}/turn until you fix it for ${w(defect.fix_cost)}${route}` };
     }
     case "payable": {
       const ap = createPayable({ vendor: card.name, amount: card.amount, dueTurn: state.turn + (card.due ?? 3), isNpc: true });

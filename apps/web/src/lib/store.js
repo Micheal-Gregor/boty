@@ -39,6 +39,7 @@ function viewOf() {
       jobs: p.jobs.map((j) => ({ ...j, assigned_tradesmen: [...j.assigned_tradesmen] })),
       invoices: p.invoices.map((i) => ({ ...i })),
       payables: p.payables.map((a) => ({ ...a })),
+      defects: p.defects.map((d) => ({ ...d })),
       hand: p.hand.map((c) => ({ ...c })),
     })),
   };

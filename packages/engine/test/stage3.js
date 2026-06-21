@@ -26,8 +26,9 @@ function newGame(options) {
 
 // --- Deck composition (copies expanded; Dial-1 / Dial-4 shares) ---------------------------
 {
-  assert.equal(decks.fortune.length, 51, "fortune deck is 51 cards");
+  assert.equal(decks.fortune.length, 54, "fortune deck is 54 cards");
   assert.equal(count(decks.fortune, (c) => c.type === "job"), 20, "jobs");
+  assert.equal(count(decks.fortune, (c) => c.type === "defect"), 3, "code-violation defects");
   assert.equal(count(decks.fortune, (c) => c.type === "windfall"), 14, "windfalls (incl. count-scaling bonuses)");
   assert.equal(count(decks.fortune, (c) => c.type === "shock"), 6, "shocks (incl. count-scaling penalties)");
   assert.equal(count(decks.fortune, (c) => c.type === "payable"), 4, "NPC vendor bills");
@@ -137,13 +138,13 @@ function newGame(options) {
   const g = newGame({});
   const p = g.currentPlayer;
   g.state.deck = new Deck([weather], makeRng(1));
-  g.state.turn = 1; // Spring (max_turns 16 → 4 rounds/season)
+  g.state.turn = 1; // Spring (max_turns 24 → 6 rounds/season)
   assert.equal(drawFortune(g.state, p, 1)[0].flavor, "spring mud", "Spring variant chosen");
   g.state.deck = new Deck([weather], makeRng(1));
-  g.state.turn = 14; // Winter
+  g.state.turn = 22; // Winter (turns 19–24)
   assert.equal(drawFortune(g.state, p, 1)[0].flavor, "a blizzard buries Main Street", "Winter variant chosen");
   g.state.deck = new Deck([weather], makeRng(1));
-  g.state.turn = 6; // Summer — no variant defined → falls back to base flavor
+  g.state.turn = 8; // Summer (turns 7–12) — no variant defined → falls back to base flavor
   assert.equal(drawFortune(g.state, p, 1)[0].flavor, "generic squall", "falls back to base flavor when no seasonal variant");
   ok("seasonal flavor: the card reads differently by season, with a sane fallback");
 }

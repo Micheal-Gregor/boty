@@ -10,6 +10,7 @@
 import { findBuilding, findEquipment, w } from "./economy.js";
 import { collectInvoices, expireOverdue } from "./jobs.js";
 import { processDuePayables } from "./payables.js";
+import { tickDefects } from "./defects.js";
 
 /** Total recurring overhead a player owes each turn: rent + wages + rented-equipment fees. */
 export function overheadFor(state, player) {
@@ -29,11 +30,14 @@ export function overheadFor(state, player) {
  */
 export function runUpkeep(state, player) {
   player.relocatedThisTurn = false;
+  player.hiredThisTurn = false;
+  player.acquiredEquipThisTurn = false;
   const lines = [];
   lines.push(...expireOverdue(state, player));
   lines.push(...collectInvoices(state, player));
   lines.push(...processDuePayables(state, player));
   lines.push(...tickDamagesClaims(state, player));
+  lines.push(...tickDefects(state, player));
 
   const o = overheadFor(state, player);
   player.cash -= o.total;
@@ -43,8 +47,71 @@ export function runUpkeep(state, player) {
   if (player.cash < 0 && !player.bankrupt) {
     player.bankrupt = true;
     lines.push(`💀 ${player.name} cannot cover overhead (${w(player.cash)}) and is BANKRUPT — out of the game.`);
+    lines.push(...settleBankruptcy(state, player));
   }
   return { overhead: o, lines };
+}
+
+/**
+ * Unwind a folded shop's entanglements with the rest of the table so nothing dangles:
+ *  • Contracts it was building FOR others (its jobs with hirer_id) die — each hirer's matching
+ *    payable clears (no delivery, no debt; and it's judgment-proof, so no damages either).
+ *  • Contracts others were building FOR it (their jobs with hirer_id === it) are voided too and
+ *    dropped from the contractor's queue (the client is gone).
+ *  • Debts it owed are written off — player creditors lose the receivable, NPC/collections die.
+ *  • Debts players owed IT are forgiven (a defunct shop can't collect; already-factored debts
+ *    have moved to the collections agency — creditor_id null — and are left untouched).
+ *  • Its own jobs/invoices/defects and any pending litigation touching it are cleared.
+ */
+function settleBankruptcy(state, x) {
+  const lines = [];
+
+  // 1. Contracts X was building for others → void; clear the hirer's matching liability.
+  for (const job of x.jobs.filter((j) => j.hirer_id)) {
+    const hirer = state.players.find((p) => p.id === job.hirer_id);
+    if (!hirer) continue;
+    const before = hirer.payables.length;
+    hirer.payables = hirer.payables.filter((a) => a.job_id !== job.id);
+    if (hirer.payables.length < before) {
+      lines.push(`   ↳ ${x.name}'s ${job.name} contract dies with the shop — ${hirer.name}'s ${w(job.value)} liability cleared`);
+    }
+  }
+
+  // 2. Contracts OTHERS were building for X → void and drop from their queues (free their crew).
+  for (const p of state.players) {
+    if (p === x) continue;
+    const voided = p.jobs.filter((j) => j.hirer_id === x.id);
+    for (const job of voided) {
+      for (const tid of job.assigned_tradesmen) {
+        const t = p.tradesmen.find((w) => w.id === tid);
+        if (t) t.assignedJob = null;
+      }
+    }
+    if (voided.length) {
+      p.jobs = p.jobs.filter((j) => j.hirer_id !== x.id);
+      lines.push(`   ↳ ${p.name} loses ${voided.length} contract(s) for the folded ${x.name}`);
+    }
+  }
+
+  // 3. Debts players owed X are forgiven (defunct shop can't collect).
+  for (const p of state.players) {
+    if (p === x) continue;
+    const before = p.payables.length;
+    p.payables = p.payables.filter((a) => a.creditor_id !== x.id);
+    if (p.payables.length < before) lines.push(`   ↳ ${p.name}'s debt to ${x.name} is written off`);
+  }
+
+  // 4. X's own books are wiped, and any litigation touching X is dropped.
+  x.payables = [];
+  x.invoices = [];
+  x.jobs = [];
+  x.defects = [];
+  state.pendingDamages = state.pendingDamages.filter((c) => c.hirerId !== x.id && c.contractorId !== x.id);
+  state.pendingCourt = state.pendingCourt.filter((c) => c.playerId !== x.id);
+  state.pendingSettle = state.pendingSettle.filter((c) => c.playerId !== x.id);
+  state.pendingThreat = state.pendingThreat && [state.pendingThreat.ownerId, state.pendingThreat.debtorId, state.pendingThreat.contractorId].includes(x.id) ? null : state.pendingThreat;
+
+  return lines;
 }
 
 /** Tick down the current player's damages-claim windows; drop any that expire unsued. */

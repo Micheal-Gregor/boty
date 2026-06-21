@@ -14,6 +14,7 @@
 
 import { GameError, findEquipment, findBuilding, w } from "./economy.js";
 import { createInvoice } from "../state/state.js";
+import { defectPenalty } from "./defects.js";
 
 const PROGRESSING = new Set(["Queued", "Active", "OnHold"]);
 
@@ -198,6 +199,15 @@ export function runJobProgress(state, player) {
     burnByJob.set(job, (burnByJob.get(job) ?? 0) + speed);
   });
 
+  // Unfixed code violations drag work off the floor — shave the penalty across active jobs.
+  let drag = defectPenalty(player);
+  for (const job of active) {
+    if (drag <= 0) break;
+    const cut = Math.min(burnByJob.get(job) ?? 0, drag);
+    burnByJob.set(job, (burnByJob.get(job) ?? 0) - cut);
+    drag -= cut;
+  }
+
   const hasProgressDeck = state.progressDeck && state.progressDeck.source.length > 0;
 
   for (const job of active) {
@@ -259,15 +269,32 @@ function completeJob(state, player, job) {
   job.state = "Complete";
   freeTradesmen(player, job);
   player.jobs = player.jobs.filter((j) => j.id !== job.id);
+  const terms = job.terms ?? state.economy.invoice_terms; // payment terms (longer = paid later)
   if (job.hirer_id) {
     // Routed job delivered: the hirer's pending AP now comes DUE — they pay the contractor
     // (this player) or refuse and face a suit. No NPC invoice; the contractor's pay is the AP.
     const hirer = state.players.find((p) => p.id === job.hirer_id);
     const ap = hirer?.payables.find((a) => a.job_id === job.id);
-    if (ap) { ap.pending = false; ap.due_turn = state.turn + state.economy.invoice_terms; }
+    if (ap) { ap.pending = false; ap.due_turn = state.turn + terms; }
   } else {
-    player.invoices.push(createInvoice(job, state.turn, state.economy.invoice_terms));
+    player.invoices.push(createInvoice(job, state.turn, terms));
   }
+}
+
+/**
+ * Sell a job to the bank instead of doing it — a small immediate payout to cut your losses on
+ * a job you can't (or won't) staff. Frees the crew. Routed jobs can't be sold (they're not
+ * yours to sell — they belong to the hirer relationship).
+ */
+export function sellJob(state, player, jobId) {
+  const job = findJob(player, jobId);
+  if (job.hirer_id) throw new GameError(`${job.name} is a routed job — you can't sell it`);
+  if (job.state === "Complete" || job.state === "Expired") throw new GameError(`${job.name} is ${job.state}`);
+  const payout = Math.max(1, Math.floor(job.value * state.economy.sell_rate));
+  freeTradesmen(player, job);
+  player.jobs = player.jobs.filter((j) => j.id !== jobId);
+  player.cash += payout;
+  return `${player.name} sold ${job.name} (${job.id}) to the bank for ${w(payout)} rather than let it expire`;
 }
 
 /** Did a routed job just complete? (For the contractor's completion log line.) */

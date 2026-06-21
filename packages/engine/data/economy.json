@@ -1,11 +1,11 @@
 {
   "_comment": "All values denominated in W (wage-turns). 1 W = one tradesperson's wage for one turn. These are starting defaults to playtest against (Dial 2 in the reference sheet). Re-tune freely; the engine never hardcodes a price.",
 
-  "starting_cash": 48,
+  "starting_cash": 58,
   "starting_building": "garage",
   "starting_tradesmen": 1,
 
-  "max_turns": 16,
+  "max_turns": 24,
   "draw_cap": 4,
 
   "wage_per_turn": 1,
@@ -14,8 +14,9 @@
 
   "base_hand_speed": 1,
   "invoice_terms": 1,
+  "sell_rate": 0.15,
 
-  "factoring_fee": 0.1,
+  "factoring_fee": 0.2,
 
   "cards": {
     "sabotage_delay": 2,

@@ -16,6 +16,7 @@ function assertSolvent(player, cost, action) {
 
 /** Hire a tradesperson. Costs the sign-on fee now; wages accrue at upkeep. */
 export function hire(state, player) {
+  if (player.hiredThisTurn) throw new GameError(`${player.name} can only hire one tradesperson per turn`);
   const building = findBuilding(state.economy, player.building);
   if (player.tradesmen.length >= building.capacity) {
     throw new GameError(`${building.name} is at capacity (${building.capacity}); relocate or fire before hiring`);
@@ -25,6 +26,7 @@ export function hire(state, player) {
   player.cash -= fee;
   const t = createTradesman();
   player.tradesmen.push(t);
+  player.hiredThisTurn = true;
   return `${player.name} hired a tradesperson (${t.id}) for a ${w(fee)} sign-on fee`;
 }
 
@@ -41,23 +43,31 @@ export function fire(state, player, tradesmanId) {
   return `${player.name} fired ${removed.id} for ${w(fee)} severance`;
 }
 
-/** Buy equipment outright (big upfront cost; dispose later at a loss). */
+function assertCanAcquireEquip(player) {
+  if (player.acquiredEquipThisTurn) throw new GameError(`${player.name} can only acquire one piece of equipment per turn`);
+}
+
+/** Buy equipment outright (big upfront cost; dispose later at a loss). One per turn. */
 export function buyEquipment(state, player, defId) {
+  assertCanAcquireEquip(player);
   const def = findEquipment(state.economy, defId);
   if (!def) throw new GameError(`No equipment "${defId}"`);
   assertSolvent(player, def.buy_cost, `buy ${def.name}`);
   player.cash -= def.buy_cost;
   const eq = createEquipment(defId, { owned: true });
   player.equipment.push(eq);
+  player.acquiredEquipThisTurn = true;
   return `${player.name} bought ${def.name} (${eq.id}) for ${w(def.buy_cost)}`;
 }
 
-/** Rent equipment (no upfront cost; per-turn fee charged at upkeep; cancel anytime free). */
+/** Rent equipment (no upfront cost; per-turn fee charged at upkeep; cancel anytime free). One per turn. */
 export function rentEquipment(state, player, defId) {
+  assertCanAcquireEquip(player);
   const def = findEquipment(state.economy, defId);
   if (!def) throw new GameError(`No equipment "${defId}"`);
   const eq = createEquipment(defId, { owned: false });
   player.equipment.push(eq);
+  player.acquiredEquipThisTurn = true;
   return `${player.name} rented ${def.name} (${eq.id}) at ${w(def.rent_per_turn)}/turn`;
 }
 
