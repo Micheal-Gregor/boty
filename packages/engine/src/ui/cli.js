@@ -131,6 +131,18 @@ async function playTurn(ask, game, ctx) {
     return game.endTurn();
   }
 
+  // NPC court (failed a Demand Roll): the defendant may play a Slick Lawyer (−1 defence).
+  for (const c of [...game.courtCases]) {
+    const hasLawyer = ctx.player.hand.some((card) => card.type === "slick_lawyer");
+    let lawyer = false;
+    if (hasLawyer) {
+      const ans = await ask(`  ⚖️ Court: ${c.vendor} for ${c.amount} W. Play a Slick Lawyer (−1)? (y/n): `);
+      if (ans === null) return null;
+      lawyer = ans.trim().toLowerCase().startsWith("y");
+    }
+    console.log("  " + game.resolveCourt(c.payableId, { lawyer }));
+  }
+
   // Action phase: loop until the player ends the turn (or relocate forces the end).
   while (true) {
     console.log(`\n${ctx.player.name}'s actions. ${menu(game.state.economy)}`);

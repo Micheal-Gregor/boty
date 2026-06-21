@@ -82,31 +82,61 @@ function npcPayable(turn = 5) {
   ok("Demand Roll natural 6 on 1st dodge → settle at 50%");
 }
 {
+  // A natural 6 now offers a settlement on ANY dodge (no more "forgiven on the 5th").
   const { g, p, ap } = npcPayable();
   ap.turns_dodged = economy.npc_demand.max_dodges - 1; // next dodge is the last
-  g.state.die = scriptedDie([6]); // last-turn natural 6 → forgiven
+  g.state.die = scriptedDie([6]);
   const before = p.cash;
   payables.processDuePayables(g.state, p);
-  assert.equal(p.payables.length, 0);
-  assert.equal(p.cash, before, "forgiven — paid nothing");
-  ok("Demand Roll natural 6 on the final dodge → debt forgiven");
+  assert.equal(p.payables.length, 0, "settled away on the natural 6");
+  assert.equal(p.cash, before - Math.ceil(6 * economy.npc_demand.settle_fraction), "paid 50%");
+  ok("Demand Roll natural 6 settles (50%) on any round, including the last");
 }
 {
+  const FEE = economy.civil.legal_fee;
   const { g, p } = npcPayable();
-  g.state.die = scriptedDie([1, 5]); // demand fail (1<2), then court win (5 ≥ 3)
+  g.state.die = scriptedDie([1, 2]); // demand fail (1), then court rolls 2 ≤ getaway_owed(2) → WALK
   const before = p.cash;
   payables.processDuePayables(g.state, p);
-  assert.equal(p.payables.length, 0, "AP wiped");
-  assert.equal(p.cash, before, "won in court → walks clean, no cost (fee reimbursed)");
-  ok("Demand Roll fail → court WIN walks clean");
+  assert.equal(g.state.pendingCourt.length, 1, "demand fail → summoned to court (deferred)");
+  g.resolveCourt(g.state.pendingCourt[0].payableId, { lawyer: false });
+  assert.equal(p.payables.length, 0, "debt wiped");
+  assert.equal(p.cash, before - FEE, "walk on 1–2 → debt wiped, just the legal fee");
+  ok("NPC court: base 1–2 walk (33%) → debt wiped, 1 W fee");
 }
 {
+  const FEE = economy.civil.legal_fee;
   const { g, p } = npcPayable();
-  g.state.die = scriptedDie([1, 1]); // demand fail, court lose (1 < 3)
+  g.state.die = scriptedDie([1, 3]); // demand fail, court rolls 3 > 2 → LOSE
   const before = p.cash;
   payables.processDuePayables(g.state, p);
-  assert.equal(p.cash, before - (6 + economy.civil.damages_fee), "lost in court → paid amount + fee");
-  ok("Demand Roll fail → court LOSE pays amount + fee");
+  g.resolveCourt(g.state.pendingCourt[0].payableId, { lawyer: false });
+  assert.equal(p.cash, before - (6 + FEE), "lose → pay the bill + the legal fee");
+  ok("NPC court: roll above the line → pay amount + fee");
+}
+{
+  // The fix: a Slick Lawyer (+2) turns a court loss into a walk.
+  const FEE = economy.civil.legal_fee;
+  const { g, p } = npcPayable();
+  p.hand.push({ id: "sl", type: "slick_lawyer", name: "Slick Lawyer" });
+  g.state.die = scriptedDie([1, 3]); // court rolls 3: loses at ≤2, WALKS at ≤4 (with lawyer)
+  const before = p.cash;
+  payables.processDuePayables(g.state, p);
+  g.resolveCourt(g.state.pendingCourt[0].payableId, { lawyer: true });
+  assert.equal(p.hand.length, 0, "the Slick Lawyer was consumed");
+  assert.equal(p.payables.length, 0, "debt wiped");
+  assert.equal(p.cash, before - FEE, "lawyer pushed the line to 1–4 → walked");
+  ok("NPC court: a Slick Lawyer (+2 → 1–4) wins a case you'd have lost");
+}
+{
+  // And the table can pile on for the accuser: 1 lawyer against drops you back to a 1-in-6 walk.
+  const { g, p } = npcPayable();
+  g.state.die = scriptedDie([1, 2]); // court rolls 2: walks at base 1–2, but loses if the line is 1–0→clamped 1
+  payables.processDuePayables(g.state, p);
+  const before = p.cash;
+  g.resolveCourt(g.state.pendingCourt[0].payableId, { lawyer: false, accuserLawyers: 1 });
+  assert.equal(p.cash, before - (6 + economy.civil.legal_fee), "accuser's lawyer floored you to 1-in-6 → lost");
+  ok("NPC court: an accuser-side lawyer floors your walk odds at 1-in-6");
 }
 
 // --- Player sue window: opens, ticks down, forgiven if unsued -----------------------------

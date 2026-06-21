@@ -32,6 +32,28 @@ export function rollCivil(die, target) {
   return { roll, target, defendantWins: roll >= target };
 }
 
+// --- Civil resolver v2 (getaway model) ---------------------------------------------------
+// The defendant "gets away" on roll ≤ threshold. ONE modifier: each Slick Lawyer shifts the
+// threshold ±lawyer_shift toward the side that played it. Clamped so it's never a sure thing.
+
+/** @param base economy.civil.getaway_owed (33%) or getaway_dispute (50%). */
+export function getawayThreshold(economy, base, defenderLawyers = 0, accuserLawyers = 0) {
+  const c = economy.civil;
+  const g = base + c.lawyer_shift * (defenderLawyers - accuserLawyers);
+  return Math.max(c.min_getaway, Math.min(c.max_getaway, g));
+}
+
+/** Roll the case. The defendant escapes on roll ≤ threshold. */
+export function rollGetaway(die, threshold) {
+  const roll = die();
+  return { roll, threshold, getsAway: roll <= threshold };
+}
+
+/** Odds text helper, e.g. "1–2 ≈ 33%". */
+export function getawayOdds(threshold) {
+  return `1–${threshold} ≈ ${Math.round((threshold / 6) * 100)}%`;
+}
+
 // --- NPC Demand Roll (escalating press-your-luck) ----------------------------------------
 
 /** The pass target for the Nth dodge: 1st→2+, 2nd→3+, 3rd→4+, 4th→5+. */

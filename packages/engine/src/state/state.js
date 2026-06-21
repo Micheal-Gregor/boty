@@ -149,6 +149,7 @@ export function createGame(economy, playerSeeds, options = {}) {
     civilEventDeck: new Deck((options.civil ?? []).filter((c) => !c.hand), makeRng(seed === undefined ? undefined : seed + 4)),
     die: makeDie(makeRng(seed === undefined ? undefined : seed + 3)),
     pendingThreat: null, // active response window, if any
+    pendingCourt: [], // NPC court cases awaiting the defendant's lawyer decision
     turn: 1, // 1-based round counter; game ends after round === max_turns completes
     activePlayerIndex: 0,
     over: false,

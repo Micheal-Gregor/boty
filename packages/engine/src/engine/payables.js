@@ -5,7 +5,7 @@
 
 import { GameError, w } from "./economy.js";
 import { createPayable } from "../state/state.js";
-import { civilTarget, rollCivil, rollDemand } from "./litigation.js";
+import { civilTarget, rollCivil, getawayThreshold, rollGetaway, getawayOdds } from "./litigation.js";
 
 const playerById = (state, id) => state.players.find((p) => p.id === id);
 const hasExposed = (player) => player.jobs.some((j) => j.exposed);
@@ -49,7 +49,7 @@ export function payPayable(state, player, payableId) {
 export function processDuePayables(state, player) {
   const lines = [];
   for (const ap of [...player.payables]) {
-    if (ap.settled || state.turn < ap.due_turn) continue;
+    if (ap.settled || ap.in_court || state.turn < ap.due_turn) continue;
     lines.push(...(ap.is_npc ? dodgeNpc(state, player, ap) : tickPlayerWindow(state, player, ap)));
   }
   return lines;
@@ -62,33 +62,54 @@ function removeAp(player, ap) {
 function dodgeNpc(state, player, ap) {
   const e = state.economy;
   ap.turns_dodged += 1;
-  const d = rollDemand(e, state.die, ap.turns_dodged);
+  const roll = state.die();
 
-  if (d.forgiven) {
-    removeAp(player, ap);
-    return [`🎲 ${player.name} dodged ${ap.vendor} a 5th time and rolled a 6 — debt forgiven (${w(ap.amount)})`];
-  }
-  // 1st-dodge natural 6 → settlement offer: clear at the settle fraction if affordable.
-  if (d.naturalSix && ap.turns_dodged === 1) {
+  // A natural 6 → settlement offer (pay 50% to clear), EVERY round. Auto-taken if affordable
+  // (an interactive accept/decline prompt comes with the litigation UI in Stage 2/3).
+  if (roll === 6) {
     const settle = Math.ceil(ap.amount * e.npc_demand.settle_fraction);
     if (player.cash >= settle) {
       player.cash -= settle;
       removeAp(player, ap);
       return [`🤝 ${player.name} rolled a 6 — settled ${ap.vendor} at ${w(settle)} (50%)`];
     }
+    return [`🎲 ${player.name} rolled a 6 on ${ap.vendor} but can't afford the 50% settlement — keeps dodging`];
   }
-  if (d.passed) {
-    return [`🎲 ${player.name} dodged ${ap.vendor} again (rolled ${d.roll} vs ${d.target}+), ${w(ap.amount)} still owed`];
+  // Otherwise pass on (1 + dodge#)+ to dodge again, until the last allowed dodge.
+  const target = 1 + ap.turns_dodged;
+  if (ap.turns_dodged < e.npc_demand.max_dodges && roll >= target) {
+    return [`🎲 ${player.name} dodged ${ap.vendor} again (rolled ${roll} vs ${target}+), ${w(ap.amount)} still owed`];
   }
-  // Fail → court. A dodged debt is a weak case (court penalty).
-  const target = civilTarget(e, { court: true });
-  const res = rollCivil(state.die, target);
-  removeAp(player, ap);
-  if (res.defendantWins) {
-    return [`⚖️ ${player.name} failed the Demand Roll, went to court (defend ${target}+), and WON — ${ap.vendor} AP wiped, fee reimbursed (walks clean)`];
+  // Fail → court. Queue it so the defendant can play a Slick Lawyer before the roll.
+  ap.in_court = true;
+  state.pendingCourt.push({ playerId: player.id, payableId: ap.id, vendor: ap.vendor, amount: ap.amount });
+  return [`⚖️ ${player.name} failed the Demand Roll on ${ap.vendor} — summoned to court (you walk on 1–2; a Slick Lawyer makes it 1–4)`];
+}
+
+/**
+ * Resolve one queued NPC court case. The defendant may play a Slick Lawyer (own lawyer, −1 to
+ * the defence target) before the roll. Win → walk clean (debt wiped, fee reimbursed); lose →
+ * pay the amount + damages fee. Consumes the lawyer card if used. Returns a log line.
+ */
+export function resolveCourt(state, caseEntry, useLawyer, accuserLawyers = 0) {
+  const e = state.economy;
+  const player = state.players.find((p) => p.id === caseEntry.playerId);
+  const ap = player.payables.find((a) => a.id === caseEntry.payableId);
+  let defLawyers = 0;
+  if (useLawyer) {
+    const idx = player.hand.findIndex((c) => c.type === "slick_lawyer");
+    if (idx >= 0) { player.hand.splice(idx, 1); defLawyers = 1; }
   }
-  player.cash -= ap.amount + e.civil.damages_fee;
-  return [`⚖️ ${player.name} failed the Demand Roll, lost in court (needed ${target}+, rolled ${res.roll}) — paid ${w(ap.amount)} + ${w(e.civil.damages_fee)} fee`];
+  const g = getawayThreshold(e, e.civil.getaway_owed, defLawyers, accuserLawyers);
+  const res = rollGetaway(state.die, g);
+  if (ap) removeAp(player, ap);
+  player.cash -= e.civil.legal_fee; // legal fee, paid regardless
+  const tag = defLawyers ? " (lawyered up)" : "";
+  if (res.getsAway) {
+    return `⚖️ ${player.name}${tag} WALKS — rolled ${res.roll} ≤ ${g} (${getawayOdds(g)}); ${caseEntry.vendor} debt wiped, ${w(e.civil.legal_fee)} legal fee`;
+  }
+  player.cash -= caseEntry.amount;
+  return `⚖️ ${player.name}${tag} LOSES — rolled ${res.roll} > ${g}; pays ${caseEntry.vendor} ${w(caseEntry.amount)} + ${w(e.civil.legal_fee)} fee`;
 }
 
 function tickPlayerWindow(state, player, ap) {

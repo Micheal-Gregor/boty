@@ -16,7 +16,7 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
  * won't see the change. `rev` bumps on every change. */
 export const ui = writable({
   screen: "setup", game: null, view: null, ctx: null, flavor, economy, error: null, rev: 0,
-  aiActing: null, threat: null, picking: null, reckoning: null, final: null,
+  aiActing: null, threat: null, picking: null, reckoning: null, final: null, court: null,
 });
 
 let game = null;
@@ -61,8 +61,8 @@ export function newGame(seats) {
   ai = {};
   game.state.players.forEach((p, i) => { ai[p.id] = seats[i].strategy ?? null; });
   const ctx = game.start();
-  push({ screen: "board", ctx, error: null, aiActing: null, threat: null, picking: null, reckoning: null, final: null });
-  runAI();
+  push({ screen: "board", ctx, error: null, aiActing: null, threat: null, picking: null, reckoning: null, final: null, court: null });
+  advanceUntilHuman(ctx);
 }
 
 /** Run an engine action for the current (human) player, catching illegal moves. */
@@ -133,31 +133,37 @@ function afterAct() {
 // --- Turn flow ---------------------------------------------------------------------------
 
 export function endTurn() {
+  if (game.state.pendingCourt.length) return fail("Resolve your court case first");
   if (game.state.pendingThreat) return fail("Resolve the response window first");
   const ctx = game.endTurn();
   if (ctx.reckoning) return enterReckoning(ctx.order);
   if (ctx.over) return push({ screen: "gala", ctx, final: ctx });
-  push({ ctx, error: null });
-  runAI();
+  advanceUntilHuman(ctx);
 }
 
-/** Step through AI seats with a pause so the human can watch the table move. */
-async function runAI() {
-  let lastCtx = null;
-  let guard = 0;
-  while (guard++ < 100) {
+/** A failed Demand Roll summons you to court. AI seats auto-defend; a human gets the modal. */
+export function resolveCourtUI(payableId, lawyer) {
+  try { game.resolveCourt(payableId, { lawyer }); } catch (e) { return fail(e?.message ?? String(e)); }
+  push({ court: game.courtCases.length ? [...game.courtCases] : null });
+}
+
+/** Step through AI seats (auto-resolving their court + acting) until a human is up. */
+async function advanceUntilHuman(initialCtx) {
+  let lastCtx = initialCtx;
+  while (!game.state.over) {
     const p = game.currentPlayer;
-    if (game.state.over || !ai[p.id]) break;
-    if (game.state.players.every((x) => x.bankrupt)) break;
-    push({ aiActing: p.name });
+    if (!ai[p.id]) break; // human is up
+    push({ aiActing: p.name, court: null });
     await sleep(AI_DELAY);
+    if (game.courtCases.length) game.autoResolveCourt();
     try { botActions(game, ai[p.id]); } catch { /* best effort */ }
     const ctx = game.endTurn();
     if (ctx.reckoning) { push({ aiActing: null }); return enterReckoning(ctx.order); }
     if (ctx.over) return push({ aiActing: null, screen: "gala", ctx, final: ctx });
     lastCtx = ctx;
   }
-  push({ aiActing: null, ...(lastCtx ? { ctx: lastCtx } : {}) });
+  if (game.state.over) return;
+  push({ aiActing: null, ctx: lastCtx, error: null, court: game.courtCases.length ? [...game.courtCases] : null });
 }
 
 // --- The Final Reckoning (Last Licks) ----------------------------------------------------
@@ -190,7 +196,7 @@ export function reckoningDone() {
 
 export function restart() {
   game = null;
-  push({ screen: "setup", ctx: null, final: null, threat: null, picking: null, reckoning: null, aiActing: null, error: null });
+  push({ screen: "setup", ctx: null, final: null, threat: null, picking: null, reckoning: null, aiActing: null, error: null, court: null });
 }
 
 // Dev-only debug hook for manual/automated testing in the browser console.

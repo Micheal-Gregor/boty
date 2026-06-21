@@ -9,6 +9,8 @@
     "apps/*"
   ],
   "scripts": {
+    "dev": "npm run dev --workspace @boty/web",
+    "build:web": "npm run build --workspace @boty/web",
     "test": "npm test --workspace @boty/engine",
     "tune": "npm run tune --workspace @boty/engine",
     "start": "npm start --workspace @boty/engine"

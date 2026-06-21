@@ -6,6 +6,7 @@
   import Gala from "./screens/Gala.svelte";
   import TargetPicker from "./components/TargetPicker.svelte";
   import ResponseModal from "./components/ResponseModal.svelte";
+  import CourtModal from "./components/CourtModal.svelte";
 </script>
 
 <main>
@@ -20,6 +21,7 @@
   {/if}
 
   <!-- Overlays render above any screen -->
+  <CourtModal />
   <TargetPicker />
   <ResponseModal />
 </main>

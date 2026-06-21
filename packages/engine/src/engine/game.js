@@ -44,6 +44,7 @@ export class Game {
    */
   runProgress() {
     if (this.state.over) return [];
+    if (this.state.pendingCourt.length) throw new GameError("Resolve your court case first");
     if (this.state.pendingThreat) throw new GameError("Resolve the pending response window first");
     const player = this.currentPlayer;
     if (player.bankrupt || player.relocatedThisTurn) return [];
@@ -123,6 +124,7 @@ export class Game {
       upkeep,
       drawn,
       canAct, // a bankrupt player has no action phase
+      court: [...this.state.pendingCourt], // NPC court cases to resolve before acting
     };
   }
 
@@ -130,6 +132,7 @@ export class Game {
 
   #act(fn, finalLegal = false) {
     if (this.state.over) throw new GameError("The game is over");
+    if (this.state.pendingCourt.length) throw new GameError("Resolve your court case first");
     if (this.state.pendingThreat) throw new GameError("Resolve the pending response window first");
     if (this.state.phase === "reckoning" && !finalLegal) {
       throw new GameError("The year is over — only final plays (rush / sabotage / buy-time / pay / factor / sue) are allowed");
@@ -172,6 +175,36 @@ export class Game {
 
   factorInvoice(invoiceId) { return this.#act((p) => payables.factorInvoice(this.state, p, invoiceId), true); }
   payPayable(payableId) { return this.#act((p) => payables.payPayable(this.state, p, payableId), true); }
+
+  // --- NPC court (a failed Demand Roll). The defendant may play a Slick Lawyer (own lawyer). --
+
+  /** The queued court cases awaiting a defence decision. */
+  get courtCases() { return this.state.pendingCourt; }
+
+  /**
+   * Resolve one court case. The defendant may play a Slick Lawyer (+2 to their walk threshold);
+   * `accuserLawyers` is how many the table threw in for the vendor (−2 each).
+   */
+  resolveCourt(payableId, { lawyer = false, accuserLawyers = 0 } = {}) {
+    const i = this.state.pendingCourt.findIndex((c) => c.payableId === payableId);
+    if (i < 0) throw new GameError(`No pending court case for "${payableId}"`);
+    const [c] = this.state.pendingCourt.splice(i, 1);
+    const line = payables.resolveCourt(this.state, c, lawyer, accuserLawyers);
+    this.state.log.push(line);
+    return line;
+  }
+
+  /** Resolve ALL pending court cases (for AI seats / CLI / harness). Plays a lawyer if held. */
+  autoResolveCourt({ useLawyer = true } = {}) {
+    const lines = [];
+    while (this.state.pendingCourt.length) {
+      const c = this.state.pendingCourt[0];
+      const owner = this.state.players.find((p) => p.id === c.playerId);
+      const lawyer = useLawyer && owner.hand.some((x) => x.type === "slick_lawyer");
+      lines.push(this.resolveCourt(c.payableId, { lawyer }));
+    }
+    return lines;
+  }
 
   // --- Hand cards that resolve immediately (no response window) ---------------------------
 
