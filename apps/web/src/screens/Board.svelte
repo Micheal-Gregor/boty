@@ -15,6 +15,8 @@
   const seasonSlug = $derived(season ? season.name.toLowerCase() : "spring");
   const drawn = $derived($ui.ctx?.drawn ?? []);
   const pnl = $derived(s?.pnl); // the active player's profit & loss, summed from the G/L
+  const bs = $derived(s?.bs); // the balance sheet
+  let booksView = $state("pl"); // "pl" | "bs"
   const rivals = $derived(s ? s.players.filter((_, i) => i !== s.activePlayerIndex) : []);
   const logTail = $derived(s ? s.log.slice(-8) : []);
 
@@ -132,6 +134,7 @@
         <button onclick={() => act((g) => g.buyEquipment("pro"))}>Buy Pro Rig</button>
         <button onclick={() => act((g) => g.rentEquipment("basic"))}>Rent Basic</button>
         <button onclick={() => act((g) => g.rentEquipment("pro"))}>Rent Pro</button>
+        <button title="Capital improvement: +1 capacity, goes to the balance sheet (not an expense)" onclick={() => act((g) => g.improveShop())}>Improve shop</button>
         {#if nextBuilding}
           <button onclick={() => act((g) => g.relocate(nextBuilding.id))}>Move → {nextBuilding.name}</button>
         {/if}
@@ -143,10 +146,27 @@
       </fieldset>
     </section>
 
-    <!-- BOOKS: the profit & loss, straight off the general ledger -->
+    <!-- BOOKS: the financial statements, straight off the general ledger -->
     <section class="tabview books-tab" class:active={tab === "books"}>
       <h2>The books · {me.name}</h2>
-      {#if pnl}
+      <div class="books-toggle">
+        <button class:on={booksView === "pl"} onclick={() => (booksView = "pl")}>Profit &amp; Loss</button>
+        <button class:on={booksView === "bs"} onclick={() => (booksView = "bs")}>Balance Sheet</button>
+      </div>
+      {#if booksView === "bs" && bs}
+        <div class="pl">
+          <div class="pl-row total"><span>Assets</span><span>{bs.assets} W</span></div>
+          {#each bs.assetLines as l}<div class="pl-row sub"><span>{l.name}</span><span>{l.amount}</span></div>{/each}
+          <div class="pl-row total"><span>Liabilities</span><span>{bs.liabilities} W</span></div>
+          {#each bs.liabilityLines as l}<div class="pl-row sub"><span>{l.name}</span><span>{l.amount}</span></div>{/each}
+          {#if !bs.liabilityLines.length}<div class="pl-row sub"><span>none</span><span>0</span></div>{/if}
+          <div class="pl-row total"><span>Equity</span><span>{bs.equity} W</span></div>
+          <div class="pl-row sub"><span>Owner's capital</span><span>{bs.capital}</span></div>
+          <div class="pl-row sub"><span>Retained earnings (net income)</span><span>{bs.retained}</span></div>
+          <div class="pl-row net"><span>Liabilities + equity</span><span>{bs.liabilities + bs.equity} W</span></div>
+          <p class="muted" style="margin-top:8px">Assets {bs.assets} = Liabilities {bs.liabilities} + Equity {bs.equity}. The books always balance.</p>
+        </div>
+      {:else if pnl}
         <div class="pl">
           <div class="pl-row total"><span>Revenue</span><span>{pnl.revenue} W</span></div>
           {#each pnl.revenueLines as l}<div class="pl-row sub"><span>{l.name}</span><span>{l.amount}</span></div>{/each}

@@ -4,7 +4,8 @@ import assert from "node:assert/strict";
 import { loadEconomy, loadDecks } from "../src/engine/content-fs.js";
 import { Game } from "../src/engine/game.js";
 import { botActions } from "../tools/bot.js";
-import { profitAndLoss, balances, ACCT } from "../src/state/ledger.js";
+import { resetIds } from "../src/state/state.js";
+import { profitAndLoss, balanceSheet, balances, ACCT } from "../src/state/ledger.js";
 
 let passed = 0;
 const ok = (label) => { passed++; console.log(`  ✓ ${label}`); };
@@ -61,6 +62,32 @@ const S = economy.services;
   assert.ok(pl.revenue > 0, "a real game booked some revenue");
   assert.ok(pl.overhead > 0, "a real game booked some overhead (rent/wages)");
   ok(`P&L sums from the ledger (rev ${pl.revenue} − COGS ${pl.cogs} − OH ${pl.overhead} = net ${pl.netIncome})`);
+
+  for (const p of g.state.players) assert.ok(balanceSheet(p).balanced, `${p.name}'s balance sheet balances`);
+  ok("balance sheet balances (Assets = Liabilities + Equity) for every player");
+}
+
+// Self-work CAPITALISES to the balance sheet (account 1600), never the P&L.
+{
+  resetIds();
+  const g = new Game(economy, [{ name: "Ana", service: "mechanic" }], { seed: 1 });
+  g.start();
+  const ana = g.state.players[0];
+  const { cost, capacity } = economy.shop_improvement;
+  const netBefore = profitAndLoss(ana).netIncome;
+  const cashBefore = ana.cash;
+  g.improveShop();
+  assert.equal(ana.cash, cashBefore - cost, "cash paid for the improvement");
+  assert.equal(ana.capacityBonus, capacity, "capacity bonus added");
+  assert.equal(profitAndLoss(ana).netIncome, netBefore, "a capital improvement does NOT touch the P&L");
+  const bs = balanceSheet(ana);
+  assert.ok(bs.balanced, "balance sheet still balances after capitalising");
+  assert.ok(bs.assetLines.some((l) => l.acct === ACCT.BUILDING && l.amount === cost), "the building asset shows on the balance sheet");
+  // Relocating writes the leasehold improvement off (a loss to the P&L).
+  g.relocate("shop");
+  assert.equal(ana.capacityBonus, 0, "improvements (and their capacity) are lost on relocate");
+  assert.equal(balances(ana)[ACCT.BUILDING] ?? 0, 0, "the building asset is written off when you move");
+  ok("self-work capitalises to 1600 (balance sheet, not P&L); written off on relocate");
 }
 
 console.log(`\nAll ledger checks passed (${passed}).`);

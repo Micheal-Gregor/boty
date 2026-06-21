@@ -62,21 +62,39 @@ export function balances(player) {
 const sumRange = (b, lo, hi, sign) =>
   Object.entries(b).reduce((s, [a, v]) => (+a >= lo && +a <= hi ? s + sign * v : s), 0);
 
+// The non-zero line items in an account range, signed so they read naturally on a statement.
+const lineItems = (b, lo, hi, sign) =>
+  Object.entries(b)
+    .filter(([a, v]) => +a >= lo && +a <= hi && Math.abs(v) > 0.001)
+    .map(([a, v]) => ({ acct: +a, name: ACCT_NAME[a] ?? a, amount: sign * v }))
+    .sort((x, y) => x.acct - y.acct);
+
 /** The profit & loss for the year so far, summed from the ledger. */
 export function profitAndLoss(player) {
   const b = balances(player);
-  const lines = (lo, hi, sign) =>
-    Object.entries(b)
-      .filter(([a, v]) => +a >= lo && +a <= hi && Math.abs(v) > 0.001)
-      .map(([a, v]) => ({ acct: +a, name: ACCT_NAME[a] ?? a, amount: sign * v }))
-      .sort((x, y) => x.acct - y.acct);
   const revenue = sumRange(b, 4000, 4999, -1);
   const cogs = sumRange(b, 5000, 5999, 1);
   const overhead = sumRange(b, 6000, 9999, 1);
   return {
-    revenueLines: lines(4000, 4999, -1),
-    cogsLines: lines(5000, 5999, 1),
-    overheadLines: lines(6000, 9999, 1),
+    revenueLines: lineItems(b, 4000, 4999, -1),
+    cogsLines: lineItems(b, 5000, 5999, 1),
+    overheadLines: lineItems(b, 6000, 9999, 1),
     revenue, cogs, grossMargin: revenue - cogs, overhead, netIncome: revenue - cogs - overhead,
+  };
+}
+
+/** The balance sheet snapshot: Assets = Liabilities + Equity (retained earnings = net income). */
+export function balanceSheet(player) {
+  const b = balances(player);
+  const assets = sumRange(b, 1000, 1999, 1); // debit balances
+  const liabilities = sumRange(b, 2000, 2999, -1); // credit balances
+  const capital = sumRange(b, 3000, 3999, -1);
+  const retained = profitAndLoss(player).netIncome; // the year's earnings roll into equity
+  const equity = capital + retained;
+  return {
+    assetLines: lineItems(b, 1000, 1999, 1), assets,
+    liabilityLines: lineItems(b, 2000, 2999, -1), liabilities,
+    capital, retained, equity,
+    balanced: Math.abs(assets - (liabilities + equity)) < 0.001, // a true double-entry invariant
   };
 }

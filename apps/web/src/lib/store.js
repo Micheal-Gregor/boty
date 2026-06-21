@@ -3,7 +3,7 @@
 // intents to Supabase, and the UI won't change. AI seats are driven by the engine's own bots.
 
 import { writable } from "svelte/store";
-import { Game, profitAndLoss } from "@boty/engine";
+import { Game, profitAndLoss, balanceSheet } from "@boty/engine";
 import { botActions } from "@boty/engine/bots";
 import { loadContent } from "./content.js";
 import { unlockAudio, playSfx } from "./sound.js";
@@ -50,8 +50,9 @@ function viewOf() {
     log: s.log.slice(-8),
     deckLeft: s.deck?.pile?.length ?? 0,
     pnl: profitAndLoss(s.players[s.activePlayerIndex]), // the active player's books so far
+    bs: balanceSheet(s.players[s.activePlayerIndex]),
     players: s.players.map((p) => ({
-      id: p.id, name: p.name, service: p.service, cash: p.cash, bankrupt: p.bankrupt, building: p.building,
+      id: p.id, name: p.name, service: p.service, cash: p.cash, bankrupt: p.bankrupt, building: p.building, capacityBonus: p.capacityBonus ?? 0,
       tradesmen: p.tradesmen.map((t) => ({ ...t })),
       equipment: p.equipment.map((e) => ({ ...e })),
       jobs: p.jobs.map((j) => ({ ...j, assigned_tradesmen: [...j.assigned_tradesmen] })),

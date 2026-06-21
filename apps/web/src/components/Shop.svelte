@@ -65,7 +65,7 @@
     <span class="muted">overhead {overhead} W/turn</span>
   </div>
 
-  <h3>Tradespeople ({player.tradesmen.length}/{bld.capacity})</h3>
+  <h3>Tradespeople ({player.tradesmen.length}/{bld.capacity + (player.capacityBonus ?? 0)})</h3>
   <div class="slots">
     {#each player.tradesmen as t}
       <div class="slot person" class:busy={t.assignedJob}>

@@ -7,7 +7,12 @@
 
 import { GameError, findBuilding, findEquipment, w } from "./economy.js";
 import { createTradesman, createEquipment } from "../state/state.js";
-import { cashIn, cashOut, ACCT } from "../state/ledger.js";
+import { cashIn, cashOut, post, balances, ACCT } from "../state/ledger.js";
+
+/** A building's crew capacity, plus any capitalised shop improvements the player has made. */
+export function capacityOf(economy, player) {
+  return findBuilding(economy, player.building).capacity + (player.capacityBonus ?? 0);
+}
 
 function assertSolvent(player, cost, action) {
   if (player.cash < cost) {
@@ -19,8 +24,9 @@ function assertSolvent(player, cost, action) {
 export function hire(state, player) {
   if (player.hiredThisTurn) throw new GameError(`${player.name} can only hire one tradesperson per turn`);
   const building = findBuilding(state.economy, player.building);
-  if (player.tradesmen.length >= building.capacity) {
-    throw new GameError(`${building.name} is at capacity (${building.capacity}); relocate or fire before hiring`);
+  const cap = capacityOf(state.economy, player);
+  if (player.tradesmen.length >= cap) {
+    throw new GameError(`${building.name} is at capacity (${cap}); relocate, improve the shop, or fire before hiring`);
   }
   const fee = state.economy.sign_on_fee;
   assertSolvent(player, fee, "hire");
@@ -95,6 +101,19 @@ export function cancelRental(state, player, instanceId) {
 }
 
 /**
+ * Invest in your shop — a CAPITAL improvement, not an expense. It buys lasting crew capacity and
+ * lands on the balance sheet (Dr building 1600 / Cr cash), so it never touches the P&L. The catch:
+ * it's a leasehold improvement, written off if you relocate.
+ */
+export function improveShop(state, player) {
+  const { cost, capacity } = state.economy.shop_improvement;
+  assertSolvent(player, cost, "improve the shop");
+  cashOut(state, player, ACCT.BUILDING, cost, "Shop improvement (capital)");
+  player.capacityBonus = (player.capacityBonus ?? 0) + capacity;
+  return `${player.name} invested ${w(cost)} in shop improvements — +${capacity} capacity, capitalised (not an expense)`;
+}
+
+/**
  * Relocate to a different building. Costs the WHOLE turn: this ends the player's action
  * phase (overhead was already paid at upkeep; in later stages no jobs progress this turn).
  * The caller is responsible for ending the turn — relocate sets a flag the turn loop reads.
@@ -106,6 +125,15 @@ export function relocate(state, player, buildingId) {
   if (player.tradesmen.length > target.capacity) {
     throw new GameError(`${target.name} caps at ${target.capacity}; ${player.name} has ${player.tradesmen.length} tradespeople — fire some first`);
   }
+  // Leasehold improvements don't move with you — write off their book value as a loss.
+  const bookValue = balances(player)[ACCT.BUILDING] || 0;
+  if (bookValue > 0.001) {
+    post(state, player, "Leasehold improvements written off (relocated)", [
+      { acct: ACCT.REPAIRS, amt: bookValue },
+      { acct: ACCT.BUILDING, amt: -bookValue },
+    ]);
+  }
+  player.capacityBonus = 0;
   const from = findBuilding(state.economy, player.building);
   player.building = target.id;
   player.relocatedThisTurn = true;

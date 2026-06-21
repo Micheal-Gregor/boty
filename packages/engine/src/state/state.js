@@ -131,6 +131,7 @@ export function createPlayer(economy, { name, service }) {
     cash: economy.starting_cash,
     bankrupt: false,
     building: economy.starting_building,
+    capacityBonus: 0, // capitalised leasehold improvements add capacity (lost on relocate)
     tradesmen,
     equipment: [],
 

@@ -170,6 +170,7 @@ export class Game {
   disposeEquipment(instanceId) { return this.#act((p) => shop.disposeEquipment(this.state, p, instanceId)); }
   cancelRental(instanceId) { return this.#act((p) => shop.cancelRental(this.state, p, instanceId)); }
   relocate(buildingId) { return this.#act((p) => shop.relocate(this.state, p, buildingId)); }
+  improveShop() { return this.#act((p) => shop.improveShop(this.state, p)); }
 
   assignJob(jobId, tradesmanId) { return this.#act((p) => jobs.assign(this.state, p, jobId, tradesmanId)); }
   holdJob(jobId) { return this.#act((p) => jobs.hold(this.state, p, jobId)); }
