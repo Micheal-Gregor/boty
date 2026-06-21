@@ -5,10 +5,14 @@
   const mods = import.meta.glob("../assets/art/**/*.{png,jpg,jpeg,webp,svg}", {
     eager: true, query: "?url", import: "default",
   });
+  // Key by the FULL sub-path under art/ so nested kinds work:
+  //   art/town/spring/mainst.webp        → "town/spring/mainst"
+  //   art/shop/plumber/garage.webp       → "shop/plumber/garage"
+  //   art/card/code_violation.webp       → "card/code_violation"
   const lookup = {};
   for (const [path, url] of Object.entries(mods)) {
-    const m = path.match(/art\/([^/]+)\/([^/.]+)\./);
-    if (m) lookup[`${m[1]}/${m[2]}`] = url;
+    const m = path.match(/art\/(.+)\.[^.]+$/);
+    if (m) lookup[m[1]] = url;
   }
 </script>
 

@@ -9,6 +9,7 @@
   import CourtModal from "./components/CourtModal.svelte";
   import DamagesModal from "./components/DamagesModal.svelte";
   import SettleModal from "./components/SettleModal.svelte";
+  import CardModal from "./components/CardModal.svelte";
 </script>
 
 <main>
@@ -23,6 +24,7 @@
   {/if}
 
   <!-- Overlays render above any screen -->
+  <CardModal />
   <SettleModal />
   <CourtModal />
   <DamagesModal />

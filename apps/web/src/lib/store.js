@@ -17,10 +17,25 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 export const ui = writable({
   screen: "setup", game: null, view: null, ctx: null, flavor, economy, error: null, rev: 0,
   aiActing: null, threat: null, picking: null, reckoning: null, final: null, court: null, damages: null, settle: null,
+  cardView: null,
 });
 
 const declinedDamages = new Set(); // jobIds the human chose not to sue over
 const openDamages = () => game.damagesCases.filter((c) => !declinedDamages.has(c.jobId));
+
+// --- Card registry: unique card definitions for the detail modal + log↔card linking --------
+const cardById = new Map();
+for (const c of [...decks.fortune, ...decks.civil]) if (c.id && !cardById.has(c.id)) cardById.set(c.id, c);
+// Longest names first so "Plumbing emergency" matches before a bare "Plumbing".
+const cardsByNameLen = [...cardById.values()].filter((c) => c.name).sort((a, b) => b.name.length - a.name.length);
+
+/** The first known card whose name appears in a log line, for making the line clickable. */
+export function cardInLine(line) {
+  return cardsByNameLen.find((c) => line.includes(c.name)) ?? null;
+}
+/** Open / close the card detail modal. */
+export function viewCard(card) { if (card) push({ cardView: card }); }
+export function closeCard() { push({ cardView: null }); }
 
 let game = null;
 let ai = {}; // playerId -> strategy string, or null for a human seat
@@ -32,6 +47,7 @@ function viewOf() {
   return {
     turn: s.turn, activePlayerIndex: s.activePlayerIndex, over: s.over, phase: s.phase,
     log: s.log.slice(-8),
+    deckLeft: s.deck?.pile?.length ?? 0,
     players: s.players.map((p) => ({
       id: p.id, name: p.name, service: p.service, cash: p.cash, bankrupt: p.bankrupt, building: p.building,
       tradesmen: p.tradesmen.map((t) => ({ ...t })),
@@ -236,7 +252,7 @@ export function reckoningDone() {
 export function restart() {
   game = null;
   declinedDamages.clear();
-  push({ screen: "setup", ctx: null, final: null, threat: null, picking: null, reckoning: null, aiActing: null, error: null, court: null, damages: null, settle: null });
+  push({ screen: "setup", ctx: null, final: null, threat: null, picking: null, reckoning: null, aiActing: null, error: null, court: null, damages: null, settle: null, cardView: null });
 }
 
 // Dev-only debug hook for manual/automated testing in the browser console.
