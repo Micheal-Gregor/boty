@@ -23,29 +23,55 @@ lives in `apps/web/src/assets/manifest.json` keyed by `kind/id` — but a plain 
 - **Naming:** lowercase, kebab-case IDs that match the game's IDs where one exists
   (e.g. card `code_violation` → `card/code_violation.webp`; trade `HVAC technician` →
   folder `hvac` — see the trade slugs below).
-- **Animation (E3):** drop a short loop as `.webp`/`.gif`, or a sprite sheet + a `manifest.json`
-  entry; details when we wire the animation phase.
+- **Card format = image first, animation second.** Every card is *title · flavor · thumbnail
+  still → tap to enlarge → ≤6s animation*. The **still is what the game needs**; the animation is
+  the enhancement (a second pass on the cinematic assets). Drop the still now, the animation later.
 
 Trade slugs: `mechanic`, `plumber`, `electrician`, `pipefitter`, `welder`, `hvac`.
 
-## Catalog
+## The key rule: cards inherit object art
 
-| Folder (`art/…`) | What | Target count | Attaches to |
+The ~60 card *designs* need **zero dedicated art** — a card shows the image of the **object it
+skins**: a building incident shows the *building*, a crew card shows the *tradesperson's portrait*,
+a character card shows the *character*, a seasonal event shows the *event*. So your art workload is
+**the object catalog + the hand-card deck**, not the cards. Only the **play/hand cards** (and a few
+abstract **service cards**) get their own art, because they aren't tied to a physical object.
+
+See `WORLD.md` for the full object catalog and the card list that rides on it.
+
+## Catalog (basic edition — ~218 unique visuals)
+
+Objects the cards ride on:
+
+| Folder (`art/…`) | What | Count | Attaches to |
 |---|---|---|---|
-| `town/<season>/` | Main-street & town scenes per season (`spring`/`summer`/`fall`/`winter`) | ~12 (3 ea.) | Table tab backdrop |
-| `crew/` | Tradesperson portraits (the hiring pool) | 50 | each hired tradesman, persistent |
-| `shop/<trade>/<tier>/` | Each trade's Garage / Shop+ / Warehouse (`garage`/`shop`/`warehouse`) | 18 (6×3) | Shop tab header |
-| `equipment/<trade>/` | Basic + pro rigs, tailored per trade (variants ok) | ~50 | equipment instances |
-| `building/civic/` | City hall, courthouse, library, fire hall… | 10 | job & event locations |
-| `building/business/` | Downtown shops, diner, bank, hardware… | 20 | job & event locations |
-| `building/ag/` | Barns, grain elevator, mill… | 10 | job & event locations |
-| `building/commercial/` | Strip mall, warehouses, garages… | 10 | job & event locations |
-| `character/` | Townsfolk — clients, officials, wild cards | 25 | event/service/job givers |
-| `event/` | Windfall / shock / civil / ambient moments (still + later anim) | 50 | fortune & civil cards |
-| `card/` | Non-job fortune card faces (windfall/shock/gift/summons/payable/defect) | ~20 | those card IDs |
-| `project/` | The five marquee BIG PROJECTS (World track) | 5 | shared big-job pool |
+| `town/<season>/` | Base main-street backdrop per season (`spring`/`summer`/`fall`/`winter`) | 4 | Table tab backdrop |
+| `crew/` | Tradesperson portraits (the hiring pool) | 40 | each hired tradesman *(trim to ~20 if heavy)* |
+| `character/` | The 12 named townsfolk / antagonists | 12 | character cards |
+| `building/downtown/` | Downtown retail (diner, bank, hardware…) | 8 | incidents |
+| `building/ag/` | Rural agricultural (farms, barns, elevator…) | 8 | incidents |
+| `building/industrial/` | Industrial / commercial (mill, lumber yard, plants…) | 8 | incidents |
+| `building/civic/` | Civic (city hall, courthouse, hospital, fire hall…) | 8 | incidents |
+| `building/residential/` | Urban residential homes & apartments | 8 | incidents |
+| `equipment/` | 10 generic basics + 30 pro rigs (`equipment/<trade>/…`) | 40 | equipment instances |
+| `shop/<trade>/<tier>/` | Garage / Shop+ / Warehouse per trade | 18 (6×3) | Shop tab header |
+| `project/` | The 5 big projects (hero shot; phase art optional) | 5 | big-project tenders |
+| `event/` | The 50 seasonal events (the immersion core) | 50 | seasonal Fortune cards |
+| **Objects subtotal** | | **209** | every card reuses these |
 
-### Big projects (World track — art useful now, mechanic later)
+Card-specific art (the only cards that need their own image):
+
+| Folder (`art/…`) | What | Count |
+|---|---|---|
+| `card/play/` | Slick lawyer, rush, buy-time, sabotage, favor, permit, grant | 7 |
+| `card/service/` | Insurance, marketing, accountant, supplier account, training, line of credit *(or reuse a character)* | ~6 |
+
+**Total ≈ 220 stills**, of which the cinematic ones (~70: the 50 events + 12 characters + 5
+projects) most reward a ≤6s animation. **Lean first pass ≈ 150** (crew→20, pros→~3/trade, hero-only
+projects); full immersion ≈ 220 stills + ~70 animations. The game is fully playable at **zero** art
+(placeholders), so generate in priority order and fill in.
+
+### Big project IDs
 `project/tower`, `project/shopping-center`, `project/city-hall`, `project/hospital`,
 `project/lodge` (Hunting & Fishing Lodge).
 
