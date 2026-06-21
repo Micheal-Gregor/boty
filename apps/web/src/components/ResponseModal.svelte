@@ -16,10 +16,12 @@
         {#if !t.canCounter}<p class="muted">No Rush in your hand.</p>{/if}
       {:else}
         <h2>⚖️ {t.targetName}, you're being sued for {t.amount} W</h2>
-        <p>Match the {t.deposit} W deposit to fight it, or fold and pay.</p>
+        <p>Defend the case — you <strong>walk on a 1–3 (50%)</strong>, and a Slick Lawyer pushes
+          that to 1–5. Win → the debt stands; lose → you pay {t.amount} W. Defending costs a
+          1 W legal fee. Or fold and just pay.</p>
         <div class="row">
-          <button disabled={!t.canAfford} onclick={() => respond({ contest: true })}>Contest ({t.deposit} W)</button>
-          {#if t.canLawyer}<button onclick={() => respond({ contest: true, ownLawyer: true })}>Contest + Slick Lawyer</button>{/if}
+          <button onclick={() => respond({ contest: true })}>Defend</button>
+          {#if t.canLawyer}<button onclick={() => respond({ contest: true, ownLawyer: true })}>🧑‍⚖️ Defend + Slick Lawyer</button>{/if}
           <button onclick={() => respond({ contest: false })}>Fold &amp; pay</button>
         </div>
       {/if}

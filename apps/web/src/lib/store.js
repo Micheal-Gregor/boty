@@ -122,7 +122,7 @@ function viewThreat(t) {
   }
   const debtor = player(t.debtorId);
   const ap = debtor.payables.find((a) => a.id === t.payableId);
-  return { type: "sue", targetName: debtor.name, amount: ap?.amount, canLawyer: handHas(debtor, "slick_lawyer"), deposit: economy.civil.deposit, canAfford: debtor.cash >= economy.civil.deposit };
+  return { type: "sue", targetName: debtor.name, amount: ap?.amount, canLawyer: handHas(debtor, "slick_lawyer") };
 }
 
 /** After any action that might end a player's options (here: just refresh / continue). */

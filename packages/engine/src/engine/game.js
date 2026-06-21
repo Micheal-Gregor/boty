@@ -9,7 +9,7 @@ import * as jobs from "./jobs.js";
 import * as cards from "./cards.js";
 import * as payables from "./payables.js";
 import { drawFortune } from "./fortune.js";
-import { civilTarget, rollCivil } from "./litigation.js";
+import { getawayThreshold, rollGetaway, getawayOdds } from "./litigation.js";
 import { w } from "./economy.js";
 import { runUpkeep, advance, results } from "./turn.js";
 
@@ -261,12 +261,14 @@ export class Game {
   }
 
   /**
-   * Sue another player to collect a late player-payable. Opens the response window (the debtor
-   * must match the deposit to contest, and may play Slick Lawyer as own counsel).
-   * @param opts { slick?: bool } the creditor plays their own Slick Lawyer (+target)
+   * Sue another player to collect a late player-payable. Opens the response window: the debtor
+   * may defend (play a Slick Lawyer) or fold. No deposit — it's a straight getaway roll at the
+   * dispute base (50%), shifted ±2 per Slick Lawyer per side. Legal fee 1 W each on a contest.
+   * @param opts { slick?: bool } the creditor plays their own Slick Lawyer (−2 to the debtor's walk)
    */
   sue(debtorId, payableId, opts = {}) {
     if (this.state.over) throw new GameError("The game is over");
+    if (this.state.pendingCourt.length) throw new GameError("Resolve your court case first");
     if (this.state.pendingThreat) throw new GameError("Resolve the pending response window first");
     const creditor = this.currentPlayer;
     const debtor = this.#playerById(debtorId);
@@ -274,17 +276,14 @@ export class Game {
     if (!ap || ap.is_npc || ap.creditor_id !== creditor.id) throw new GameError(`No suable player-payable "${payableId}" owed to ${creditor.name}`);
     if (!ap.sue_window_remaining || ap.sue_window_remaining <= 0) throw new GameError(`The sue window on ${payableId} is closed`);
 
-    const deposit = this.state.economy.civil.deposit;
-    if (creditor.cash < deposit) throw new GameError(`${creditor.name} can't post the ${w(deposit)} deposit`);
-    let creditorSlick = false;
-    if (opts.slick) { const f = cards.findHandCard(creditor, "slick_lawyer"); cards.takeFromHand(creditor, f.index); creditorSlick = true; }
-    creditor.cash -= deposit;
+    let creditorLawyers = 0;
+    if (opts.slick) { const f = cards.findHandCard(creditor, "slick_lawyer"); cards.takeFromHand(creditor, f.index); creditorLawyers = 1; }
 
     this.state.pendingThreat = {
-      type: "sue", creditorId: creditor.id, debtorId, payableId, pot: deposit, creditorSlick,
+      type: "sue", creditorId: creditor.id, debtorId, payableId, creditorLawyers,
       counterableBy: ["slick_lawyer"],
     };
-    const msg = `⚖️ ${creditor.name} hauls ${debtor.name} before the Maple Hollow BBB over ${w(ap.amount)} (${payableId})${creditorSlick ? ", slick lawyer in tow" : ""} — ${debtor.name} must match the ${w(deposit)} deposit or fold.`;
+    const msg = `⚖️ ${creditor.name} hauls ${debtor.name} before the Maple Hollow BBB over ${w(ap.amount)} (${payableId})${creditorLawyers ? ", slick lawyer in tow" : ""} — ${debtor.name} can defend or fold.`;
     this.state.log.push(msg);
     return { threat: this.state.pendingThreat, message: msg };
   }
@@ -325,36 +324,29 @@ export class Game {
     const settle = () => { debtor.payables = debtor.payables.filter((a) => a.id !== t.payableId); };
 
     if (!contest) {
-      // Lose by default: debtor pays, creditor recovers deposit + the debt.
-      creditor.cash += t.pot; // deposit back
       debtor.cash -= ap.amount;
       creditor.cash += ap.amount;
       settle();
       return `🏳️ ${debtor.name} folds rather than fight it — pays ${creditor.name} ${w(ap.amount)}.`;
     }
-    // Contest: debtor matches the deposit (or can't → treated as concede).
-    if (debtor.cash < e.civil.deposit) {
-      creditor.cash += t.pot;
-      debtor.cash -= ap.amount;
-      creditor.cash += ap.amount;
-      settle();
-      return `${debtor.name} can't match the deposit — loses by default, pays ${creditor.name} ${w(ap.amount)}`;
+    let defLawyers = 0;
+    if (ownLawyer) {
+      if (!cards.hasCardType(debtor, "slick_lawyer")) throw new GameError(`${debtor.name} has no Slick Lawyer to play`);
+      cards.takeFromHand(debtor, cards.findHandCard(debtor, "slick_lawyer").index);
+      defLawyers = 1;
     }
-    if (ownLawyer && !cards.hasCardType(debtor, "slick_lawyer")) throw new GameError(`${debtor.name} has no Slick Lawyer to play`);
-    debtor.cash -= e.civil.deposit;
-    const pot = t.pot + e.civil.deposit;
-    if (ownLawyer) { cards.takeFromHand(debtor, cards.findHandCard(debtor, "slick_lawyer").index); }
-
-    // Defendant = debtor. Late debt weakens them (+1); creditor's slick +2; own lawyer −1.
-    const target = civilTarget(e, { late: true, slick: t.creditorSlick, ownLawyer });
-    const res = rollCivil(this.state.die, target);
-    if (res.defendantWins) {
-      debtor.cash += pot; // debtor takes the pot; debt survives (window keeps ticking)
-      return `⚖️ ${debtor.name} WINS the suit (defend ${target}+, rolled ${res.roll}) — takes the ${w(pot)} pot; debt stands`;
+    // Getaway roll at the dispute base (50%); each Slick Lawyer shifts ±2. Legal fee 1 W each.
+    const g = getawayThreshold(e, e.civil.getaway_dispute, defLawyers, t.creditorLawyers);
+    const res = rollGetaway(this.state.die, g);
+    const FEE = e.civil.legal_fee;
+    creditor.cash -= FEE;
+    debtor.cash -= FEE;
+    if (res.getsAway) {
+      return `⚖️ ${debtor.name} WALKS (rolled ${res.roll} ≤ ${g}, ${getawayOdds(g)}) — debt stands; ${w(FEE)} legal fee each.`;
     }
-    creditor.cash += pot + ap.amount;
     debtor.cash -= ap.amount;
+    creditor.cash += ap.amount;
     settle();
-    return `⚖️ ${creditor.name} WINS the suit (${debtor.name} needed ${target}+, rolled ${res.roll}) — collects ${w(ap.amount)} + the ${w(pot)} pot`;
+    return `⚖️ ${creditor.name} WINS (${debtor.name} rolled ${res.roll} > ${g}) — collects ${w(ap.amount)}; ${w(FEE)} legal fee each.`;
   }
 }

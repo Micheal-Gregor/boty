@@ -24,18 +24,13 @@
   },
 
   "civil": {
-    "_comment": "Dial 5 (v2). The DEFENDANT 'gets away' on roll ≤ threshold. ONE modifier: each Slick Lawyer shifts the threshold by lawyer_shift toward the side that plays it (defender +, accuser −). Floored to [min_getaway, max_getaway] so it's never a sure thing either way. Two bases: getaway_owed = you're clearly in the wrong (didn't pay for delivered work / dodged a vendor) → 1–2 (33%); getaway_dispute = a genuine botched-job dispute → 1–3 (50%). legal_fee is paid by each party regardless of outcome. (The base_target/deposit/modifiers below are the LEGACY resolver, still used by the player suit + civil events until Stage 2 rewrites them with trade-routed jobs.)",
+    "_comment": "Dial 5. The DEFENDANT 'gets away' on roll ≤ threshold. ONE modifier: each Slick Lawyer shifts the threshold by lawyer_shift toward the side that plays it (defender +, accuser −). Clamped to [min_getaway, max_getaway] so it's never a sure thing either way. Two bases: getaway_owed = you're clearly in the wrong (didn't pay for delivered work / dodged a vendor) → 1–2 (33%); getaway_dispute = a genuine botched-job dispute → 1–3 (50%). legal_fee is paid by each party regardless of outcome.",
     "getaway_owed": 2,
     "getaway_dispute": 3,
     "lawyer_shift": 2,
     "min_getaway": 1,
     "max_getaway": 5,
-    "legal_fee": 1,
-    "base_target": 2,
-    "deposit": 3,
-    "damages_fee": 1,
-    "court_penalty": 1,
-    "modifiers": { "slick_lawyer": 2, "late_or_botched": 1, "own_lawyer": -1 }
+    "legal_fee": 1
   },
 
   "npc_demand": {

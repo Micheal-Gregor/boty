@@ -7,14 +7,14 @@ import assert from "node:assert/strict";
 import { loadEconomy } from "../src/engine/content-fs.js";
 import { Game } from "../src/engine/game.js";
 import { resetIds, createPayable } from "../src/state/state.js";
-import { civilTarget, demandTarget } from "../src/engine/litigation.js";
+import { getawayThreshold } from "../src/engine/litigation.js";
 import * as payables from "../src/engine/payables.js";
 
 let passed = 0;
 const ok = (label) => { passed++; console.log(`  ✓ ${label}`); };
 
 const economy = await loadEconomy();
-const D = economy.civil.deposit;
+const FEE = economy.civil.legal_fee;
 
 /** A die that returns a fixed queue of rolls; throws if an unexpected extra roll happens. */
 function scriptedDie(rolls) {
@@ -30,17 +30,16 @@ function newGame(names = ["Ana"]) {
   return new Game(economy, names.map((n, i) => ({ name: n, service: economy.services[i] })), { seed: 1 });
 }
 
-// --- Civil target math (Dial 5) -----------------------------------------------------------
+// --- Getaway math (Dial 5): one modifier, the Slick Lawyer (±2), clamped 1–5 ---------------
 {
-  assert.equal(civilTarget(economy, {}), 2, "baseline 2+");
-  assert.equal(civilTarget(economy, { slick: true }), 4, "opponent Slick Lawyer → 4+");
-  assert.equal(civilTarget(economy, { late: true }), 3, "late/botched → 3+");
-  assert.equal(civilTarget(economy, { late: true, slick: true }), 5, "late + Slick → 5+");
-  assert.equal(civilTarget(economy, { slick: true, ownLawyer: true }), 3, "own lawyer cancels a Slick (−1)");
-  assert.equal(civilTarget(economy, { court: true }), 3, "court penalty → weak case 3+");
-  assert.equal(demandTarget(1), 2, "1st dodge 2+");
-  assert.equal(demandTarget(4), 5, "4th dodge 5+");
-  ok("civil target + demand target math matches the dials");
+  const owed = economy.civil.getaway_owed, dispute = economy.civil.getaway_dispute;
+  assert.equal(getawayThreshold(economy, owed), 2, "vendor/owed base → walk on 1–2 (33%)");
+  assert.equal(getawayThreshold(economy, dispute), 3, "dispute base → walk on 1–3 (50%)");
+  assert.equal(getawayThreshold(economy, owed, 1, 0), 4, "your lawyer +2 → 1–4 (67%)");
+  assert.equal(getawayThreshold(economy, owed, 0, 1), 1, "their lawyer −2 → floored to 1-in-6");
+  assert.equal(getawayThreshold(economy, dispute, 1, 1), 3, "both lawyers cancel → back to base");
+  assert.equal(getawayThreshold(economy, dispute, 2, 0), 5, "stacked lawyers cap at 5 (5/6)");
+  ok("getaway math: one Slick Lawyer modifier (±2), clamped to 1–5");
 }
 
 // --- AR factoring (10%) -------------------------------------------------------------------
@@ -165,36 +164,48 @@ function suableGame() {
   return { g, creditor, debtor, ap };
 }
 {
+  // Dispute base 3 (walk on 1–3). Roll 4 → debtor loses → creditor collects; 1 W fee each.
   const { g, creditor, debtor } = suableGame();
   const c0 = creditor.cash, d0 = debtor.cash;
   g.sue(debtor.id, debtor.payables[0].id);
-  g.state.die = scriptedDie([1]); // defendant target 3 (late), rolls 1 → defendant LOSES
+  g.state.die = scriptedDie([4]);
   g.respondToThreat({ contest: true });
-  // creditor: −D (deposit) +2D (pot) +5 (debt). debtor: −D −5.
-  assert.equal(creditor.cash, c0 - D + 2 * D + 5);
-  assert.equal(debtor.cash, d0 - D - 5);
+  assert.equal(creditor.cash, c0 - FEE + 5, "creditor collects the 5 W debt, less the fee");
+  assert.equal(debtor.cash, d0 - FEE - 5, "debtor pays the debt + the fee");
   assert.equal(debtor.payables.length, 0, "debt collected");
-  ok("sue: creditor WINS → collects debt + pot");
+  ok("sue: defendant rolls above the line → creditor WINS, collects the debt");
 }
 {
+  // Roll 2 ≤ 3 → debtor WALKS; debt stands; 1 W fee each.
   const { g, creditor, debtor } = suableGame();
   const c0 = creditor.cash, d0 = debtor.cash;
   g.sue(debtor.id, debtor.payables[0].id);
-  g.state.die = scriptedDie([6]); // defendant rolls 6 ≥ 3 → defendant WINS
+  g.state.die = scriptedDie([2]);
   g.respondToThreat({ contest: true });
-  assert.equal(debtor.cash, d0 - D + 2 * D, "debtor takes the pot");
-  assert.equal(creditor.cash, c0 - D, "creditor loses the deposit");
+  assert.equal(creditor.cash, c0 - FEE, "creditor just pays the fee");
+  assert.equal(debtor.cash, d0 - FEE, "debtor walks, pays only the fee");
   assert.equal(debtor.payables.length, 1, "debt stands; window keeps ticking");
-  ok("sue: defendant WINS → takes pot, debt stands");
+  ok("sue: defendant walks → debt stands, fee each");
+}
+{
+  // Debtor plays a Slick Lawyer (+2 → 1–5): a roll of 4 now walks where it'd otherwise lose.
+  const { g, creditor, debtor } = suableGame();
+  debtor.hand.push({ id: "sl", type: "slick_lawyer", name: "Slick Lawyer" });
+  g.sue(debtor.id, debtor.payables[0].id);
+  g.state.die = scriptedDie([4]);
+  g.respondToThreat({ contest: true, ownLawyer: true });
+  assert.equal(debtor.hand.length, 0, "the Slick Lawyer was consumed");
+  assert.equal(debtor.payables.length, 1, "lawyer pushed the line to 1–5 → walked, debt stands");
+  ok("sue: a Slick Lawyer (+2) lets the debtor walk a case they'd have lost");
 }
 {
   const { g, creditor, debtor } = suableGame();
   const c0 = creditor.cash, d0 = debtor.cash;
   g.sue(debtor.id, debtor.payables[0].id);
-  g.respondToThreat({ contest: false }); // concede — no roll
-  assert.equal(creditor.cash, c0 + 5, "creditor recovers deposit and collects the debt");
-  assert.equal(debtor.cash, d0 - 5);
-  ok("sue: concede → debtor pays, no roll");
+  g.respondToThreat({ contest: false }); // fold — no roll, no fee
+  assert.equal(creditor.cash, c0 + 5, "creditor collects the debt");
+  assert.equal(debtor.cash, d0 - 5, "debtor pays, no fight");
+  ok("sue: fold → debtor pays, no roll");
 }
 
 // --- Sabotage → Rush response window ------------------------------------------------------

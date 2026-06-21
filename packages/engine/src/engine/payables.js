@@ -5,10 +5,9 @@
 
 import { GameError, w } from "./economy.js";
 import { createPayable } from "../state/state.js";
-import { civilTarget, rollCivil, getawayThreshold, rollGetaway, getawayOdds } from "./litigation.js";
+import { getawayThreshold, rollGetaway, getawayOdds } from "./litigation.js";
 
 const playerById = (state, id) => state.players.find((p) => p.id === id);
-const hasExposed = (player) => player.jobs.some((j) => j.exposed);
 
 // --- AR factoring -----------------------------------------------------------------------
 
@@ -160,13 +159,14 @@ export function resolveCivilEvent(state, player, card) {
       return [...flavor, `🧾 ${player.name}: ${card.name} — owes ${w(ap.amount)} (due turn ${ap.due_turn}, ${ap.id})`];
     }
     case "lawsuit": {
-      // An NPC sues the player. A clean defendant wins 83%; exposed jobs weaken the defence.
-      const target = civilTarget(e, { late: hasExposed(player) });
-      const res = rollCivil(state.die, target);
-      if (res.defendantWins) return [...flavor, `⚖️ ${player.name} was sued (${card.name}) and won (defend ${target}+, rolled ${res.roll}) — no cost`];
+      // An NPC sues the player — a getaway roll at the dispute base (you walk on 1–3, 50%).
+      const g = getawayThreshold(e, e.civil.getaway_dispute);
+      const res = rollGetaway(state.die, g);
+      player.cash -= e.civil.legal_fee;
+      if (res.getsAway) return [...flavor, `⚖️ ${player.name} was sued (${card.name}) and WALKED (rolled ${res.roll} ≤ ${g}) — ${w(e.civil.legal_fee)} fee`];
       const claim = card.amount ?? 5;
       player.cash -= claim;
-      return [...flavor, `⚖️ ${player.name} was sued (${card.name}) and lost (needed ${target}+, rolled ${res.roll}) — paid ${w(claim)}`];
+      return [...flavor, `⚖️ ${player.name} was sued (${card.name}) and LOST (rolled ${res.roll} > ${g}) — paid ${w(claim)} + ${w(e.civil.legal_fee)} fee`];
     }
     default:
       return [...flavor, `${player.name}: ${card.name} (no effect)`];
