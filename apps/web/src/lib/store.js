@@ -3,7 +3,7 @@
 // intents to Supabase, and the UI won't change. AI seats are driven by the engine's own bots.
 
 import { writable } from "svelte/store";
-import { Game, profitAndLoss, balanceSheet } from "@boty/engine";
+import { Game, profitAndLoss, balanceSheet, recurringExpenses, seasonFor } from "@boty/engine";
 import { botActions } from "@boty/engine/bots";
 import { loadContent } from "./content.js";
 import { unlockAudio, playSfx } from "./sound.js";
@@ -18,8 +18,29 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 export const ui = writable({
   screen: "setup", game: null, view: null, ctx: null, flavor, economy, error: null, rev: 0,
   aiActing: null, threat: null, picking: null, reckoning: null, final: null, court: null, damages: null, settle: null,
-  cardView: null,
+  cardView: null, popups: [], settingsOpen: false,
 });
+
+// --- The pop-up QUEUE (E5 §2): modals shown one at a time, in order, easy close/next. ----------
+let lastRoundShown = 0;
+function enqueuePopup(p) { ui.update((v) => ({ ...v, rev: v.rev + 1, popups: [...v.popups, p] })); }
+export function dismissPopup() { ui.update((v) => ({ ...v, rev: v.rev + 1, popups: v.popups.slice(1) })); }
+export function clearPopups() { ui.update((v) => ({ ...v, rev: v.rev + 1, popups: [] })); }
+export function openSettings() { push({ settingsOpen: true }); }
+export function closeSettings() { push({ settingsOpen: false }); }
+
+/** Front of the round flow: a round-intro (once per round) then this player's exec summary. */
+function enqueueTurnStart(ctx) {
+  if (!ctx || ctx.over || ctx.reckoning) return;
+  const view = viewOf();
+  const me = view.players[view.activePlayerIndex];
+  if (isAI(me.id)) return; // rivals' turn-start summaries arrive with the watchable-AI work (Phase 4)
+  if (ctx.turn > lastRoundShown) {
+    lastRoundShown = ctx.turn;
+    enqueuePopup({ kind: "round", turn: ctx.turn, season: view.season, town: flavor?.town });
+  }
+  enqueuePopup({ kind: "summary", name: me.name, recurring: view.recurring, cash: me.cash, upkeepNet: ctx.upkeepNet ?? 0, drew: (ctx.drawn ?? []).length });
+}
 
 const declinedDamages = new Set(); // jobIds the human chose not to sue over
 const openDamages = () => game.damagesCases.filter((c) => !declinedDamages.has(c.jobId));
@@ -53,6 +74,8 @@ function viewOf() {
     projects: (s.projects ?? []).map((p) => ({ ...p, phases: p.phases.map((ph) => ({ ...ph })) })), // phased story-projects in flight
     pnl: profitAndLoss(s.players[s.activePlayerIndex]), // the active player's books so far
     bs: balanceSheet(s.players[s.activePlayerIndex]),
+    recurring: recurringExpenses(s, s.players[s.activePlayerIndex]), // the turn-start exec summary
+    season: seasonFor({ turn: s.turn, economy, flavor }),
     players: s.players.map((p) => ({
       id: p.id, name: p.name, service: p.service, cash: p.cash, bankrupt: p.bankrupt, building: p.building, capacityBonus: p.capacityBonus ?? 0, bbbThisTurn: !!p.bbbThisTurn, pendingExpansion: p.pendingExpansion ? { ...p.pendingExpansion } : null,
       tradesmen: p.tradesmen.map((t) => ({ ...t })),
@@ -240,6 +263,7 @@ async function advanceUntilHuman(initialCtx) {
   }
   if (game.state.over) return;
   if (game.settleCases.length || game.courtCases.length || openDamages().length) playSfx("gavel", 0.5);
+  enqueueTurnStart(lastCtx); // the human is up — round intro + their executive summary
   push({
     aiActing: null, ctx: lastCtx, error: null,
     settle: game.settleCases.length ? [...game.settleCases] : null,

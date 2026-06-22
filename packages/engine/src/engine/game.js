@@ -118,7 +118,9 @@ export class Game {
   }
 
   #beginTurn(player) {
+    const cashBefore = player.cash;
     const upkeep = runUpkeep(this.state, player);
+    const upkeepNet = player.cash - cashBefore; // net of collections in − bills/levies/overhead out
     this.state.log.push(...upkeep.lines);
     const canAct = !player.bankrupt;
     const drawn = canAct ? drawFortune(this.state, player, this.drawPowerFor(player)) : [];
@@ -128,6 +130,7 @@ export class Game {
       turn: this.state.turn,
       player,
       upkeep,
+      upkeepNet,
       drawn,
       canAct, // a bankrupt player has no action phase
       court: [...this.state.pendingCourt], // NPC court cases to resolve before acting

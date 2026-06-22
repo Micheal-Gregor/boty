@@ -22,6 +22,11 @@ export function hasModifier(player, kind) {
 }
 
 /** Sign up for a standing service (the first premium falls at the next upkeep). */
+/** Total per-turn service premiums the player's standing cards cost (for the recurring-expense summary). */
+export function premiumsFor(player) {
+  return (player.modifiers ?? []).reduce((sum, m) => sum + (SERVICES[m.kind]?.premium ?? 0), 0);
+}
+
 export function buyService(state, player, kind) {
   const def = SERVICES[kind];
   if (!def) throw new GameError(`No such service "${kind}"`);

@@ -11,12 +11,12 @@ import { findBuilding, findEquipment, w } from "./economy.js";
 import { collectInvoices, expireOverdue } from "./jobs.js";
 import { processDuePayables } from "./payables.js";
 import { tickDefects } from "./defects.js";
-import { tickModifiers, chargeInterest } from "./modifiers.js";
+import { tickModifiers, chargeInterest, premiumsFor } from "./modifiers.js";
 import { tickExpansion } from "./expansion.js";
-import { chargeLevy, tickGlobals } from "./globals.js";
+import { chargeLevy, tickGlobals, levyDue } from "./globals.js";
 import { tickProjects } from "./projects.js";
 import { returnCrew } from "./crew.js";
-import { post, ACCT } from "../state/ledger.js";
+import { post, balances, ACCT } from "../state/ledger.js";
 
 /** Total recurring overhead a player owes each turn: rent + wages + rented-equipment fees. */
 export function overheadFor(state, player) {
@@ -27,6 +27,26 @@ export function overheadFor(state, player) {
     .filter((e) => !e.owned)
     .reduce((sum, e) => sum + findEquipment(state.economy, e.defId).rent_per_turn, 0);
   return { rent, wages, equipmentFees, total: rent + wages + equipmentFees };
+}
+
+/**
+ * The full recurring cost of running this shop next turn — for the turn-start executive summary.
+ * Beyond base overhead it folds in standing-service premiums, code-violation fines, line-of-credit
+ * interest, and any town levy in force, plus the crew/capacity headline.
+ */
+export function recurringExpenses(state, player) {
+  const o = overheadFor(state, player);
+  const premiums = premiumsFor(player);
+  const fines = (player.defects ?? []).reduce((s, d) => s + (d.fine ?? 0), 0);
+  const owed = -(balances(player)[ACCT.LOC] || 0);
+  const interest = owed > 0 ? Math.ceil(owed * state.economy.line_of_credit.interest) : 0;
+  const levy = levyDue(state);
+  const capacity = findBuilding(state.economy, player.building).capacity + (player.capacityBonus ?? 0);
+  return {
+    rent: o.rent, wages: o.wages, equipment: o.equipmentFees, premiums, fines, interest, levy,
+    total: o.rent + o.wages + o.equipmentFees + premiums + fines + interest + levy,
+    crew: player.tradesmen.length, capacity,
+  };
 }
 
 /**

@@ -1,9 +1,11 @@
 <script>
-  import { ui, act, endTurn, isAI, viewCard, cardInLine, skipAITurns } from "../lib/store.js";
+  import { ui, act, endTurn, isAI, viewCard, cardInLine, skipAITurns, openSettings } from "../lib/store.js";
   import { muted, toggleMute, playSfx, playMusic } from "../lib/sound.js";
   import { seasonFor, findBuilding } from "@boty/engine";
   import Shop from "../components/Shop.svelte";
   import Art from "../components/Art.svelte";
+  import Popup from "../components/Popup.svelte";
+  import Settings from "../components/Settings.svelte";
 
   // Which play-area is showing on a phone. On wide screens all three are columns and this is moot.
   let tab = $state("shop");
@@ -54,7 +56,11 @@
     <span class="round">round {s.turn} / {econ.max_turns}</span>
     <span class="turn">▶ {me.name}'s turn</span>
     <button class="mute" aria-label="toggle sound" title={$muted ? "sound off" : "sound on"} onclick={toggleMute}>{$muted ? "🔇" : "🔊"}</button>
+    <button class="mute" aria-label="settings" title="settings" onclick={openSettings}>⚙️</button>
   </header>
+
+  <Popup />
+  <Settings />
 
   {#if s.globalEffects?.length}
     <div class="town-banner">
