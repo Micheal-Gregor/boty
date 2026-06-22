@@ -16,6 +16,8 @@
   const drawn = $derived($ui.ctx?.drawn ?? []);
   const pnl = $derived(s?.pnl); // the active player's profit & loss, summed from the G/L
   const bs = $derived(s?.bs); // the balance sheet
+  const locOwed = $derived((bs?.liabilityLines ?? []).find((l) => l.acct === 2100)?.amount ?? 0);
+  const hasMod = (kind) => me?.modifiers?.some((m) => m.kind === kind);
   let booksView = $state("pl"); // "pl" | "bs"
   const rivals = $derived(s ? s.players.filter((_, i) => i !== s.activePlayerIndex) : []);
   const logTail = $derived(s ? s.log.slice(-8) : []);
@@ -135,8 +137,12 @@
         <button onclick={() => act((g) => g.rentEquipment("basic"))}>Rent Basic</button>
         <button onclick={() => act((g) => g.rentEquipment("pro"))}>Rent Pro</button>
         <button title="Capital improvement: +1 capacity, goes to the balance sheet (not an expense)" onclick={() => act((g) => g.improveShop())}>Improve shop</button>
-        {#if !me.modifiers?.some((m) => m.kind === "insurance")}<button title="A premium each turn turns shocks into deductibles" onclick={() => act((g) => g.buyService("insurance"))}>Buy Insurance</button>{/if}
-        {#if !me.modifiers?.some((m) => m.kind === "marketing")}<button title="A premium each turn brings in extra work" onclick={() => act((g) => g.buyService("marketing"))}>Buy Marketing</button>{/if}
+        {#if !hasMod("insurance")}<button title="A premium each turn turns shocks into deductibles" onclick={() => act((g) => g.buyService("insurance"))}>Buy Insurance</button>{/if}
+        {#if !hasMod("marketing")}<button title="A premium each turn brings in extra work" onclick={() => act((g) => g.buyService("marketing"))}>Buy Marketing</button>{/if}
+        {#if !hasMod("accountant")}<button title="Cheaper factoring + cleaner books" onclick={() => act((g) => g.buyService("accountant"))}>Hire Accountant</button>{/if}
+        {#if !hasMod("training")}<button title="A trained crew burns work faster" onclick={() => act((g) => g.buyService("training"))}>Training</button>{/if}
+        <button title="Borrow cash now — a liability, with interest each turn" onclick={() => act((g) => g.drawCredit())}>Draw Credit</button>
+        {#if locOwed > 0}<button title="Repay the line of credit" onclick={() => act((g) => g.repayCredit())}>Repay ({locOwed} W)</button>{/if}
         {#if nextBuilding}
           <button onclick={() => act((g) => g.relocate(nextBuilding.id))}>Move → {nextBuilding.name}</button>
         {/if}

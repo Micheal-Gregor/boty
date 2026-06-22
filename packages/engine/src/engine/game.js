@@ -173,6 +173,8 @@ export class Game {
   relocate(buildingId) { return this.#act((p) => shop.relocate(this.state, p, buildingId)); }
   improveShop() { return this.#act((p) => shop.improveShop(this.state, p)); }
   buyService(kind) { return this.#act((p) => modifiers.buyService(this.state, p, kind)); }
+  drawCredit() { return this.#act((p) => modifiers.drawCredit(this.state, p, this.state.economy.line_of_credit.draw), true); }
+  repayCredit(amount) { return this.#act((p) => modifiers.repayCredit(this.state, p, amount ?? this.state.economy.line_of_credit.draw), true); }
   playFavor(targetId, modId) {
     return this.#act((p) => {
       if (!cards.hasCardType(p, "favor")) throw new GameError(`${p.name} has no Favor card to play`);

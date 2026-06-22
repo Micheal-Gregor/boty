@@ -16,6 +16,7 @@
   "invoice_terms": 1,
   "sell_rate": 0.15,
   "shop_improvement": { "cost": 8, "capacity": 1 },
+  "line_of_credit": { "draw": 20, "interest": 0.1 },
 
   "factoring_fee": 0.2,
 

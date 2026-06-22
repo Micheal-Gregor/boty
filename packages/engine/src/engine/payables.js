@@ -7,6 +7,7 @@ import { GameError, w } from "./economy.js";
 import { createPayable } from "../state/state.js";
 import { getawayThreshold, rollGetaway, getawayOdds } from "./litigation.js";
 import { post, cashIn, cashOut, ACCT } from "../state/ledger.js";
+import { factoringFeeRate } from "./modifiers.js";
 
 const playerById = (state, id) => state.players.find((p) => p.id === id);
 
@@ -17,7 +18,7 @@ const playerById = (state, id) => state.players.find((p) => p.id === id);
 export function factorInvoice(state, player, invoiceId) {
   const inv = player.invoices.find((i) => i.id === invoiceId);
   if (!inv) throw new GameError(`No invoice "${invoiceId}"`);
-  const fee = Math.ceil(inv.amount * state.economy.factoring_fee);
+  const fee = Math.ceil(inv.amount * factoringFeeRate(player, state.economy.factoring_fee));
   const proceeds = inv.amount - fee;
   post(state, player, `Factor ${inv.id}`, [
     { acct: ACCT.CASH, amt: proceeds },
@@ -47,7 +48,7 @@ export function factorClaim(state, player, payableId) {
   // can actually cover (their cash), not the face value. A debt from a near-broke rival fetches
   // almost nothing — you're really just handing the agency a kill order.
   const collectible = Math.max(0, Math.min(ap.amount, debtor.cash));
-  const fee = Math.ceil(collectible * state.economy.factoring_fee);
+  const fee = Math.ceil(collectible * factoringFeeRate(player, state.economy.factoring_fee));
   const proceeds = collectible - fee;
   cashIn(state, player, ACCT.OTHER_INCOME, proceeds, "Sold a debt to collections");
   // Hand the debt to collections: NPC-style bill + a guaranteed lawyer in court.

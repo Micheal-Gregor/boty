@@ -4,8 +4,8 @@ import assert from "node:assert/strict";
 import { loadEconomy } from "../src/engine/content-fs.js";
 import { Game } from "../src/engine/game.js";
 import { resetIds } from "../src/state/state.js";
-import { buyService, hasModifier, tickModifiers, bearLoss, marketingInjection } from "../src/engine/modifiers.js";
-import { profitAndLoss } from "../src/state/ledger.js";
+import { buyService, hasModifier, tickModifiers, bearLoss, marketingInjection, factoringFeeRate, trainingSpeedBonus, drawCredit, repayCredit, chargeInterest } from "../src/engine/modifiers.js";
+import { profitAndLoss, balanceSheet, balances, ACCT } from "../src/state/ledger.js";
 
 let passed = 0;
 const ok = (label) => { passed++; console.log(`  ✓ ${label}`); };
@@ -55,6 +55,43 @@ const economy = await loadEconomy();
   assert.ok(!hasModifier(boe, "insurance"), "the favor cancelled the rival's insurance");
   assert.ok(!ana.hand.some((c) => c.type === "favor"), "the favor card was consumed");
   ok("favor: cuts a rival's standing perk short (scarce, one-shot)");
+}
+
+// Accountant halves the factoring fee; training adds a speed bonus.
+{
+  resetIds();
+  const g = new Game(economy, [{ name: "Ana", service: "mechanic" }], { seed: 1 });
+  g.start();
+  const ana = g.state.players[0];
+  assert.equal(factoringFeeRate(ana, 0.2), 0.2, "no discount without an accountant");
+  assert.equal(trainingSpeedBonus(ana), 0, "no bonus without training");
+  g.buyService("accountant");
+  g.buyService("training");
+  assert.equal(factoringFeeRate(ana, 0.2), 0.1, "accountant halves the factoring fee");
+  assert.equal(trainingSpeedBonus(ana), 1, "training adds a speed bonus");
+  ok("accountant (cheaper factoring) + training (faster crew)");
+}
+
+// Line of credit: debt on the balance sheet, interest on the P&L, repay clears it.
+{
+  resetIds();
+  const g = new Game(economy, [{ name: "Ana", service: "mechanic" }], { seed: 1 });
+  g.start();
+  const ana = g.state.players[0];
+  const cash0 = ana.cash;
+  const draw = economy.line_of_credit.draw;
+  g.drawCredit();
+  assert.equal(ana.cash, cash0 + draw, "drawing credit adds cash");
+  assert.equal(-(balances(ana)[ACCT.LOC] || 0), draw, "and books a liability");
+  assert.ok(balanceSheet(ana).balanced, "balance sheet still balances with debt");
+
+  const ohBefore = profitAndLoss(ana).overhead;
+  chargeInterest(g.state, ana, economy.line_of_credit.interest);
+  assert.equal(profitAndLoss(ana).overhead, ohBefore + Math.ceil(draw * economy.line_of_credit.interest), "interest hits the P&L");
+
+  g.repayCredit(draw);
+  assert.equal(balances(ana)[ACCT.LOC] || 0, 0, "repayment clears the line of credit");
+  ok("line of credit: cash now, a liability + interest, repayable");
 }
 
 console.log(`\nAll modifier checks passed (${passed}).`);

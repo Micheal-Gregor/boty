@@ -11,7 +11,7 @@ import { findBuilding, findEquipment, w } from "./economy.js";
 import { collectInvoices, expireOverdue } from "./jobs.js";
 import { processDuePayables } from "./payables.js";
 import { tickDefects } from "./defects.js";
-import { tickModifiers } from "./modifiers.js";
+import { tickModifiers, chargeInterest } from "./modifiers.js";
 import { post, ACCT } from "../state/ledger.js";
 
 /** Total recurring overhead a player owes each turn: rent + wages + rented-equipment fees. */
@@ -41,6 +41,7 @@ export function runUpkeep(state, player) {
   lines.push(...tickDamagesClaims(state, player));
   lines.push(...tickDefects(state, player));
   lines.push(...tickModifiers(state, player)); // premiums for insurance/marketing etc.
+  lines.push(...chargeInterest(state, player, state.economy.line_of_credit.interest));
 
   const o = overheadFor(state, player);
   post(state, player, "Upkeep — overhead", [

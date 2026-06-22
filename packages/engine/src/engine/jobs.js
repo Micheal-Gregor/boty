@@ -15,6 +15,7 @@
 import { GameError, findEquipment, findBuilding, w } from "./economy.js";
 import { createInvoice } from "../state/state.js";
 import { defectPenalty } from "./defects.js";
+import { trainingSpeedBonus } from "./modifiers.js";
 import { accrue, cashIn, cashOut, ACCT } from "../state/ledger.js";
 
 const PROGRESSING = new Set(["Queued", "Active", "OnHold"]);
@@ -199,6 +200,14 @@ export function runJobProgress(state, player) {
     const speed = i < speeds.length ? speeds[i] : state.economy.base_hand_speed;
     burnByJob.set(job, (burnByJob.get(job) ?? 0) + speed);
   });
+
+  // A trained crew burns a little faster — add the bonus across active jobs.
+  let boost = trainingSpeedBonus(player);
+  for (const job of active) {
+    if (boost <= 0) break;
+    burnByJob.set(job, (burnByJob.get(job) ?? 0) + 1);
+    boost -= 1;
+  }
 
   // Unfixed code violations drag work off the floor — shave the penalty across active jobs.
   let drag = defectPenalty(player);

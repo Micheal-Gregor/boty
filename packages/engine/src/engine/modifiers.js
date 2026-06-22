@@ -7,12 +7,14 @@
 // `turnsLeft` timer expires; one with `turnsLeft: null` stands until cancelled.
 
 import { GameError, w } from "./economy.js";
-import { cashOut, ACCT } from "../state/ledger.js";
+import { post, cashOut, balances, ACCT } from "../state/ledger.js";
 
 /** Buyable persistent services. `premium` is charged each upkeep (overhead account). */
 export const SERVICES = {
   insurance: { name: "Insurance policy", account: ACCT.INSURANCE, premium: 1, deductible: 0.5, positive: true },
   marketing: { name: "Marketing campaign", account: ACCT.MARKETING, premium: 2, inject: "referral_job", positive: true },
+  accountant: { name: "Accountant on retainer", account: ACCT.PROF_FEES, premium: 1, positive: true },
+  training: { name: "Training program", account: ACCT.TRAINING, premium: 1, speed: 1, positive: true },
 };
 
 export function hasModifier(player, kind) {
@@ -49,6 +51,50 @@ export function bearLoss(player, fullLoss) {
   if (!ins) return { borne: fullLoss, covered: 0, insured: false };
   const borne = Math.ceil(fullLoss * SERVICES.insurance.deductible);
   return { borne, covered: fullLoss - borne, insured: true };
+}
+
+/** Accountant: a cleaner set of books factors receivables at a reduced fee. */
+export function factoringFeeRate(player, base) {
+  return hasModifier(player, "accountant") ? base / 2 : base;
+}
+
+/** Training: a trained crew burns work a little faster. */
+export function trainingSpeedBonus(player) {
+  return hasModifier(player, "training") ? SERVICES.training.speed : 0;
+}
+
+// --- Line of credit (financing — debt on the balance sheet, interest on the P&L) -----------
+
+/** Draw cash on the line of credit: Dr cash / Cr line of credit (a liability). */
+export function drawCredit(state, player, amount) {
+  if (amount <= 0) throw new GameError("Nothing to draw");
+  post(state, player, "Line of credit — draw", [
+    { acct: ACCT.CASH, amt: amount },
+    { acct: ACCT.LOC, amt: -amount },
+  ]);
+  return `${player.name} drew ${w(amount)} on the line of credit`;
+}
+
+/** Repay (some of) the line of credit: Dr line of credit / Cr cash. */
+export function repayCredit(state, player, amount) {
+  const owed = -(balances(player)[ACCT.LOC] || 0); // LOC carries a credit balance
+  const pay = Math.min(amount, owed, player.cash);
+  if (pay <= 0) throw new GameError(owed <= 0 ? "No line-of-credit balance to repay" : "No cash to repay with");
+  post(state, player, "Line of credit — repayment", [
+    { acct: ACCT.LOC, amt: pay },
+    { acct: ACCT.CASH, amt: -pay },
+  ]);
+  return `${player.name} repaid ${w(pay)} on the line of credit`;
+}
+
+/** Upkeep: charge interest on any outstanding line-of-credit balance. */
+export function chargeInterest(state, player, rate) {
+  const owed = -(balances(player)[ACCT.LOC] || 0);
+  if (owed <= 0) return [];
+  const interest = Math.ceil(owed * rate);
+  if (interest <= 0) return [];
+  cashOut(state, player, ACCT.PROF_FEES, interest, "Line of credit — interest");
+  return [`${player.name}: ${w(interest)} interest on ${w(owed)} of debt`];
 }
 
 /** The job card a marketing campaign injects into a player's draws each turn (or null). */
