@@ -11,6 +11,7 @@
   import RivalShop from "../components/RivalShop.svelte";
   import Rules from "../components/Rules.svelte";
   import Confirm from "../components/Confirm.svelte";
+  import Dice from "../components/Dice.svelte";
   import Flash from "../components/Flash.svelte";
 
   // Which play-area is showing on a phone. On wide screens all three are columns and this is moot.
@@ -75,6 +76,7 @@
   <RivalShop />
   <Rules />
   <Confirm />
+  <Dice />
 
   {#if s.globalEffects?.length}
     <div class="town-banner">

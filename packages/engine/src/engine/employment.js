@@ -32,8 +32,9 @@ function removeWorker(state, player, t) {
   autoAssignTools(player);
 }
 
-/** Fire a worker: classify, then the firing player rolls the wrongful-termination dice. */
-export function fireWorker(state, player, tradesmanId, { ownLawyer = false } = {}) {
+/** Fire a worker: classify, then the firing player rolls the wrongful-termination dice. The UI can
+ *  supply the human's own rolls (so they physically roll); bots/tests fall back to the seeded die. */
+export function fireWorker(state, player, tradesmanId, { ownLawyer = false, rolls = null } = {}) {
   const t = tradesmanId ? player.tradesmen.find((x) => x.id === tradesmanId) : player.tradesmen[player.tradesmen.length - 1];
   if (!t) throw new GameError(`No tradesperson "${tradesmanId}" to fire`);
   const term = state.economy.termination;
@@ -46,10 +47,12 @@ export function fireWorker(state, player, tradesmanId, { ownLawyer = false } = {
   threshold = Math.max(0, Math.min(6, threshold));
   const tag = `${c.kind}${c.reason ? ` (${c.reason})` : ""}`;
 
-  const sueRoll = state.die();
+  let ri = 0;
+  const roll = () => (rolls && ri < rolls.length ? rolls[ri++] : state.die());
+  const sueRoll = roll();
   if (sueRoll > threshold) return `⚖️ ${player.name} fired ${t.id} [${tag}] — rolled ${sueRoll}, they let it go`;
   cashOut(state, player, ACCT.LEGAL, term.court_fee, `${t.id} wrongful-termination — court fee`);
-  const winRoll = state.die();
+  const winRoll = roll();
   if (winRoll > threshold) return `⚖️ ${player.name} fired ${t.id} [${tag}] — sued (rolled ${sueRoll}) but lost in court (rolled ${winRoll}); ${player.name} pays the ${w(term.court_fee)} fee`;
   cashOut(state, player, ACCT.LEGAL, term.award, `${t.id} wins wrongful-termination`);
   return `⚖️ ${player.name} fired ${t.id} [${tag}] — they SUED AND WON (rolled ${winRoll}); ${player.name} pays ${w(term.award)} + the ${w(term.court_fee)} fee`;

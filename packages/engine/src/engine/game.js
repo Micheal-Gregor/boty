@@ -176,7 +176,7 @@ export class Game {
     return this.#act((p) => {
       let ownLawyer = false;
       if (opts.ownLawyer && cards.hasCardType(p, "slick_lawyer")) { cards.takeFromHand(p, cards.findHandCard(p, "slick_lawyer").index); ownLawyer = true; }
-      return employment.fireWorker(this.state, p, tradesmanId, { ownLawyer });
+      return employment.fireWorker(this.state, p, tradesmanId, { ownLawyer, rolls: opts.rolls ?? null });
     });
   }
   buyEquipment(defId) { return this.#act((p) => shop.buyEquipment(this.state, p, defId)); }

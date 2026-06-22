@@ -101,6 +101,16 @@ const cashOf = (p) => p.cash;
   ok("fire (with cause): high roll → they let it go");
 }
 
+// --- UI-supplied rolls (the human physically rolls; seeded die is the fallback) ----------------
+{
+  const { p, st } = shop(1, [9, 9]); // seeded die would NOT sue; supplied rolls force it
+  p.tradesmen[0].flag = "theft";
+  const before = cashOf(p);
+  fireWorker(st, p, p.tradesmen[0].id, { rolls: [1, 1] }); // sue + win regardless of the seeded die
+  assert.equal(before - cashOf(p), T.award + T.court_fee, "supplied rolls drive the outcome");
+  ok("fire: a UI-supplied roll sequence overrides the seeded die");
+}
+
 // --- Union raises the bar; your lawyer lowers it -----------------------------------------------
 {
   const { p, st } = shop(1, [4, 6]); // cause(2) → 4 wouldn't sue; +union(2)=4 → 4≤4 sues, 6 loses

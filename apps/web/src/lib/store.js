@@ -50,7 +50,7 @@ export function confirmFire(workerId) {
   const info = terminationInfo(workerId);
   if (!info) return;
   const term = info.term;
-  const fireAct = (ownLawyer) => act((g) => g.fire(workerId, { ownLawyer }));
+  const fireAct = (ownLawyer) => (info.kind === "legit" ? act((g) => g.fire(workerId, { ownLawyer })) : openFiringDice(workerId, ownLawyer, info));
   if (info.kind === "legit") {
     openConfirm({ title: `Lay ${workerId} off?`, body: `No work on the books and they're healthy — a clean layoff. No severance, no wrongful-termination claim.`, yes: "Lay off" }, () => fireAct(false));
     return;
@@ -63,6 +63,56 @@ export function confirmFire(workerId) {
   const opts = { title: `Fire ${workerId}?`, body, yes: "Fire" };
   if (info.hasLawyer) opts.alt = { label: `Fire + Slick Lawyer (${odds(true)}-or-under)` };
   openConfirm(opts, () => fireAct(false), info.hasLawyer ? () => fireAct(true) : null);
+}
+
+// --- The dice roller (E5 §"no NPC rolls"): the human physically rolls; we feed those rolls to the
+// engine so the roll YOU make is the outcome. A spec is a sequence of steps; each step's resolve()
+// turns a d6 into a result and says whether the sequence stops. onDone(rolls) applies it for real.
+let diceState = null;
+function publishDice() {
+  if (!diceState) { push({ dice: null }); return; }
+  const { spec, stepIdx, value, result } = diceState;
+  const step = spec.steps[stepIdx];
+  const finished = !!result && (result.stop || stepIdx === spec.steps.length - 1);
+  push({ dice: { title: spec.title, sub: spec.sub, prompt: step.prompt, stepIdx, steps: spec.steps.length, value, result: result?.text ?? null, tone: result?.tone ?? null, finished } });
+}
+export function openDice(spec) { diceState = { spec, rolls: [], stepIdx: 0, value: null, result: null }; playSfx("flip", 0.3); publishDice(); }
+export function rollDie() {
+  if (!diceState || diceState.value != null) return;
+  const v = 1 + Math.floor(Math.random() * 6);
+  diceState.value = v; diceState.rolls.push(v);
+  diceState.result = diceState.spec.steps[diceState.stepIdx].resolve(v, diceState.rolls);
+  playSfx("click", 0.3);
+  publishDice();
+}
+export function diceNext() {
+  if (!diceState || diceState.value == null) return;
+  const { spec, stepIdx, result, rolls } = diceState;
+  if (result.stop || stepIdx === spec.steps.length - 1) { const onDone = spec.onDone; diceState = null; push({ dice: null }); if (onDone) onDone(rolls); return; }
+  diceState.stepIdx++; diceState.value = null; diceState.result = null;
+  publishDice();
+}
+export function cancelDice() { diceState = null; push({ dice: null }); } // only offered before the first roll
+
+function openFiringDice(workerId, ownLawyer, info) {
+  const term = info.term;
+  const thr = Math.max(0, Math.min(6, info.threshold + (info.union ? term.union_shift : 0) - (ownLawyer ? term.lawyer_shift : 0)));
+  const tag = { "with cause": "With cause", "no cause": "No cause", "punitive": "Punitive" }[info.kind];
+  openDice({
+    title: `Fire ${workerId}`,
+    sub: `${tag}${ownLawyer ? " · your lawyer" : ""}${info.union ? " · unionised" : ""} — they sue on ${thr}-or-under`,
+    steps: [
+      { prompt: `Will ${workerId} take you to court?`,
+        resolve: (v) => v <= thr
+          ? { text: `⚖️ Rolled ${v} — they're suing. You're out the ${term.court_fee} W court fee.`, stop: false, tone: "bad" }
+          : { text: `🍃 Rolled ${v} — over ${thr}. They let it go: no claim, no cost.`, stop: true, tone: "good" } },
+      { prompt: `Does the court side with ${workerId}?`,
+        resolve: (v) => v <= thr
+          ? { text: `💥 Rolled ${v} — they WIN. Pay ${term.award} W damages + the ${term.court_fee} W fee.`, stop: true, tone: "bad" }
+          : { text: `🛡️ Rolled ${v} — over ${thr}. You beat the suit — just the ${term.court_fee} W fee.`, stop: true, tone: "good" } },
+    ],
+    onDone: (rolls) => act((g) => g.fire(workerId, { ownLawyer, rolls })),
+  });
 }
 export function confirmDispose(equipId, name) {
   openConfirm({ title: `Dispose of the ${name}?`, body: `You sell it back for a fraction of cost (a real loss on the books), and whoever was using it goes bare-handed.`, yes: "Dispose" }, () => act((g) => g.disposeEquipment(equipId)));
