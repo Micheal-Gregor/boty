@@ -32,6 +32,17 @@ export function openConfirm(opts, cb) { confirmCb = cb; push({ confirm: { title:
 export function confirmYes() { const cb = confirmCb; confirmCb = null; push({ confirm: null }); if (cb) cb(); }
 export function confirmNo() { confirmCb = null; push({ confirm: null }); }
 
+// Guarded actions — a Yes/No before something you can't easily undo (used from the shop & the cards).
+export function confirmSell(jobId, price) {
+  openConfirm({ title: "Sell this job?", body: `Hand it to the bank for ${price} W now instead of doing the work — you give up the full contract value.`, yes: "Sell it" }, () => act((g) => g.sellJob(jobId)));
+}
+export function confirmFire(workerId) {
+  openConfirm({ title: `Let ${workerId} go?`, body: `Firing costs a ${economy.severance} W severance, frees their tool, and pulls them off any job — make sure you mean it.`, yes: "Fire" }, () => act((g) => g.fire(workerId)));
+}
+export function confirmDispose(equipId, name) {
+  openConfirm({ title: `Dispose of the ${name}?`, body: `You sell it back for a fraction of cost (a real loss on the books), and whoever was using it goes bare-handed.`, yes: "Dispose" }, () => act((g) => g.disposeEquipment(equipId)));
+}
+
 export function openRivals() { push({ rivalView: true }); }
 export function closeRivals() { push({ rivalView: false }); }
 

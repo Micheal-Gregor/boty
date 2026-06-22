@@ -1,5 +1,5 @@
 <script>
-  import { ui, act, closeEntity } from "../lib/store.js";
+  import { ui, act, closeEntity, confirmFire, confirmDispose, confirmSell } from "../lib/store.js";
   import { findEquipment } from "@boty/engine";
   import Art from "./Art.svelte";
 
@@ -23,6 +23,7 @@
   const freeWorkers = $derived(me ? me.tradesmen.filter((t) => t.assignedJob == null && !sidelined(t)) : []);
   const handHas = (type) => me?.hand?.some((c) => c.type === type);
   const workScore = (j) => j.assigned_tradesmen.reduce((s, tid) => s + (me.tradesmen.find((t) => t.id === tid)?.productivity ?? 0), 0);
+  const sellPrice = (j) => Math.max(1, Math.floor(j.value * econ.sell_rate));
   const canAssignJob = (j) => ["Queued", "OnHold", "Active"].includes(j.state) && j.assigned_tradesmen.length < j.max_tradesmen && freeWorkers.length > 0;
 
   function go(fn) { picking = false; act(fn); }
@@ -52,7 +53,7 @@
         <div class="ent-actions">
           <button onclick={() => (picking = !picking)}>🔧 Assign equipment</button>
           {#if worker.tool}<button onclick={() => go((g) => g.unassignEquipment(me.equipment.find((e) => e.assigned_to === worker.id).id))}>Unassign</button>{/if}
-          <button class="hostile" onclick={() => go((g) => g.fire(worker.id))}>Fire</button>
+          <button class="hostile" onclick={() => confirmFire(worker.id)}>Fire</button>
         </div>
 
       {:else if gear}
@@ -73,7 +74,7 @@
         <div class="ent-actions">
           <button onclick={() => (picking = !picking)}>🔧 Assign to worker</button>
           {#if gear.assigned_to}<button onclick={() => go((g) => g.unassignEquipment(gear.id))}>Idle it</button>{/if}
-          {#if gear.owned}<button class="hostile" onclick={() => go((g) => g.disposeEquipment(gear.id))}>Dispose</button>
+          {#if gear.owned}<button class="hostile" onclick={() => confirmDispose(gear.id, gearName(gear))}>Dispose</button>
           {:else}<button class="hostile" onclick={() => go((g) => g.cancelRental(gear.id))}>Cancel rental</button>{/if}
         </div>
 
@@ -93,7 +94,7 @@
           {#if job.state === "Active"}<button onclick={() => go((g) => g.holdJob(job.id))}>Hold</button>{/if}
           {#if handHas("rush")}<button onclick={() => go((g) => g.playRush(job.id))}>⏩ Rush</button>{/if}
           {#if handHas("buy_time")}<button onclick={() => go((g) => g.playBuyTime(job.id))}>⏳ Buy Time</button>{/if}
-          {#if !job.hirer_id && (job.state === "Queued" || job.state === "OnHold")}<button onclick={() => go((g) => g.sellJob(job.id))}>Sell</button>{/if}
+          {#if !job.hirer_id && (job.state === "Queued" || job.state === "OnHold")}<button onclick={() => confirmSell(job.id, sellPrice(job))}>Sell</button>{/if}
           {#if job.droppable}<button class="hostile" onclick={() => go((g) => g.dropJob(job.id))}>Drop</button>{/if}
         </div>
 

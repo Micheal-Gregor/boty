@@ -1,5 +1,5 @@
 <script>
-  import { ui, act, startPick, playSue, openEntity, openConfirm } from "../lib/store.js";
+  import { ui, act, startPick, playSue, openEntity, openConfirm, confirmSell, confirmFire, confirmDispose } from "../lib/store.js";
   import { findBuilding, findEquipment } from "@boty/engine";
   import Art from "./Art.svelte";
   import Flash from "./Flash.svelte";
@@ -104,10 +104,10 @@
           <div class="muted">{t.tool ?? "bare-handed"}</div>
           <div class="muted">{sidelined(t) ? "out until t" + t.out_until : t.assignedJob ? "on " + t.assignedJob : "idle"}</div>
         </button>
-        <button class="mini" onclick={() => act((g) => g.fire(t.id))}>Fire</button>
+        <button class="mini" onclick={() => confirmFire(t.id)}>Fire</button>
       </div>
     {/each}
-    <button class="mini add" onclick={() => act((g) => g.hire())}>+ Hire</button>
+    <button class="add" onclick={() => act((g) => g.hire())}>+ Hire</button>
   </div>
 
   <h3>Equipment <Flash section="equip" /></h3>
@@ -119,15 +119,15 @@
           <div class="slot-id">{findEquipment(econ, e.defId).name}</div>
           <div class="muted">{e.owned ? "owned" : "rented"} · {e.assignedToId ? "→ " + e.assignedToId : "💤 idle"}</div>
         </button>
-        {#if e.owned}<button class="mini" onclick={() => act((g) => g.disposeEquipment(e.id))}>Dispose</button>
+        {#if e.owned}<button class="mini" onclick={() => confirmDispose(e.id, findEquipment(econ, e.defId).name)}>Dispose</button>
         {:else}<button class="mini" onclick={() => act((g) => g.cancelRental(e.id))}>Cancel</button>{/if}
       </div>
     {/each}
     <div class="buy-col">
-      <button class="mini" onclick={() => act((g) => g.buyEquipment("basic"))}>Buy Basic</button>
-      <button class="mini" onclick={() => act((g) => g.buyEquipment("pro"))}>Buy Pro</button>
-      <button class="mini" onclick={() => act((g) => g.rentEquipment("basic"))}>Rent Basic</button>
-      <button class="mini" onclick={() => act((g) => g.rentEquipment("pro"))}>Rent Pro</button>
+      <button onclick={() => act((g) => g.buyEquipment("basic"))}>Buy Basic</button>
+      <button onclick={() => act((g) => g.buyEquipment("pro"))}>Buy Pro</button>
+      <button onclick={() => act((g) => g.rentEquipment("basic"))}>Rent Basic</button>
+      <button onclick={() => act((g) => g.rentEquipment("pro"))}>Rent Pro</button>
     </div>
   </div>
 
@@ -161,7 +161,7 @@
         <div class="job-actions">
           {#if canAssign(j)}<button class="mini" onclick={() => act((g) => g.assignJob(j.id))}>Assign</button>{/if}
           {#if j.state === "Active"}<button class="mini" onclick={() => act((g) => g.holdJob(j.id))}>Hold</button>{/if}
-          {#if canSell(j)}<button class="mini" onclick={() => act((g) => g.sellJob(j.id))}>Sell {sellPrice(j)} W</button>{/if}
+          {#if canSell(j)}<button class="mini" onclick={() => confirmSell(j.id, sellPrice(j))}>Sell {sellPrice(j)} W</button>{/if}
           {#if j.droppable}<button class="mini" onclick={() => act((g) => g.dropJob(j.id))}>Drop</button>{/if}
           {#if handHas("rush")}<button class="mini" onclick={() => act((g) => g.playRush(j.id))}>Rush</button>{/if}
           {#if handHas("buy_time")}<button class="mini" onclick={() => act((g) => g.playBuyTime(j.id))}>Buy Time</button>{/if}
@@ -213,14 +213,13 @@
         </div>
       {/each}
       {#if player.bbbThisTurn}
-        <div class="cardrow bbb">
-          <span class="cardname">🏛️ BBB Special</span>
-          <span class="bbb-buys">
-            {#if !hasMod("insurance")}<button class="mini" onclick={() => act((g) => g.buyService("insurance"))}>Insurance</button>{/if}
-            {#if !hasMod("marketing")}<button class="mini" onclick={() => act((g) => g.buyService("marketing"))}>Marketing</button>{/if}
-            {#if !hasMod("accountant")}<button class="mini" onclick={() => act((g) => g.buyService("accountant"))}>Accountant</button>{/if}
-            {#if !hasMod("training")}<button class="mini" onclick={() => act((g) => g.buyService("training"))}>Training</button>{/if}
-          </span>
+        <div class="bbb-card">
+          <div class="cardname bbb-name">🏛️ BBB vendor fair <span class="muted">— buy this turn only</span></div>
+          {#if !hasMod("insurance")}<div class="bbb-opt"><button onclick={() => act((g) => g.buyService("insurance"))}>Insurance</button><span class="muted">{modDesc.insurance}</span></div>{/if}
+          {#if !hasMod("marketing")}<div class="bbb-opt"><button onclick={() => act((g) => g.buyService("marketing"))}>Marketing</button><span class="muted">{modDesc.marketing}</span></div>{/if}
+          {#if !hasMod("accountant")}<div class="bbb-opt"><button onclick={() => act((g) => g.buyService("accountant"))}>Accountant</button><span class="muted">{modDesc.accountant}</span></div>{/if}
+          {#if !hasMod("training")}<div class="bbb-opt"><button onclick={() => act((g) => g.buyService("training"))}>Training</button><span class="muted">{modDesc.training}</span></div>{/if}
+          <div class="bbb-opt"><button onclick={() => act((g) => g.startExpansion("improve"))}>⬆️ Upgrade</button><span class="muted">+1 crew capacity (capital project)</span></div>
         </div>
       {/if}
     </div>
@@ -261,6 +260,11 @@
   .cardrow .cardname { font-weight: 600; min-width: 130px; }
   .cardrow.bbb .cardname { color: var(--accent); }
   .bbb-buys { display: flex; gap: 4px; flex-wrap: wrap; }
+  .bbb-card { background: var(--panel-2, #1b1f27); border-left: 3px solid var(--accent, #e0b341); border-radius: 8px; padding: 8px 10px; margin: 5px 0; display: flex; flex-direction: column; gap: 5px; }
+  .bbb-name { font-weight: 600; }
+  .bbb-opt { display: flex; align-items: center; gap: 8px; }
+  .bbb-opt button { flex: 0 0 auto; min-width: 116px; }
+  .bbb-opt .muted { font-size: 0.85em; }
   .warehouse { display: flex; justify-content: space-between; align-items: center; gap: 8px; flex-wrap: wrap; margin: 4px 0 4px; padding: 6px 8px; background: var(--panel-2, #1b1f27); border-radius: 8px; }
   .wh-name { font-weight: 600; }
   .wh-actions { display: flex; gap: 4px; flex-wrap: wrap; }
