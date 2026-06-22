@@ -1,5 +1,5 @@
 <script>
-  import { ui, act, endTurn, isAI, startPick, viewCard, cardInLine, skipAITurns } from "../lib/store.js";
+  import { ui, act, endTurn, isAI, viewCard, cardInLine, skipAITurns } from "../lib/store.js";
   import { muted, toggleMute, playSfx, playMusic } from "../lib/sound.js";
   import { seasonFor, findBuilding } from "@boty/engine";
   import Shop from "../components/Shop.svelte";
@@ -17,7 +17,6 @@
   const pnl = $derived(s?.pnl); // the active player's profit & loss, summed from the G/L
   const bs = $derived(s?.bs); // the balance sheet
   const locOwed = $derived((bs?.liabilityLines ?? []).find((l) => l.acct === 2100)?.amount ?? 0);
-  const hasMod = (kind) => me?.modifiers?.some((m) => m.kind === kind);
   let booksView = $state("pl"); // "pl" | "bs"
   const rivals = $derived(s ? s.players.filter((_, i) => i !== s.activePlayerIndex) : []);
   const logTail = $derived(s ? s.log.slice(-8) : []);
@@ -131,18 +130,8 @@
       <Shop player={me} {econ} {handHas} {nextBuilding} />
       {#if $ui.error}<p class="error">✗ {$ui.error}</p>{/if}
       <fieldset class="actions" disabled={!!aiTurn}>
-        <button title="Borrow cash now — a liability with interest, force-settled at year-end" onclick={() => act((g) => g.drawCredit())}>Draw Credit</button>
+        <button title="Borrow cash now — a liability with interest, force-settled at year-end" onclick={() => act((g) => g.drawCredit())}>🏦 Bank Credit</button>
         {#if locOwed > 0}<button title="Repay the line of credit" onclick={() => act((g) => g.repayCredit())}>Repay ({locOwed} W)</button>{/if}
-        {#if nextBuilding}
-          <button onclick={() => act((g) => g.relocate(nextBuilding.id))}>Move → {nextBuilding.name}</button>
-        {/if}
-        {#if me.hand.some((c) => c.type === "sabotage")}
-          <button class="hostile" onclick={() => startPick("sabotage")}>⚔️ Sabotage…</button>
-        {/if}
-        {#if me.hand.some((c) => c.type === "favor")}
-          <button class="hostile" onclick={() => startPick("favor")}>🪙 Favor…</button>
-        {/if}
-        <button class="hostile" onclick={() => startPick("sue")}>⚖️ Sue…</button>
         <button class="end" onclick={endTurn}>End turn ▶</button>
       </fieldset>
     </section>

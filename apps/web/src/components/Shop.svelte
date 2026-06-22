@@ -1,5 +1,5 @@
 <script>
-  import { ui, act } from "../lib/store.js";
+  import { ui, act, startPick, playSue } from "../lib/store.js";
   import { findBuilding, findEquipment } from "@boty/engine";
   import Art from "./Art.svelte";
 
@@ -56,7 +56,7 @@
     [
       ...player.invoices.map((inv) => ({ kind: "invoice", id: inv.id, amount: inv.amount, who: "client", age: age(inv.due_turn, false) })),
       ...allPlayers.flatMap((o) =>
-        o.payables.filter((ap) => ap.creditor_id === player.id).map((ap) => ({ kind: "contract", id: ap.id, amount: ap.amount, who: o.name, age: age(ap.due_turn, ap.pending) })),
+        o.payables.filter((ap) => ap.creditor_id === player.id).map((ap) => ({ kind: "contract", id: ap.id, amount: ap.amount, who: o.name, debtorId: o.id, suable: ap.sue_window_remaining > 0, age: age(ap.due_turn, ap.pending) })),
       ),
     ].sort((a, b) => a.age.sort - b.age.sort),
   );
@@ -66,8 +66,15 @@
   <h2>{player.name} <span class="trade">· {player.service}</span></h2>
   <div class="stats">
     <span class="cash">{player.cash} W</span>
-    <span>{bld.name} (tier {bld.tier ?? 1}, cap {bld.capacity})</span>
     <span class="muted">overhead {overhead} W/turn</span>
+  </div>
+
+  <div class="warehouse">
+    <span class="wh-name">🏚️ {bld.name} <span class="muted">tier {bld.tier ?? 1} · cap {bld.capacity + (player.capacityBonus ?? 0)}</span></span>
+    <span class="wh-actions">
+      {#if player.bbbThisTurn}<button class="mini" title="Capital improvement: +1 capacity, booked to the balance sheet" onclick={() => act((g) => g.improveShop())}>⬆️ Upgrade</button>{/if}
+      {#if nextBuilding}<button class="mini" onclick={() => act((g) => g.relocate(nextBuilding.id))}>Move → {nextBuilding.name}</button>{/if}
+    </span>
   </div>
 
   <h3>Tradespeople ({player.tradesmen.length}/{bld.capacity + (player.capacityBonus ?? 0)})</h3>
@@ -150,8 +157,13 @@
           <span class="amt">{r.amount} W</span>
           <span class="who">{r.kind === "contract" ? "from " + r.who : r.who}</span>
           <span class="when">{r.age.txt}</span>
-          {#if r.kind === "invoice"}<button class="mini" title="Sell for cash now, minus a {Math.round(econ.factoring_fee * 100)}% fee" onclick={() => act((g) => g.factorInvoice(r.id))}>Factor</button>
-          {:else if r.age.cls !== "pending"}<button class="mini" title="Sell this debt to collections for a {Math.round(econ.factoring_fee * 100)}% fee — they chase {r.who} with a guaranteed lawyer" onclick={() => act((g) => g.factorClaim(r.id))}>Factor</button>{/if}
+          <span class="row-actions">
+            {#if r.kind === "invoice"}<button class="mini" title="Sell for cash now, minus a {Math.round(econ.factoring_fee * 100)}% fee" onclick={() => act((g) => g.factorInvoice(r.id))}>Factor</button>
+            {:else if r.age.cls !== "pending"}
+              {#if r.suable}<button class="mini hostile" title="Take {r.who} to court to collect this debt" onclick={() => playSue(r.debtorId, r.id)}>⚖️ Sue</button>{/if}
+              <button class="mini" title="Sell this debt to collections for a {Math.round(econ.factoring_fee * 100)}% fee — they chase {r.who} with a guaranteed lawyer" onclick={() => act((g) => g.factorClaim(r.id))}>Factor</button>
+            {/if}
+          </span>
         </div>
       {:else}<p class="muted">none</p>{/each}
     </div>
@@ -181,7 +193,6 @@
         <div class="cardrow bbb">
           <span class="cardname">🏛️ BBB Special</span>
           <span class="bbb-buys">
-            <button class="mini" title="Capital improvement: +1 capacity (balance sheet)" onclick={() => act((g) => g.improveShop())}>Improve shop</button>
             {#if !hasMod("insurance")}<button class="mini" onclick={() => act((g) => g.buyService("insurance"))}>Insurance</button>{/if}
             {#if !hasMod("marketing")}<button class="mini" onclick={() => act((g) => g.buyService("marketing"))}>Marketing</button>{/if}
             {#if !hasMod("accountant")}<button class="mini" onclick={() => act((g) => g.buyService("accountant"))}>Accountant</button>{/if}
@@ -199,6 +210,8 @@
         <div class="cardrow">
           <span class="cardname">🃏 {c.name}</span>
           <span class="muted">{handDesc[c.type] ?? c.text ?? ""}</span>
+          {#if c.type === "sabotage"}<button class="mini hostile" onclick={() => startPick("sabotage")}>⚔️ Play…</button>{/if}
+          {#if c.type === "favor"}<button class="mini hostile" onclick={() => startPick("favor")}>🪙 Play…</button>{/if}
         </div>
       {/each}
     </div>
@@ -225,4 +238,8 @@
   .cardrow .cardname { font-weight: 600; min-width: 130px; }
   .cardrow.bbb .cardname { color: var(--accent); }
   .bbb-buys { display: flex; gap: 4px; flex-wrap: wrap; }
+  .warehouse { display: flex; justify-content: space-between; align-items: center; gap: 8px; flex-wrap: wrap; margin: 4px 0 4px; padding: 6px 8px; background: var(--panel-2, #1b1f27); border-radius: 8px; }
+  .wh-name { font-weight: 600; }
+  .wh-actions { display: flex; gap: 4px; flex-wrap: wrap; }
+  .line.aged .row-actions { display: flex; gap: 4px; justify-content: flex-end; }
 </style>
