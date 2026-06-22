@@ -85,14 +85,13 @@ function resolveCard(state, player, card) {
       if (job.required_trade && player.service !== job.required_trade) {
         const contractor = pickContractor(state, player, job.required_trade);
         if (contractor) {
-          job.hirer_id = player.id;
-          contractor.jobs.push(job);
-          player.payables.push(createPayable({
-            vendor: `${contractor.name} (${job.name})`, amount: job.value, dueTurn: null,
-            isNpc: false, creditorId: contractor.id, jobId: job.id, pending: true,
-          }));
+          // You can't do it, so you refer the lead to the trade who can — and take a finder's
+          // commission. The contractor does it as their own NPC-paid job (no debt between players).
+          const commission = Math.max(1, Math.floor(job.value * state.economy.sell_rate));
+          cashIn(state, player, ACCT.OTHER_INCOME, commission, `Referral commission — ${job.name}`);
+          contractor.jobs.push(job); // hirer_id stays null → the contractor's own job
           return { type: "job", name: card.name, job, routedTo: contractor.id,
-            text: `routed to ${contractor.name} (the ${job.required_trade}) — you owe ${w(job.value)} on completion` };
+            text: `referred to ${contractor.name} (the ${job.required_trade}) — you take a ${w(commission)} commission` };
         }
       }
       // Otherwise it's the drawer's own job.

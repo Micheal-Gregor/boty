@@ -414,59 +414,56 @@ function routedGame() {
 }
 
 {
-  // The mechanic draws a plumbing job → routes to the plumber; hirer gets a pending AP.
+  // The mechanic draws a plumbing job → REFERS it to the plumber for a commission; the plumber
+  // gets it as their own NPC-paid job (no debt between them).
   const { g, hirer, plumber } = routedGame();
+  const c0 = hirer.cash;
   const [drawn] = drawFortune(g.state, hirer, 1);
-  assert.equal(hirer.jobs.length, 0, "hirer doesn't keep a job they can't do");
+  assert.equal(hirer.jobs.length, 0, "drawer doesn't keep a job they can't do");
   assert.equal(plumber.jobs.length, 1, "the plumber gets the job");
-  assert.equal(drawn.job.hirer_id, hirer.id, "job tagged with the hirer");
-  assert.equal(hirer.payables.length, 1, "hirer holds a pending AP for the value");
-  assert.ok(hirer.payables[0].pending && hirer.payables[0].creditor_id === plumber.id && hirer.payables[0].amount === 10);
-  ok("trade-routed: a job you can't do routes to the player who can; you owe the value");
+  assert.equal(drawn.job.hirer_id, null, "it's the plumber's own job — no hirer");
+  assert.equal(hirer.payables.length, 0, "the drawer owes nothing");
+  const commission = Math.max(1, Math.floor(10 * economy.sell_rate));
+  assert.equal(hirer.cash, c0 + commission, `the drawer takes a ${commission} W referral commission`);
+  ok("trade-routed: refer a job you can't do → a commission; the contractor does it NPC-paid");
 }
 {
-  // Completion: the AP comes due (no NPC invoice); the hirer pays → the plumber is paid.
-  const { g, hirer, plumber } = routedGame();
-  const [drawn] = drawFortune(g.state, hirer, 1);
+  // Completion: the contractor's OWN NPC invoice (the client pays them), not the drawer.
+  const { g, plumber } = routedGame();
+  const [drawn] = drawFortune(g.state, g.state.players[0], 1);
   const job = drawn.job;
   jobs.assign(g.state, plumber, job.id);
   job.work_done = 5;
   jobs.runJobProgress(g.state, plumber);
-  assert.equal(plumber.invoices.length, 0, "contractor gets no NPC invoice — the hirer pays");
-  const ap = hirer.payables[0];
-  assert.equal(ap.pending, false, "the AP is now due");
-  const p0 = plumber.cash;
-  payables.payPayable(g.state, hirer, ap.id);
-  assert.equal(plumber.cash, p0 + 10, "paying the AP pays the plumber the contract value");
-  ok("trade-routed completion: the hirer's AP comes due; paying it pays the contractor");
+  assert.equal(plumber.invoices.length, 1, "the contractor gets an NPC invoice for the work");
+  assert.equal(plumber.invoices[0].amount, 10, "for the contract value");
+  ok("trade-routed completion: the contractor is paid by the NPC client (an invoice)");
 }
 {
-  // Botch: the contractor fails it → hirer's liability CLEARS + a damages claim opens.
-  const { g, hirer, plumber } = routedGame();
-  const [drawn] = drawFortune(g.state, hirer, 1);
-  const job = drawn.job;
-  g.state.turn = job.deadline_turn + 1; // overdue
-  jobs.expireOverdue(g.state, plumber);
-  assert.equal(hirer.payables.length, 0, "hirer's liability cleared — no delivery, no debt");
-  assert.equal(g.state.pendingDamages.length, 1, "a damages claim opened");
-  assert.equal(g.state.pendingDamages[0].hirerId, hirer.id);
-  ok("trade-routed botch: hirer's liability clears + opens a damages claim");
-}
-{
-  // The damages suit: hirer sues → contractor pays the BANK (hirer doesn't pocket it).
-  const { g, hirer, plumber } = routedGame();
-  const [drawn] = drawFortune(g.state, hirer, 1);
+  // Botch: the contractor's own job just expires — no pay, no liability, no damages.
+  const { g, plumber } = routedGame();
+  const [drawn] = drawFortune(g.state, g.state.players[0], 1);
   g.state.turn = drawn.job.deadline_turn + 1;
   jobs.expireOverdue(g.state, plumber);
-  // hirer is player 0 (current). Sue, plumber defends without a lawyer, roll above the line → loses.
-  g.sue; // (no-op ref)
-  g.state.die = scriptedDie([4]); // dispute base 3 → roll 4 > 3 → contractor LOSES
+  assert.equal(plumber.jobs.length, 0, "the job expired");
+  assert.equal(g.state.pendingDamages.length, 0, "no damages — it was the contractor's own job");
+  ok("trade-routed botch: the contractor just loses the work; no liability, no damages");
+}
+{
+  // The damages mechanic still stands (used when a job IS owed — e.g. a self-shop fix): a hirer
+  // sues a contractor who botched their job — the contractor pays the BANK, the hirer doesn't pocket it.
+  resetIds();
+  const g = new Game(economy, [{ name: "Hirer", service: "mechanic" }, { name: "Plumber", service: "plumber" }], { seed: 1 });
+  g.start();
+  const [hirer, plumber] = g.state.players;
+  g.state.pendingDamages.push({ hirerId: hirer.id, contractorId: plumber.id, jobId: "x", jobName: "Botched fix", value: 10, window: economy.sue_window });
+  g.state.die = scriptedDie([4]); // dispute base 3 → 4 > 3 → contractor LOSES
   const p0 = plumber.cash, h0 = hirer.cash;
-  g.sueDamages(drawn.job.id);
+  g.sueDamages("x");
   g.respondToThreat({ contest: true });
   assert.equal(plumber.cash, p0 - 10 - FEE, "contractor pays 10 damages to the bank + the fee");
   assert.equal(hirer.cash, h0 - FEE, "hirer pays only the fee — doesn't pocket the damages");
-  ok("trade-routed damages: contractor pays the BANK; the hirer just sinks a rival");
+  ok("damages suit: contractor pays the BANK; the hirer just sinks a rival");
 }
 {
   // Fallback: nobody at the table has the trade → the drawer does it themselves.

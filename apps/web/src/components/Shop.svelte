@@ -29,6 +29,10 @@
   };
   const sellPrice = (j) => Math.max(1, Math.floor(j.value * econ.sell_rate));
 
+  const hasMod = (k) => player.modifiers?.some((m) => m.kind === k);
+  const modDesc = { insurance: "shocks become deductibles", marketing: "extra work each turn", accountant: "cheaper factoring + cleaner books", training: "the crew burns work faster" };
+  const handDesc = { slick_lawyer: "±2 in a court / sue / damages window", rush: "finish or advance a job", buy_time: "extend a deadline", sabotage: "set back a rival's job", favor: "cancel a rival's standing perk" };
+
   // --- AR / AP aging ---------------------------------------------------------------------
   const allPlayers = $derived($ui.view?.players ?? []);
   const nameOf = (id) => allPlayers.find((p) => p.id === id)?.name ?? "a player";
@@ -73,11 +77,10 @@
         <Art kind="portraits" id={t.id} label="portrait" small />
         <div class="slot-id">{t.id}</div>
         <div class="muted">{sidelined(t) ? "out until t" + t.out_until : t.assignedJob ? "on " + t.assignedJob : "idle"}</div>
+        <button class="mini" onclick={() => act((g) => g.fire(t.id))}>Fire</button>
       </div>
     {/each}
-    {#if player.tradesmen.length}
-      <button class="mini" onclick={() => act((g) => g.fire())}>Fire one</button>
-    {/if}
+    <button class="mini add" onclick={() => act((g) => g.hire())}>+ Hire</button>
   </div>
 
   <h3>Equipment</h3>
@@ -93,9 +96,13 @@
           <button class="mini" onclick={() => act((g) => g.cancelRental(e.id))}>Cancel</button>
         {/if}
       </div>
-    {:else}
-      <p class="muted">No equipment.</p>
     {/each}
+    <div class="buy-col">
+      <button class="mini" onclick={() => act((g) => g.buyEquipment("basic"))}>Buy Basic</button>
+      <button class="mini" onclick={() => act((g) => g.buyEquipment("pro"))}>Buy Pro</button>
+      <button class="mini" onclick={() => act((g) => g.rentEquipment("basic"))}>Rent Basic</button>
+      <button class="mini" onclick={() => act((g) => g.rentEquipment("pro"))}>Rent Pro</button>
+    </div>
   </div>
 
   {#if player.defects?.length}
@@ -161,16 +168,39 @@
     </div>
   </div>
 
-  {#if player.modifiers?.length}
+  {#if player.modifiers?.length || player.bbbThisTurn}
     <h3>Standing cards</h3>
-    <div class="hand">{#each player.modifiers as m}<span class="chip" title={m.name}>{m.positive ? "🛡️" : "⚠️"} {m.name}</span>{/each}</div>
+    <div class="cardlist">
+      {#each player.modifiers as m (m.id)}
+        <div class="cardrow">
+          <span class="cardname">{m.positive ? "🛡️" : "⚠️"} {m.name}</span>
+          <span class="muted">{modDesc[m.kind] ?? ""}{#if m.turnsLeft} · {m.turnsLeft} turn(s) left{/if}</span>
+        </div>
+      {/each}
+      {#if player.bbbThisTurn}
+        <div class="cardrow bbb">
+          <span class="cardname">🏛️ BBB Special</span>
+          <span class="bbb-buys">
+            <button class="mini" title="Capital improvement: +1 capacity (balance sheet)" onclick={() => act((g) => g.improveShop())}>Improve shop</button>
+            {#if !hasMod("insurance")}<button class="mini" onclick={() => act((g) => g.buyService("insurance"))}>Insurance</button>{/if}
+            {#if !hasMod("marketing")}<button class="mini" onclick={() => act((g) => g.buyService("marketing"))}>Marketing</button>{/if}
+            {#if !hasMod("accountant")}<button class="mini" onclick={() => act((g) => g.buyService("accountant"))}>Accountant</button>{/if}
+            {#if !hasMod("training")}<button class="mini" onclick={() => act((g) => g.buyService("training"))}>Training</button>{/if}
+          </span>
+        </div>
+      {/if}
+    </div>
   {/if}
 
   {#if player.hand.length}
     <h3>Hand</h3>
-    <div class="hand">
-      {#each player.hand as c}<span class="chip">{c.name}</span>{/each}
-      <span class="muted">(play Rush / Buy Time on a job; Sabotage / Sue from the action bar)</span>
+    <div class="cardlist">
+      {#each player.hand as c}
+        <div class="cardrow">
+          <span class="cardname">🃏 {c.name}</span>
+          <span class="muted">{handDesc[c.type] ?? c.text ?? ""}</span>
+        </div>
+      {/each}
     </div>
   {/if}
 </div>
@@ -187,4 +217,12 @@
   .line.aged.overdue .when { color: #e0564b; font-weight: 700; }
   .line.aged.pending .when { color: #6f93c9; font-style: italic; }
   .defect-card { border-left: 3px solid #e0564b; }
+  .slot .mini { margin-top: 4px; width: 100%; }
+  .slots .add { align-self: center; padding: 8px 12px; }
+  .buy-col { display: flex; flex-direction: column; gap: 4px; justify-content: center; }
+  .cardlist { display: flex; flex-direction: column; gap: 5px; }
+  .cardrow { display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap; }
+  .cardrow .cardname { font-weight: 600; min-width: 130px; }
+  .cardrow.bbb .cardname { color: var(--accent); }
+  .bbb-buys { display: flex; gap: 4px; flex-wrap: wrap; }
 </style>
