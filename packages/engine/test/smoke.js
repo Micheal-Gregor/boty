@@ -100,7 +100,7 @@ const economy = await loadEconomy();
 
   game.fire();
   assert.equal(p.tradesmen.length, 1);
-  ok("fire removes a tradesperson and charges severance");
+  ok("fire removes a tradesperson (a clean layoff — no work, no claim)");
 }
 
 // --- Relocate costs the whole turn -------------------------------------------------------

@@ -19,7 +19,9 @@ export function resetIds() {
  * arrives in Stage 2.
  */
 export function createTradesman() {
-  return { id: genId("T"), assignedJob: null };
+  // prod_mod: per-worker productivity from performance reviews (−1 / 0 / +1).
+  // flag: grounds to fire WITH cause ("theft" | "poor_review"), or null.
+  return { id: genId("T"), assignedJob: null, prod_mod: 0, flag: null };
 }
 
 /**

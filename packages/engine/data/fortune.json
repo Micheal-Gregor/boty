@@ -134,6 +134,20 @@
       "flavor": "The county's been fighting over this wing for a decade. Deliver it and you're untouchable — miss the deadline and the county slaps an emergency levy on every business in town to cover the overrun."
     },
     {
+      "type": "review",
+      "copies": 1,
+      "id": "perf_review",
+      "name": "Performance reviews",
+      "flavor": "Sit-downs all round. Some of your crew shine and earn a bump, some need a talking-to — and a poor review is grounds to let someone go with cause."
+    },
+    {
+      "type": "union",
+      "copies": 1,
+      "id": "union_drive",
+      "name": "Union drive",
+      "flavor": "The trades organise. Nobody's easy to let go now — every firing is a fight you'll likely lose. Only a well-placed Favor can bust it."
+    },
+    {
       "type": "job",
       "copies": 4,
       "id": "brake_job",

@@ -16,6 +16,7 @@ function describe(e) {
   if (e.kind === "levy") return `every shop pays a ${w(e.magnitude)}/turn levy`;
   if (e.kind === "boom") return `new jobs pay +${Math.round(e.magnitude * 100)}%`;
   if (e.kind === "recession") return `new jobs pay −${Math.round(e.magnitude * 100)}%`;
+  if (e.kind === "union") return `the trades are organised — firing anyone is far riskier (a Favor busts it)`;
   return "a town-wide effect";
 }
 
@@ -52,7 +53,7 @@ export function jobValueFactor(state) {
 /** Once per round (round wrap): tick every effect's timer and clear the expired. Returns log lines. */
 export function tickGlobals(state) {
   if (!state.globalEffects?.length) return [];
-  for (const e of state.globalEffects) e.turnsLeft -= 1;
+  for (const e of state.globalEffects) if (e.kind !== "union") e.turnsLeft -= 1; // a union persists until busted
   const expired = state.globalEffects.filter((e) => e.turnsLeft <= 0);
   state.globalEffects = state.globalEffects.filter((e) => e.turnsLeft > 0);
   return expired.map((e) => `🌐 ${e.name} lifts — Maple Hollow gets back to business`);

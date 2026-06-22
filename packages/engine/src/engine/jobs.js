@@ -59,10 +59,13 @@ function hasToolPerWorker(player, job) {
   return !job.equipment_per_tradesman || job.assigned_tradesmen.every((tid) => player.equipment.some((e) => e.assigned_to === tid));
 }
 
-/** One worker's work rate this turn = their assigned tool's speed, else base_hand_speed (model A). */
+/** One worker's work rate = their tool's speed (else base_hand_speed) ± their performance-review
+ *  modifier (model A). Floored at 0 — a poor bare-handed worker just spins their wheels. */
 export function workerProductivity(economy, player, tradesmanId) {
   const tool = player.equipment.find((e) => e.assigned_to === tradesmanId);
-  return tool ? findEquipment(economy, tool.defId).speed : economy.base_hand_speed;
+  const t = player.tradesmen.find((x) => x.id === tradesmanId);
+  const base = tool ? findEquipment(economy, tool.defId).speed : economy.base_hand_speed;
+  return Math.max(0, base + (t?.prod_mod ?? 0));
 }
 
 /** A job's headline work score = the summed productivity of the crew assigned to it. */

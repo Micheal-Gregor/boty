@@ -12,6 +12,7 @@ import * as payables from "./payables.js";
 import * as defects from "./defects.js";
 import * as modifiers from "./modifiers.js";
 import * as expansion from "./expansion.js";
+import * as employment from "./employment.js";
 import { drawFortune } from "./fortune.js";
 import { getawayThreshold, rollGetaway, getawayOdds } from "./litigation.js";
 import { w } from "./economy.js";
@@ -171,7 +172,13 @@ export class Game {
   }
 
   hire() { return this.#act((p) => shop.hire(this.state, p)); }
-  fire(tradesmanId) { return this.#act((p) => shop.fire(this.state, p, tradesmanId)); }
+  fire(tradesmanId, opts = {}) {
+    return this.#act((p) => {
+      let ownLawyer = false;
+      if (opts.ownLawyer && cards.hasCardType(p, "slick_lawyer")) { cards.takeFromHand(p, cards.findHandCard(p, "slick_lawyer").index); ownLawyer = true; }
+      return employment.fireWorker(this.state, p, tradesmanId, { ownLawyer });
+    });
+  }
   buyEquipment(defId) { return this.#act((p) => shop.buyEquipment(this.state, p, defId)); }
   rentEquipment(defId) { return this.#act((p) => shop.rentEquipment(this.state, p, defId)); }
   disposeEquipment(instanceId) { return this.#act((p) => shop.disposeEquipment(this.state, p, instanceId)); }
@@ -195,8 +202,15 @@ export class Game {
   playFavor(targetId, modId) {
     return this.#act((p) => {
       if (!cards.hasCardType(p, "favor")) throw new GameError(`${p.name} has no Favor card to play`);
-      const target = this.#playerById(targetId);
-      const line = modifiers.favorModifier(this.state, target, modId);
+      let line;
+      if (modId === "union") {
+        const before = this.state.globalEffects.length;
+        this.state.globalEffects = this.state.globalEffects.filter((e) => e.kind !== "union");
+        if (this.state.globalEffects.length === before) throw new GameError("There's no union to bust");
+        line = `🪙 ${p.name} calls in a favor and BUSTS the union — firing is risky again, but cheap`;
+      } else {
+        line = modifiers.favorModifier(this.state, this.#playerById(targetId), modId);
+      }
       cards.takeFromHand(p, cards.findHandCard(p, "favor").index);
       return line;
     });

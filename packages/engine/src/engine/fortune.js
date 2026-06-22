@@ -16,6 +16,8 @@ import { bearLoss, marketingInjection } from "./modifiers.js";
 import { applyCrewEvent } from "./crew.js";
 import { applyIncident } from "./incidents.js";
 import { startProject } from "./projects.js";
+import { performanceReview } from "./employment.js";
+import { applyGlobal } from "./globals.js";
 import { resolveCivilEvent } from "./payables.js";
 import { releaseTradesman } from "./jobs.js";
 import { seasonName } from "./season.js";
@@ -178,17 +180,27 @@ function resolveCard(state, player, card) {
       const eq = owned[0];
       const def = findEquipment(state.economy, eq.defId);
       const { borne, insured } = bearLoss(player, def.buy_cost);
+      let text;
       if (insured) {
         cashOut(state, player, ACCT.REPAIRS, borne, `${card.name} — deductible`);
-        return { type: "theft", name: card.name, text: `${def.name} stolen but insured — ${w(borne)} deductible, replaced` };
+        text = `${def.name} stolen but insured — ${w(borne)} deductible, replaced`;
+      } else {
+        player.equipment = player.equipment.filter((e) => e.id !== eq.id);
+        post(state, player, `${card.name} — ${def.name} written off`, [
+          { acct: ACCT.LEGAL, amt: def.buy_cost },
+          { acct: ACCT.EQUIPMENT, amt: -def.buy_cost },
+        ]);
+        text = `${def.name} stolen — written off (${w(def.buy_cost)})`;
       }
-      player.equipment = player.equipment.filter((e) => e.id !== eq.id);
-      post(state, player, `${card.name} — ${def.name} written off`, [
-        { acct: ACCT.LEGAL, amt: def.buy_cost },
-        { acct: ACCT.EQUIPMENT, amt: -def.buy_cost },
-      ]);
-      return { type: "theft", name: card.name, text: `${def.name} stolen — written off (${w(def.buy_cost)})` };
+      // 50/50 it was an inside job → flag a tradesperson (grounds to fire them with cause).
+      const suspect = player.tradesmen.find((t) => t.flag == null);
+      if (state.die() <= 3 && suspect) { suspect.flag = "theft"; text += ` — looks like an inside job: ${suspect.id} is flagged`; }
+      return { type: "theft", name: card.name, text };
     }
+    case "review":
+      return { type: "review", name: card.name, text: performanceReview(state, player).join("; ") };
+    case "union":
+      return { type: "union", name: card.name, text: applyGlobal(state, { name: "Town labor union", kind: "union", magnitude: 0, turns: 99 }) };
     case "defect": {
       const defect = createDefect(card, state.turn);
       player.defects.push(defect);
