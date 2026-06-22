@@ -18,8 +18,31 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 export const ui = writable({
   screen: "setup", game: null, view: null, ctx: null, flavor, economy, error: null, rev: 0,
   aiActing: null, threat: null, picking: null, reckoning: null, final: null, court: null, damages: null, settle: null,
-  cardView: null, popups: [], settingsOpen: false,
+  cardView: null, popups: [], settingsOpen: false, flash: null, entityCard: null,
 });
+
+// --- Flash-and-vanish errors (E5 §1): a blocked action flashes in ITS section, not the bottom. ---
+let flashTimer = null;
+function sectionFor(m) {
+  if (/hire|capacity|tradesperson|sign-on|severance|fire|bare-handed/i.test(m)) return "crew";
+  if (/equipment|tool|rig|dispose|rented|owned|idle/i.test(m)) return "equip";
+  if (/building|relocat|step up|readying|deposit|move|already in the/i.test(m)) return "warehouse";
+  if (/invoice|receivable|collect|factor/i.test(m)) return "ar";
+  if (/payable|can't cover|cover \d|pay /i.test(m)) return "ap";
+  if (/service|BBB|already carries|vendor fair/i.test(m)) return "bbb";
+  if (/favor|sabotage|lawyer|rush|sue|window|buy time/i.test(m)) return "hand";
+  if (/job|assign|sticky|routed|on-hold|drop|sell|max of/i.test(m)) return "jobs";
+  return "general";
+}
+function flashError(msg) {
+  push({ flash: { section: sectionFor(msg), msg } });
+  if (flashTimer) clearTimeout(flashTimer);
+  flashTimer = setTimeout(() => push({ flash: null }), 2600);
+}
+
+// --- Interactive entity cards (E5 §4): open a worker / tool / job as its action surface. -------
+export function openEntity(kind, id) { playSfx("flip", 0.3); push({ entityCard: { kind, id } }); }
+export function closeEntity() { push({ entityCard: null }); }
 
 // --- The pop-up QUEUE (E5 §2): modals shown one at a time, in order, easy close/next. ----------
 let lastRoundShown = 0;
@@ -122,8 +145,8 @@ export function newGame(seats) {
 /** Run an engine action for the current (human) player, catching illegal moves. */
 export function act(fn) {
   if (game && ai[game.currentPlayer.id]) return; // a rival is acting — ignore stray human input
-  try { fn(game); playSfx("click", 0.3); push({ error: null }); }
-  catch (e) { fail(e?.message ?? String(e)); }
+  try { fn(game); playSfx("click", 0.3); push({ error: null, flash: null }); }
+  catch (e) { flashError(e?.message ?? String(e)); }
 }
 
 // --- Threats (Sabotage / Sue) + the response window --------------------------------------

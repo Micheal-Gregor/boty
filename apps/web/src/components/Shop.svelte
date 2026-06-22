@@ -1,7 +1,8 @@
 <script>
-  import { ui, act, startPick, playSue } from "../lib/store.js";
+  import { ui, act, startPick, playSue, openEntity } from "../lib/store.js";
   import { findBuilding, findEquipment } from "@boty/engine";
   import Art from "./Art.svelte";
+  import Flash from "./Flash.svelte";
 
   let { player, econ, handHas, nextBuilding } = $props();
 
@@ -93,33 +94,27 @@
     </div>
   {/each}
 
-  <h3>Tradespeople ({player.tradesmen.length}/{bld.capacity + (player.capacityBonus ?? 0)})</h3>
+  <h3>Tradespeople ({player.tradesmen.length}/{bld.capacity + (player.capacityBonus ?? 0)}) <Flash section="crew" /></h3>
   <div class="slots">
     {#each player.tradesmen as t}
-      <div class="slot person" class:busy={t.assignedJob} class:out={sidelined(t)}>
+      <button class="slot person card-open" class:busy={t.assignedJob} class:out={sidelined(t)} onclick={() => openEntity("worker", t.id)}>
         <Art kind="portraits" id={t.id} label="portrait" small />
         <div class="slot-id">{t.id} <span class="prod">⚡{t.productivity}</span></div>
         <div class="muted">{t.tool ?? "bare-handed"}</div>
         <div class="muted">{sidelined(t) ? "out until t" + t.out_until : t.assignedJob ? "on " + t.assignedJob : "idle"}</div>
-        <button class="mini" onclick={() => act((g) => g.fire(t.id))}>Fire</button>
-      </div>
+      </button>
     {/each}
     <button class="mini add" onclick={() => act((g) => g.hire())}>+ Hire</button>
   </div>
 
-  <h3>Equipment</h3>
+  <h3>Equipment <Flash section="equip" /></h3>
   <div class="slots">
     {#each player.equipment as e}
-      <div class="slot gear">
+      <button class="slot gear card-open" onclick={() => openEntity("equipment", e.id)}>
         <Art kind="equipment" id={e.defId} label={findEquipment(econ, e.defId).name} small />
         <div class="slot-id">{findEquipment(econ, e.defId).name}</div>
         <div class="muted">{e.owned ? "owned" : "rented"} · {e.assignedToId ? "→ " + e.assignedToId : "💤 idle"}</div>
-        {#if e.owned}
-          <button class="mini" onclick={() => act((g) => g.disposeEquipment(e.id))}>Dispose</button>
-        {:else}
-          <button class="mini" onclick={() => act((g) => g.cancelRental(e.id))}>Cancel</button>
-        {/if}
-      </div>
+      </button>
     {/each}
     <div class="buy-col">
       <button class="mini" onclick={() => act((g) => g.buyEquipment("basic"))}>Buy Basic</button>
@@ -142,25 +137,17 @@
     </div>
   {/if}
 
-  <h3>Jobs ({player.jobs.length})</h3>
+  <h3>Jobs ({player.jobs.length}) <Flash section="jobs" /></h3>
   <div class="jobs">
     {#each player.jobs as j}
-      <div class="card job">
+      <button class="card job card-open" onclick={() => openEntity("job", j.id)}>
         <div class="card-name">{j.name} <span class="state">[{j.state}]</span>{#if j.readying} <span class="routed">🏗️ fit-out</span>{:else if j.project_id} <span class="routed">🏛️ project phase</span>{:else if j.political} <span class="routed">🏛️ civic</span>{:else if j.hirer_id} <span class="routed">⇄ contract</span>{/if}</div>
         <div class="bar"><div class="fill" style="width:{Math.min(100, (100 * j.work_done) / j.work_amount)}%"></div></div>
         <div class="muted">
           {j.work_done}/{j.work_amount} · {j.value} W · {termsLabel(j)} · due in {j.deadline_turn - turn} · crew {j.assigned_tradesmen.length}/{j.max_tradesmen}
           {#if reqs(j)} · ⟨{reqs(j)}⟩{/if}{#if !j.droppable} · ⚲sticky{/if}
         </div>
-        <div class="job-actions">
-          {#if canAssign(j)}<button class="mini" onclick={() => act((g) => g.assignJob(j.id))}>Assign</button>{/if}
-          {#if j.state === "Active"}<button class="mini" onclick={() => act((g) => g.holdJob(j.id))}>Hold</button>{/if}
-          {#if canSell(j)}<button class="mini" title="Sell to the bank instead of doing it" onclick={() => act((g) => g.sellJob(j.id))}>Sell {sellPrice(j)} W</button>{/if}
-          {#if j.droppable}<button class="mini" onclick={() => act((g) => g.dropJob(j.id))}>Drop</button>{/if}
-          {#if handHas("rush")}<button class="mini" onclick={() => act((g) => g.playRush(j.id))}>Rush</button>{/if}
-          {#if handHas("buy_time")}<button class="mini" onclick={() => act((g) => g.playBuyTime(j.id))}>Buy Time</button>{/if}
-        </div>
-      </div>
+      </button>
     {:else}
       <p class="muted">No jobs in queue.</p>
     {/each}

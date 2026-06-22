@@ -6,6 +6,8 @@
   import Art from "../components/Art.svelte";
   import Popup from "../components/Popup.svelte";
   import Settings from "../components/Settings.svelte";
+  import EntityCard from "../components/EntityCard.svelte";
+  import Flash from "../components/Flash.svelte";
 
   // Which play-area is showing on a phone. On wide screens all three are columns and this is moot.
   let tab = $state("shop");
@@ -61,6 +63,7 @@
 
   <Popup />
   <Settings />
+  <EntityCard />
 
   {#if s.globalEffects?.length}
     <div class="town-banner">
@@ -142,8 +145,8 @@
         <Art kind={`shop/${tradeSlug(me.service)}`} id={me.building} label={`${me.service} ${findBuilding(econ, me.building).name}`} small />
       </div>
       <Shop player={me} {econ} {handHas} {nextBuilding} />
-      {#if $ui.error}<p class="error">✗ {$ui.error}</p>{/if}
       <fieldset class="actions" disabled={!!aiTurn}>
+        <Flash section="general" />
         <button title="Borrow cash now — a liability with interest, force-settled at year-end" onclick={() => act((g) => g.drawCredit())}>🏦 Bank Credit</button>
         {#if locOwed > 0}<button title="Repay the line of credit" onclick={() => act((g) => g.repayCredit())}>Repay ({locOwed} W)</button>{/if}
         <button class="end" onclick={endTurn}>End turn ▶</button>

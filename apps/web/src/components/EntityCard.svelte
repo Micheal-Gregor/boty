@@ -1,0 +1,117 @@
+<script>
+  import { ui, act, closeEntity } from "../lib/store.js";
+  import { findEquipment } from "@boty/engine";
+  import Art from "./Art.svelte";
+
+  const econ = $derived($ui.economy);
+  const view = $derived($ui.view);
+  const me = $derived(view ? view.players[view.activePlayerIndex] : null);
+  const ec = $derived($ui.entityCard);
+
+  const worker = $derived(ec?.kind === "worker" && me ? me.tradesmen.find((t) => t.id === ec.id) : null);
+  const gear = $derived(ec?.kind === "equipment" && me ? me.equipment.find((e) => e.id === ec.id) : null);
+  const job = $derived(ec?.kind === "job" && me ? me.jobs.find((j) => j.id === ec.id) : null);
+  const entity = $derived(worker ?? gear ?? job ?? null);
+
+  // The entity vanished (fired / disposed / completed) → close the card.
+  $effect(() => { if (ec && me && !entity) closeEntity(); });
+
+  let picking = $state(false); // inline assign-picker open?
+  const gearName = (e) => findEquipment(econ, e.defId).name;
+  const idle = $derived(me ? me.tradesmen.filter((t) => !me.equipment.some((e) => e.assigned_to === t.id)) : []);
+  const handHas = (type) => me?.hand?.some((c) => c.type === type);
+  const workScore = (j) => j.assigned_tradesmen.reduce((s, tid) => s + (me.tradesmen.find((t) => t.id === tid)?.productivity ?? 0), 0);
+  const canAssignJob = (j) => ["Queued", "OnHold", "Active"].includes(j.state) && j.assigned_tradesmen.length < j.max_tradesmen && idle.length > 0;
+
+  function go(fn) { picking = false; act(fn); }
+</script>
+
+{#if entity}
+  <div class="ent-overlay" onclick={closeEntity}>
+    <div class="ent" onclick={(e) => e.stopPropagation()}>
+      <button class="ent-x" onclick={closeEntity}>✕</button>
+
+      {#if worker}
+        <span class="headline">⚡{worker.productivity}</span>
+        <div class="ent-art"><Art kind="portraits" id={worker.id} label="portrait" /></div>
+        <h2>{worker.id}</h2>
+        <div class="stack">
+          <div class="stack-row"><span>Tool</span><span>{worker.tool ?? "bare-handed"}</span></div>
+          <div class="stack-row"><span>Status</span><span>{worker.out_until && worker.out_until > view.turn ? "out until t" + worker.out_until : worker.assignedJob ? "on a job" : "idle"}</span></div>
+        </div>
+        {#if picking}
+          <div class="picker">
+            <p class="muted">Put a tool on {worker.id}:</p>
+            {#each me.equipment as e}
+              <button class="opt" onclick={() => go((g) => g.assignEquipment(e.id, worker.id))}>{gearName(e)} {e.assigned_to ? `(on ${e.assigned_to})` : "(idle)"}</button>
+            {:else}<p class="muted">No tools owned.</p>{/each}
+          </div>
+        {/if}
+        <div class="ent-actions">
+          <button onclick={() => (picking = !picking)}>🔧 Assign equipment</button>
+          {#if worker.tool}<button onclick={() => go((g) => g.unassignEquipment(me.equipment.find((e) => e.assigned_to === worker.id).id))}>Unassign</button>{/if}
+          <button class="hostile" onclick={() => go((g) => g.fire(worker.id))}>Fire</button>
+        </div>
+
+      {:else if gear}
+        <div class="ent-art"><Art kind="equipment" id={gear.defId} label={gearName(gear)} /></div>
+        <h2>{gearName(gear)}</h2>
+        <div class="stack">
+          <div class="stack-row"><span>Tenure</span><span>{gear.owned ? "owned" : "rented"}</span></div>
+          <div class="stack-row"><span>Assigned</span><span>{gear.assigned_to ?? "💤 idle (rent, no output)"}</span></div>
+        </div>
+        {#if picking}
+          <div class="picker">
+            <p class="muted">Put this tool on a worker:</p>
+            {#each me.tradesmen as t}
+              <button class="opt" onclick={() => go((g) => g.assignEquipment(gear.id, t.id))}>{t.id} ⚡{t.productivity}</button>
+            {/each}
+          </div>
+        {/if}
+        <div class="ent-actions">
+          <button onclick={() => (picking = !picking)}>🔧 Assign to worker</button>
+          {#if gear.assigned_to}<button onclick={() => go((g) => g.unassignEquipment(gear.id))}>Idle it</button>{/if}
+          {#if gear.owned}<button class="hostile" onclick={() => go((g) => g.disposeEquipment(gear.id))}>Dispose</button>
+          {:else}<button class="hostile" onclick={() => go((g) => g.cancelRental(gear.id))}>Cancel rental</button>{/if}
+        </div>
+
+      {:else if job}
+        <span class="headline">{job.work_done}/{job.work_amount}</span>
+        <div class="ent-art"><Art kind="card" id={job.card} label={job.name} /></div>
+        <h2>{job.name} <span class="muted">[{job.state}]</span></h2>
+        <div class="bar"><div class="fill" style="width:{Math.min(100, (100 * job.work_done) / job.work_amount)}%"></div></div>
+        <div class="stack">
+          <div class="stack-row"><span>Work score / turn</span><span>⚡{workScore(job)}</span></div>
+          <div class="stack-row"><span>Crew</span><span>{job.assigned_tradesmen.length} / {job.max_tradesmen}</span></div>
+          <div class="stack-row"><span>Value · due</span><span>{job.value} W · turn {job.deadline_turn}</span></div>
+        </div>
+        <div class="ent-actions">
+          {#if canAssignJob(job)}<button onclick={() => go((g) => g.assignJob(job.id))}>👷 Assign worker</button>{/if}
+          {#if job.state === "Active"}<button onclick={() => go((g) => g.holdJob(job.id))}>Hold</button>{/if}
+          {#if handHas("rush")}<button onclick={() => go((g) => g.playRush(job.id))}>⏩ Rush</button>{/if}
+          {#if handHas("buy_time")}<button onclick={() => go((g) => g.playBuyTime(job.id))}>⏳ Buy Time</button>{/if}
+          {#if !job.hirer_id && (job.state === "Queued" || job.state === "OnHold")}<button onclick={() => go((g) => g.sellJob(job.id))}>Sell</button>{/if}
+          {#if job.droppable}<button class="hostile" onclick={() => go((g) => g.dropJob(job.id))}>Drop</button>{/if}
+        </div>
+      {/if}
+    </div>
+  </div>
+{/if}
+
+<style>
+  .ent-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.55); display: flex; align-items: center; justify-content: center; z-index: 65; padding: 16px; }
+  .ent { position: relative; background: var(--panel, #161a22); border: 1px solid var(--accent, #e0b341); border-radius: 14px; padding: 18px 20px; max-width: 380px; width: 100%; }
+  .ent-x { position: absolute; top: 10px; left: 12px; background: none; border: none; font-size: 1.1em; cursor: pointer; color: var(--muted, #9aa0aa); }
+  .headline { position: absolute; top: 12px; right: 16px; font-size: 1.4em; font-weight: 800; color: var(--accent, #e0b341); font-variant-numeric: tabular-nums; }
+  .ent-art { border-radius: 10px; overflow: hidden; margin: 6px 0 8px; }
+  .ent h2 { margin: 0 0 8px; }
+  .stack { display: flex; flex-direction: column; gap: 3px; margin-bottom: 10px; }
+  .stack-row { display: flex; justify-content: space-between; font-size: 0.9em; }
+  .stack-row span:first-child { color: var(--muted, #9aa0aa); }
+  .bar { height: 6px; background: var(--panel-2, #1b1f27); border-radius: 3px; overflow: hidden; margin-bottom: 8px; }
+  .bar .fill { height: 100%; background: var(--accent, #e0b341); }
+  .picker { background: var(--panel-2, #1b1f27); border-radius: 8px; padding: 8px; margin-bottom: 10px; display: flex; flex-direction: column; gap: 4px; }
+  .picker .opt { text-align: left; }
+  .ent-actions { display: flex; flex-wrap: wrap; gap: 6px; }
+  .ent-actions button { flex: 1 1 auto; padding: 9px; }
+</style>
