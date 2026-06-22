@@ -136,12 +136,15 @@
         <button onclick={() => act((g) => g.buyEquipment("pro"))}>Buy Pro Rig</button>
         <button onclick={() => act((g) => g.rentEquipment("basic"))}>Rent Basic</button>
         <button onclick={() => act((g) => g.rentEquipment("pro"))}>Rent Pro</button>
-        <button title="Capital improvement: +1 capacity, goes to the balance sheet (not an expense)" onclick={() => act((g) => g.improveShop())}>Improve shop</button>
-        {#if !hasMod("insurance")}<button title="A premium each turn turns shocks into deductibles" onclick={() => act((g) => g.buyService("insurance"))}>Buy Insurance</button>{/if}
-        {#if !hasMod("marketing")}<button title="A premium each turn brings in extra work" onclick={() => act((g) => g.buyService("marketing"))}>Buy Marketing</button>{/if}
-        {#if !hasMod("accountant")}<button title="Cheaper factoring + cleaner books" onclick={() => act((g) => g.buyService("accountant"))}>Hire Accountant</button>{/if}
-        {#if !hasMod("training")}<button title="A trained crew burns work faster" onclick={() => act((g) => g.buyService("training"))}>Training</button>{/if}
-        <button title="Borrow cash now — a liability, with interest each turn" onclick={() => act((g) => g.drawCredit())}>Draw Credit</button>
+        {#if me.bbbThisTurn}
+          <span class="bbb-tag">🏛️ BBB fair in town:</span>
+          <button title="Capital improvement: +1 capacity, goes to the balance sheet" onclick={() => act((g) => g.improveShop())}>Improve shop</button>
+          {#if !hasMod("insurance")}<button title="Premium each turn → shocks become deductibles" onclick={() => act((g) => g.buyService("insurance"))}>Buy Insurance</button>{/if}
+          {#if !hasMod("marketing")}<button title="A few turns of extra work, at a premium" onclick={() => act((g) => g.buyService("marketing"))}>Buy Marketing</button>{/if}
+          {#if !hasMod("accountant")}<button title="Cheaper factoring + cleaner books" onclick={() => act((g) => g.buyService("accountant"))}>Hire Accountant</button>{/if}
+          {#if !hasMod("training")}<button title="A trained crew burns work faster" onclick={() => act((g) => g.buyService("training"))}>Training</button>{/if}
+        {/if}
+        <button title="Borrow cash now — a liability with interest, force-settled at year-end" onclick={() => act((g) => g.drawCredit())}>Draw Credit</button>
         {#if locOwed > 0}<button title="Repay the line of credit" onclick={() => act((g) => g.repayCredit())}>Repay ({locOwed} W)</button>{/if}
         {#if nextBuilding}
           <button onclick={() => act((g) => g.relocate(nextBuilding.id))}>Move → {nextBuilding.name}</button>

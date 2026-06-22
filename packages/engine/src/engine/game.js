@@ -101,6 +101,8 @@ export class Game {
       const total = p.invoices.reduce((s, i) => s + i.amount, 0);
       if (total > 0) { lines.push(`  ${p.name} collects ${w(total)} in receivables`); cashIn(this.state, p, ACCT.AR, total, "Year-end receivables"); }
       p.invoices = [];
+      const settled = modifiers.forceSettleCredit(this.state, p); // borrowed money can't win
+      if (settled) lines.push(`  ${settled}`);
     }
     this.state.log.push(...lines);
     this.state.over = true;
@@ -171,8 +173,9 @@ export class Game {
   disposeEquipment(instanceId) { return this.#act((p) => shop.disposeEquipment(this.state, p, instanceId)); }
   cancelRental(instanceId) { return this.#act((p) => shop.cancelRental(this.state, p, instanceId)); }
   relocate(buildingId) { return this.#act((p) => shop.relocate(this.state, p, buildingId)); }
-  improveShop() { return this.#act((p) => shop.improveShop(this.state, p)); }
-  buyService(kind) { return this.#act((p) => modifiers.buyService(this.state, p, kind)); }
+  improveShop() { return this.#act((p) => { this.#requireBBB(p); return shop.improveShop(this.state, p); }); }
+  buyService(kind) { return this.#act((p) => { this.#requireBBB(p); return modifiers.buyService(this.state, p, kind); }); }
+  #requireBBB(p) { if (!p.bbbThisTurn) throw new GameError("The BBB vendor fair isn't in town — wait for a BBB Special"); }
   drawCredit() { return this.#act((p) => modifiers.drawCredit(this.state, p, this.state.economy.line_of_credit.draw), true); }
   repayCredit(amount) { return this.#act((p) => modifiers.repayCredit(this.state, p, amount ?? this.state.economy.line_of_credit.draw), true); }
   playFavor(targetId, modId) {

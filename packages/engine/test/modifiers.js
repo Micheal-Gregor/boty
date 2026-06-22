@@ -5,7 +5,7 @@ import { loadEconomy } from "../src/engine/content-fs.js";
 import { Game } from "../src/engine/game.js";
 import { resetIds, createEquipment } from "../src/state/state.js";
 import { drawFortune } from "../src/engine/fortune.js";
-import { buyService, hasModifier, tickModifiers, bearLoss, marketingInjection, factoringFeeRate, trainingSpeedBonus, drawCredit, repayCredit, chargeInterest } from "../src/engine/modifiers.js";
+import { buyService, hasModifier, tickModifiers, bearLoss, marketingInjection, factoringFeeRate, trainingSpeedBonus, drawCredit, repayCredit, chargeInterest, forceSettleCredit } from "../src/engine/modifiers.js";
 import { profitAndLoss, balanceSheet, balances, ACCT } from "../src/state/ledger.js";
 
 let passed = 0;
@@ -18,6 +18,7 @@ const economy = await loadEconomy();
   const g = new Game(economy, [{ name: "Ana", service: "mechanic" }], { seed: 1 });
   g.start();
   const ana = g.state.players[0];
+  ana.bbbThisTurn = true;
   g.buyService("insurance");
   assert.ok(hasModifier(ana, "insurance"), "insurance modifier in play");
 
@@ -38,6 +39,7 @@ const economy = await loadEconomy();
   g.start();
   const ana = g.state.players[0];
   assert.equal(marketingInjection(ana), null, "no injection without marketing");
+  ana.bbbThisTurn = true;
   g.buyService("marketing");
   const inj = marketingInjection(ana);
   assert.ok(inj && inj.type === "job", "marketing injects a job card into the draw");
@@ -66,6 +68,7 @@ const economy = await loadEconomy();
   const ana = g.state.players[0];
   assert.equal(factoringFeeRate(ana, 0.2), 0.2, "no discount without an accountant");
   assert.equal(trainingSpeedBonus(ana), 0, "no bonus without training");
+  ana.bbbThisTurn = true;
   g.buyService("accountant");
   g.buyService("training");
   assert.equal(factoringFeeRate(ana, 0.2), 0.1, "accountant halves the factoring fee");
@@ -124,6 +127,39 @@ const economy = await loadEconomy();
   assert.equal(ana.cash, cash0 - 3, "donation paid");
   assert.ok(ana.hand.some((c) => c.type === "favor"), "earned a Favor card");
   ok("mayor's donation: pay to earn a Favor");
+}
+
+// BBB Special gates services; a drawn BBB Special unlocks them; marketing is a few-turn timer.
+{
+  resetIds();
+  const bbb = { type: "bbb_special", id: "bbb_special", name: "BBB Special" };
+  const g = new Game(economy, [{ name: "Ana", service: "mechanic" }], { seed: 1, fortune: [bbb] });
+  g.start();
+  const ana = g.state.players[0];
+  ana.bbbThisTurn = false;
+  assert.throws(() => g.buyService("insurance"), /BBB/, "no services without a BBB Special in town");
+  drawFortune(g.state, ana, 1); // draws the BBB Special
+  assert.ok(ana.bbbThisTurn, "a drawn BBB Special unlocks buying this turn");
+  g.buyService("marketing");
+  assert.ok(hasModifier(ana, "marketing"), "bought marketing");
+  tickModifiers(g.state, ana); tickModifiers(g.state, ana); tickModifiers(g.state, ana);
+  assert.ok(!hasModifier(ana, "marketing"), "marketing expires after its few-turn run");
+  ok("BBB Special gates services; marketing is a timed run");
+}
+
+// Year-end force-settles the line of credit out of cash (no borrowing your way to a win).
+{
+  resetIds();
+  const g = new Game(economy, [{ name: "Ana", service: "mechanic" }], { seed: 1 });
+  g.start();
+  const ana = g.state.players[0];
+  ana.bbbThisTurn = false;
+  g.drawCredit();
+  const withLoan = ana.cash;
+  forceSettleCredit(g.state, ana);
+  assert.equal(balances(ana)[ACCT.LOC] || 0, 0, "the line of credit is cleared at year-end");
+  assert.equal(ana.cash, withLoan - economy.line_of_credit.draw, "borrowed cash is repaid, not counted as winnings");
+  ok("year-end settles the line of credit (can't borrow to win)");
 }
 
 console.log(`\nAll modifier checks passed (${passed}).`);

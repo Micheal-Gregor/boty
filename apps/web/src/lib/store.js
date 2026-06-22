@@ -52,7 +52,7 @@ function viewOf() {
     pnl: profitAndLoss(s.players[s.activePlayerIndex]), // the active player's books so far
     bs: balanceSheet(s.players[s.activePlayerIndex]),
     players: s.players.map((p) => ({
-      id: p.id, name: p.name, service: p.service, cash: p.cash, bankrupt: p.bankrupt, building: p.building, capacityBonus: p.capacityBonus ?? 0,
+      id: p.id, name: p.name, service: p.service, cash: p.cash, bankrupt: p.bankrupt, building: p.building, capacityBonus: p.capacityBonus ?? 0, bbbThisTurn: !!p.bbbThisTurn,
       tradesmen: p.tradesmen.map((t) => ({ ...t })),
       equipment: p.equipment.map((e) => ({ ...e })),
       jobs: p.jobs.map((j) => ({ ...j, assigned_tradesmen: [...j.assigned_tradesmen] })),

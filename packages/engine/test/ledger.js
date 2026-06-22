@@ -76,6 +76,7 @@ const S = economy.services;
   const { cost, capacity } = economy.shop_improvement;
   const netBefore = profitAndLoss(ana).netIncome;
   const cashBefore = ana.cash;
+  ana.bbbThisTurn = true;
   g.improveShop();
   assert.equal(ana.cash, cashBefore - cost, "cash paid for the improvement");
   assert.equal(ana.capacityBonus, capacity, "capacity bonus added");

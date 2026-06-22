@@ -128,6 +128,10 @@ function resolveCard(state, player, card) {
       if (handCard) player.hand.push(handCard);
       return { type: "gift", name: card.name, got: handCard?.name ?? null, text: handCard ? `🃏 drew ${handCard.name} to hand` : "nothing left to draw" };
     }
+    case "bbb_special":
+      // The BBB hosts a vendor fair: this turn you may buy services & shop improvements.
+      player.bbbThisTurn = true;
+      return { type: "bbb_special", name: card.name, text: "🏛️ the BBB vendor fair is in town — buy services & improvements this turn" };
     case "character": {
       // Most characters skin existing card types; this handles their bespoke effects.
       if (card.effect === "donation") {

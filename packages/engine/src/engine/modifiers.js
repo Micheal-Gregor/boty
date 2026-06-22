@@ -12,7 +12,7 @@ import { post, cashOut, balances, ACCT } from "../state/ledger.js";
 /** Buyable persistent services. `premium` is charged each upkeep (overhead account). */
 export const SERVICES = {
   insurance: { name: "Insurance policy", account: ACCT.INSURANCE, premium: 1, deductible: 0.5, positive: true },
-  marketing: { name: "Marketing campaign", account: ACCT.MARKETING, premium: 2, inject: "referral_job", positive: true },
+  marketing: { name: "Marketing campaign", account: ACCT.MARKETING, premium: 2, inject: "referral_job", duration: 3, positive: true },
   accountant: { name: "Accountant on retainer", account: ACCT.PROF_FEES, premium: 1, positive: true },
   training: { name: "Training program", account: ACCT.TRAINING, premium: 1, speed: 1, positive: true },
 };
@@ -26,8 +26,9 @@ export function buyService(state, player, kind) {
   const def = SERVICES[kind];
   if (!def) throw new GameError(`No such service "${kind}"`);
   if (hasModifier(player, kind)) throw new GameError(`${player.name} already carries ${def.name}`);
-  player.modifiers.push({ id: kind, kind, name: def.name, scope: "self", positive: def.positive, turnsLeft: null });
-  return `${player.name} signed up for ${def.name} (${w(def.premium)}/turn)`;
+  player.modifiers.push({ id: kind, kind, name: def.name, scope: "self", positive: def.positive, turnsLeft: def.duration ?? null });
+  const span = def.duration ? ` for ${def.duration} turns` : "";
+  return `${player.name} signed up for ${def.name} (${w(def.premium)}/turn)${span}`;
 }
 
 /** Upkeep: charge each modifier's premium, tick timers, drop expired ones. */
@@ -85,6 +86,19 @@ export function repayCredit(state, player, amount) {
     { acct: ACCT.CASH, amt: -pay },
   ]);
   return `${player.name} repaid ${w(pay)} on the line of credit`;
+}
+
+/** Year-end: force-settle the line of credit from cash so borrowed money can't win the game. */
+export function forceSettleCredit(state, player) {
+  const owed = -(balances(player)[ACCT.LOC] || 0);
+  if (owed <= 0) return null;
+  const pay = Math.min(owed, Math.max(0, player.cash));
+  if (pay <= 0) return null;
+  post(state, player, "Line of credit — settled at year-end", [
+    { acct: ACCT.LOC, amt: pay },
+    { acct: ACCT.CASH, amt: -pay },
+  ]);
+  return `${player.name} settles ${w(pay)} of debt as the books close`;
 }
 
 /** Upkeep: charge interest on any outstanding line-of-credit balance. */

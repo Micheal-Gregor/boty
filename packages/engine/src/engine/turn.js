@@ -35,6 +35,7 @@ export function runUpkeep(state, player) {
   player.relocatedThisTurn = false;
   player.hiredThisTurn = false;
   player.acquiredEquipThisTurn = false;
+  player.bbbThisTurn = false; // reset before the draw, which may re-arm it via a BBB Special
   const lines = [];
   lines.push(...returnCrew(state, player)); // bring back anyone whose time out has elapsed
   lines.push(...expireOverdue(state, player));

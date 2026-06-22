@@ -132,6 +132,7 @@ export function createPlayer(economy, { name, service }) {
     bankrupt: false,
     building: economy.starting_building,
     capacityBonus: 0, // capitalised leasehold improvements add capacity (lost on relocate)
+    bbbThisTurn: false, // a BBB Special drawn this turn unlocks buying services/improvements
     tradesmen,
     equipment: [],
 
