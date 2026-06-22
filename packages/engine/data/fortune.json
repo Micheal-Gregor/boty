@@ -26,6 +26,11 @@
     { "type": "defect", "copies": 2, "id": "code_violation", "name": "Failed inspection", "fine": 2, "fix_cost": 6, "fix_trade": "electrician", "fix_terms": 2, "productivity_hit": 2, "flavor": "The county inspector red-tags your panel — out of code, and the meter's running until a licensed electrician signs off." },
     { "type": "defect", "copies": 1, "id": "osha_writeup",   "name": "Safety write-up",    "fine": 1, "fix_cost": 4, "fix_trade": null,         "fix_terms": 2, "productivity_hit": 1, "flavor": "A safety walk-through turns up a stack of small violations — nothing's stopping, but everything's slower till you square it away." },
 
+    { "type": "crew", "copies": 2, "id": "holiday",  "name": "Took his holiday", "effect": "sideline", "duration": 2,            "flavor": "One of the crew's been promising the family a week at the lake all year — and now he's gone to take it." },
+    { "type": "crew", "copies": 1, "id": "sick_day",  "name": "Down with a bug",  "effect": "sideline", "duration": 1,            "flavor": "Something's going around the Hollow, and your best hand woke up flat on his back." },
+    { "type": "crew", "copies": 1, "id": "injury",    "name": "On-the-job injury","effect": "injury",   "duration": 2, "claim": 4, "flavor": "A ladder slips at the worst moment — nobody's badly hurt, but it's a workers' comp claim and a hand on the bench." },
+    { "type": "crew", "copies": 1, "id": "poached",   "name": "Poached!",         "effect": "poached",  "raise": 3,               "flavor": "The Pettigrews dangle a fat paycheck at one of your best — match it or lose them." },
+
     { "type": "windfall", "copies": 2, "id": "file_patent",      "name": "File a patent",            "per_equipment": 2, "flavor": "You patent that jig you welded up — licensing checks roll in for every rig you run." },
     { "type": "windfall", "copies": 2, "id": "equipment_award",  "name": "Win an efficiency award",  "per_equipment": 2, "flavor": "The supplier names you 'Shop of the Quarter' — a little bonus for every tool on your floor." },
     { "type": "shock",    "copies": 1, "id": "depreciation",     "name": "Depreciation audit",       "per_equipment": -2, "flavor": "The county reassesses your gear; every rig on the books gets its own little tax." },

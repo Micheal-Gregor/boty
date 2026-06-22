@@ -13,6 +13,7 @@ import { w } from "./economy.js";
 import { createJob, createPayable, createTradesman, createDefect } from "../state/state.js";
 import { cashIn, cashOut, ACCT } from "../state/ledger.js";
 import { bearLoss, marketingInjection } from "./modifiers.js";
+import { applyCrewEvent } from "./crew.js";
 import { resolveCivilEvent } from "./payables.js";
 import { releaseTradesman } from "./jobs.js";
 import { seasonName } from "./season.js";
@@ -127,6 +128,8 @@ function resolveCard(state, player, card) {
       if (handCard) player.hand.push(handCard);
       return { type: "gift", name: card.name, got: handCard?.name ?? null, text: handCard ? `🃏 drew ${handCard.name} to hand` : "nothing left to draw" };
     }
+    case "crew":
+      return applyCrewEvent(state, player, card);
     case "defect": {
       const defect = createDefect(card, state.turn);
       player.defects.push(defect);

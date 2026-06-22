@@ -12,6 +12,7 @@ import { collectInvoices, expireOverdue } from "./jobs.js";
 import { processDuePayables } from "./payables.js";
 import { tickDefects } from "./defects.js";
 import { tickModifiers, chargeInterest } from "./modifiers.js";
+import { returnCrew } from "./crew.js";
 import { post, ACCT } from "../state/ledger.js";
 
 /** Total recurring overhead a player owes each turn: rent + wages + rented-equipment fees. */
@@ -35,6 +36,7 @@ export function runUpkeep(state, player) {
   player.hiredThisTurn = false;
   player.acquiredEquipThisTurn = false;
   const lines = [];
+  lines.push(...returnCrew(state, player)); // bring back anyone whose time out has elapsed
   lines.push(...expireOverdue(state, player));
   lines.push(...collectInvoices(state, player));
   lines.push(...processDuePayables(state, player));

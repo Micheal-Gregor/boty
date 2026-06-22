@@ -20,6 +20,11 @@ import { accrue, cashIn, cashOut, ACCT } from "../state/ledger.js";
 
 const PROGRESSING = new Set(["Queued", "Active", "OnHold"]);
 
+/** A tradesperson sidelined (holiday / sick / injured) and unavailable until `out_until`. */
+export function isSidelined(t, turn) {
+  return t.out_until != null && t.out_until > turn;
+}
+
 function findJob(player, jobId) {
   const job = player.jobs.find((j) => j.id === jobId);
   if (!job) throw new GameError(`No job "${jobId}" in ${player.name}'s queue`);
@@ -90,9 +95,10 @@ export function assign(state, player, jobId, tradesmanId) {
   if (!gate.ok) throw new GameError(`${job.name} ${gate.reason}`);
   const t = tradesmanId
     ? player.tradesmen.find((x) => x.id === tradesmanId)
-    : player.tradesmen.find((x) => x.assignedJob == null);
+    : player.tradesmen.find((x) => x.assignedJob == null && !isSidelined(x, state.turn));
   if (!t) throw new GameError(tradesmanId ? `No tradesperson "${tradesmanId}"` : `No free tradesperson to assign`);
   if (t.assignedJob != null) throw new GameError(`${t.id} is already on ${t.assignedJob} (one job at a time)`);
+  if (isSidelined(t, state.turn)) throw new GameError(`${t.id} is out until turn ${t.out_until}`);
 
   t.assignedJob = job.id;
   job.assigned_tradesmen.push(t.id);

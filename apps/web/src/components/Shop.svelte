@@ -7,7 +7,8 @@
 
   const turn = $derived($ui.view?.turn ?? 0);
   const bld = $derived(findBuilding(econ, player.building));
-  const idle = $derived(player.tradesmen.filter((t) => !t.assignedJob).length);
+  const sidelined = (t) => t.out_until != null && t.out_until > turn;
+  const idle = $derived(player.tradesmen.filter((t) => !t.assignedJob && !sidelined(t)).length);
   const overhead = $derived(
     bld.rent +
       player.tradesmen.length * econ.wage_per_turn +
@@ -68,10 +69,10 @@
   <h3>Tradespeople ({player.tradesmen.length}/{bld.capacity + (player.capacityBonus ?? 0)})</h3>
   <div class="slots">
     {#each player.tradesmen as t}
-      <div class="slot person" class:busy={t.assignedJob}>
+      <div class="slot person" class:busy={t.assignedJob} class:out={sidelined(t)}>
         <Art kind="portraits" id={t.id} label="portrait" small />
         <div class="slot-id">{t.id}</div>
-        <div class="muted">{t.assignedJob ? "on " + t.assignedJob : "idle"}</div>
+        <div class="muted">{sidelined(t) ? "out until t" + t.out_until : t.assignedJob ? "on " + t.assignedJob : "idle"}</div>
       </div>
     {/each}
     {#if player.tradesmen.length}

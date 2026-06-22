@@ -107,6 +107,7 @@ main { max-width: 1200px; margin: 0 auto; padding: 16px; }
 .slots { display: flex; flex-wrap: wrap; gap: 8px; }
 .slot { background: var(--slot); border: 1px solid var(--line); border-radius: 8px; padding: 6px; width: 92px; text-align: center; }
 .slot.busy { outline: 2px solid var(--accent); }
+.slot.out { opacity: 0.5; outline: 1px dashed var(--bad); }
 .slot-id { font-weight: 600; font-size: 0.8rem; }
 .stats { display: flex; gap: 14px; align-items: baseline; flex-wrap: wrap; }
 .cash { color: var(--accent); font-weight: 700; font-size: 1.1rem; }
