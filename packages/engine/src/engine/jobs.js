@@ -53,9 +53,21 @@ function meetsHardGates(state, player, job) {
   return { ok: true };
 }
 
-/** A tool for every assigned tradesperson, when the job demands a fully geared crew. */
+/** A tool for every assigned tradesperson, when the job demands a fully geared crew (model A: each
+ *  assigned worker must have a tool ASSIGNED to them). */
 function hasToolPerWorker(player, job) {
-  return !job.equipment_per_tradesman || player.equipment.length >= job.assigned_tradesmen.length;
+  return !job.equipment_per_tradesman || job.assigned_tradesmen.every((tid) => player.equipment.some((e) => e.assigned_to === tid));
+}
+
+/** One worker's work rate this turn = their assigned tool's speed, else base_hand_speed (model A). */
+export function workerProductivity(economy, player, tradesmanId) {
+  const tool = player.equipment.find((e) => e.assigned_to === tradesmanId);
+  return tool ? findEquipment(economy, tool.defId).speed : economy.base_hand_speed;
+}
+
+/** A job's headline work score = the summed productivity of the crew assigned to it. */
+export function jobWorkScore(economy, player, job) {
+  return job.assigned_tradesmen.reduce((s, tid) => s + workerProductivity(economy, player, tid), 0);
 }
 
 /** Recompute a job's state from its assignment after any change. */
@@ -204,9 +216,9 @@ export function expireOverdue(state, player) {
 
 /**
  * Phase 4 — burn work on every Active job and complete those that finish (on time by
- * construction; overdue jobs were expired at upkeep). Equipment is a shared pool of speed:
- * its units are allocated best-first across all assigned tradespeople (queue order); a
- * tradesperson without a tool works at base_hand_speed. Returns log lines.
+ * construction; overdue jobs were expired at upkeep). Each assigned worker burns at THEIR assigned
+ * tool's speed (model A), else base_hand_speed; a trained crew adds a little, code violations shave
+ * a little. Returns log lines.
  */
 export function runJobProgress(state, player) {
   const lines = [];
@@ -216,18 +228,13 @@ export function runJobProgress(state, player) {
   const active = player.jobs.filter((j) => j.state === "Active");
   if (active.length === 0) return lines;
 
-  // Build the worker slots (one per assigned tradesperson) and the equipment speed pool.
-  const slots = [];
-  for (const job of active) for (const _ of job.assigned_tradesmen) slots.push(job);
-  const speeds = player.equipment
-    .map((e) => findEquipment(state.economy, e.defId).speed)
-    .sort((a, b) => b - a);
-
+  // Each assigned worker burns at the speed of the tool ASSIGNED to them (model A), else by hand.
   const burnByJob = new Map();
-  slots.forEach((job, i) => {
-    const speed = i < speeds.length ? speeds[i] : state.economy.base_hand_speed;
-    burnByJob.set(job, (burnByJob.get(job) ?? 0) + speed);
-  });
+  for (const job of active) {
+    for (const tid of job.assigned_tradesmen) {
+      burnByJob.set(job, (burnByJob.get(job) ?? 0) + workerProductivity(state.economy, player, tid));
+    }
+  }
 
   // A trained crew burns a little faster — add the bonus across active jobs.
   let boost = trainingSpeedBonus(player);

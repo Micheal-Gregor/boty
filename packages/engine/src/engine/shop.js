@@ -14,6 +14,38 @@ export function capacityOf(economy, player) {
   return findBuilding(economy, player.building).capacity + (player.capacityBonus ?? 0);
 }
 
+// --- Equipment ↔ worker assignment (model A) -------------------------------------------------
+// Each tool is assigned to one tradesperson; an assigned worker burns at the tool's speed, an
+// unassigned (tool-less) worker at base_hand_speed, and an IDLE tool (no worker) still costs rent
+// but produces nothing — the "don't over-buy gear" lesson.
+
+/** Put every idle tool on a tool-less worker (the sensible default after buying/hiring). */
+export function autoAssignTools(player) {
+  for (const eq of player.equipment) {
+    if (eq.assigned_to != null) continue;
+    const free = player.tradesmen.find((t) => !player.equipment.some((e) => e.assigned_to === t.id));
+    if (free) eq.assigned_to = free.id;
+  }
+}
+
+/** Manually put a tool on a worker (swaps off whatever each currently holds). */
+export function assignEquipment(state, player, equipmentId, tradesmanId) {
+  const eq = player.equipment.find((e) => e.id === equipmentId);
+  if (!eq) throw new GameError(`No equipment instance "${equipmentId}"`);
+  const t = player.tradesmen.find((x) => x.id === tradesmanId);
+  if (!t) throw new GameError(`No tradesperson "${tradesmanId}"`);
+  for (const e of player.equipment) if (e.assigned_to === t.id) e.assigned_to = null; // one tool per worker
+  eq.assigned_to = t.id;
+  return `${player.name} put ${t.id} on the ${findEquipment(state.economy, eq.defId).name}`;
+}
+
+export function unassignEquipment(state, player, equipmentId) {
+  const eq = player.equipment.find((e) => e.id === equipmentId);
+  if (!eq) throw new GameError(`No equipment instance "${equipmentId}"`);
+  eq.assigned_to = null;
+  return `${player.name} idled the ${findEquipment(state.economy, eq.defId).name}`;
+}
+
 function assertSolvent(player, cost, action) {
   if (player.cash < cost) {
     throw new GameError(`${player.name} cannot afford to ${action}: needs ${w(cost)}, has ${w(player.cash)}`);
@@ -34,6 +66,7 @@ export function hire(state, player) {
   const t = createTradesman();
   player.tradesmen.push(t);
   player.hiredThisTurn = true;
+  autoAssignTools(player); // hand the new hire any idle tool
   return `${player.name} hired a tradesperson (${t.id}) for a ${w(fee)} sign-on fee`;
 }
 
@@ -47,6 +80,8 @@ export function fire(state, player, tradesmanId) {
   assertSolvent(player, fee, "fire");
   cashOut(state, player, ACCT.COGS_LABOUR, fee, "Severance");
   const [removed] = player.tradesmen.splice(idx, 1);
+  for (const e of player.equipment) if (e.assigned_to === removed.id) e.assigned_to = null; // free their tool
+  autoAssignTools(player); // give the freed tool to another bare-handed worker
   return `${player.name} fired ${removed.id} for ${w(fee)} severance`;
 }
 
@@ -64,6 +99,7 @@ export function buyEquipment(state, player, defId) {
   const eq = createEquipment(defId, { owned: true });
   player.equipment.push(eq);
   player.acquiredEquipThisTurn = true;
+  autoAssignTools(player); // put the new tool on a bare-handed worker if there is one
   return `${player.name} bought ${def.name} (${eq.id}) for ${w(def.buy_cost)}`;
 }
 
@@ -75,6 +111,7 @@ export function rentEquipment(state, player, defId) {
   const eq = createEquipment(defId, { owned: false });
   player.equipment.push(eq);
   player.acquiredEquipThisTurn = true;
+  autoAssignTools(player);
   return `${player.name} rented ${def.name} (${eq.id}) at ${w(def.rent_per_turn)}/turn`;
 }
 

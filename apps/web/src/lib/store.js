@@ -3,7 +3,7 @@
 // intents to Supabase, and the UI won't change. AI seats are driven by the engine's own bots.
 
 import { writable } from "svelte/store";
-import { Game, profitAndLoss, balanceSheet, recurringExpenses, seasonFor } from "@boty/engine";
+import { Game, profitAndLoss, balanceSheet, recurringExpenses, seasonFor, workerProductivity, findEquipment } from "@boty/engine";
 import { botActions } from "@boty/engine/bots";
 import { loadContent } from "./content.js";
 import { unlockAudio, playSfx } from "./sound.js";
@@ -78,8 +78,11 @@ function viewOf() {
     season: seasonFor({ turn: s.turn, economy, flavor }),
     players: s.players.map((p) => ({
       id: p.id, name: p.name, service: p.service, cash: p.cash, bankrupt: p.bankrupt, building: p.building, capacityBonus: p.capacityBonus ?? 0, bbbThisTurn: !!p.bbbThisTurn, pendingExpansion: p.pendingExpansion ? { ...p.pendingExpansion } : null,
-      tradesmen: p.tradesmen.map((t) => ({ ...t })),
-      equipment: p.equipment.map((e) => ({ ...e })),
+      tradesmen: p.tradesmen.map((t) => {
+        const tool = p.equipment.find((e) => e.assigned_to === t.id);
+        return { ...t, productivity: workerProductivity(economy, p, t.id), tool: tool ? findEquipment(economy, tool.defId).name : null };
+      }),
+      equipment: p.equipment.map((e) => ({ ...e, assignedToId: e.assigned_to })),
       jobs: p.jobs.map((j) => ({ ...j, assigned_tradesmen: [...j.assigned_tradesmen] })),
       invoices: p.invoices.map((i) => ({ ...i })),
       payables: p.payables.map((a) => ({ ...a })),

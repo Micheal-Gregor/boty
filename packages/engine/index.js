@@ -15,4 +15,5 @@ export { Deck, makeRng } from "./src/engine/deck.js";
 export { makeDie } from "./src/engine/dice.js";
 export { seasonFor, seasonName } from "./src/engine/season.js";
 export { recurringExpenses } from "./src/engine/turn.js";
+export { workerProductivity, jobWorkScore } from "./src/engine/jobs.js";
 export { profitAndLoss, balanceSheet, balances, ACCT, ACCT_NAME } from "./src/state/ledger.js";

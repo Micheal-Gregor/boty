@@ -176,6 +176,8 @@ export class Game {
   rentEquipment(defId) { return this.#act((p) => shop.rentEquipment(this.state, p, defId)); }
   disposeEquipment(instanceId) { return this.#act((p) => shop.disposeEquipment(this.state, p, instanceId)); }
   cancelRental(instanceId) { return this.#act((p) => shop.cancelRental(this.state, p, instanceId)); }
+  assignEquipment(equipmentId, tradesmanId) { return this.#act((p) => shop.assignEquipment(this.state, p, equipmentId, tradesmanId)); }
+  unassignEquipment(equipmentId) { return this.#act((p) => shop.unassignEquipment(this.state, p, equipmentId)); }
   relocate(buildingId) { return this.#act((p) => shop.relocate(this.state, p, buildingId)); }
   improveShop() { return this.#act((p) => { this.#requireBBB(p); return shop.improveShop(this.state, p); }); }
   // Growth as a deferred capital project: relocating up (a building id) or an in-place capacity bump

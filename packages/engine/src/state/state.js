@@ -27,7 +27,7 @@ export function createTradesman() {
  * equipment definition in economy.json.
  */
 export function createEquipment(defId, { owned }) {
-  return { id: genId("E"), defId, owned };
+  return { id: genId("E"), defId, owned, assigned_to: null }; // assigned_to = a tradesman id (model A)
 }
 
 /**

@@ -98,7 +98,8 @@
     {#each player.tradesmen as t}
       <div class="slot person" class:busy={t.assignedJob} class:out={sidelined(t)}>
         <Art kind="portraits" id={t.id} label="portrait" small />
-        <div class="slot-id">{t.id}</div>
+        <div class="slot-id">{t.id} <span class="prod">⚡{t.productivity}</span></div>
+        <div class="muted">{t.tool ?? "bare-handed"}</div>
         <div class="muted">{sidelined(t) ? "out until t" + t.out_until : t.assignedJob ? "on " + t.assignedJob : "idle"}</div>
         <button class="mini" onclick={() => act((g) => g.fire(t.id))}>Fire</button>
       </div>
@@ -112,7 +113,7 @@
       <div class="slot gear">
         <Art kind="equipment" id={e.defId} label={findEquipment(econ, e.defId).name} small />
         <div class="slot-id">{findEquipment(econ, e.defId).name}</div>
-        <div class="muted">{e.owned ? "owned" : "rented"}</div>
+        <div class="muted">{e.owned ? "owned" : "rented"} · {e.assignedToId ? "→ " + e.assignedToId : "💤 idle"}</div>
         {#if e.owned}
           <button class="mini" onclick={() => act((g) => g.disposeEquipment(e.id))}>Dispose</button>
         {:else}
@@ -264,4 +265,5 @@
   .phase { color: var(--muted, #9aa0aa); }
   .phase.done { color: #5fb87a; }
   .line.aged .row-actions { display: flex; gap: 4px; justify-content: flex-end; }
+  .prod { color: var(--accent, #e0b341); font-weight: 700; font-size: 0.85em; }
 </style>
