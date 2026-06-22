@@ -66,6 +66,11 @@ export function createJob(card, currentTurn) {
     subcontract: card.subcontract ?? false,
     sub_trade: card.sub_trade ?? null,
     sub_cost: card.sub_cost ?? 0,
+    // Civic ("political") jobs: deliver it and the Mayor owes favours (favor_reward to the lead, a
+    // cut to the sub); let it collapse and global_penalty grips the whole town.
+    political: card.political ?? false,
+    favor_reward: card.favor_reward ?? 0,
+    global_penalty: card.global_penalty ?? null,
     state: "Queued", // Queued | Active | OnHold | Expired | Complete
     assigned_tradesmen: [],
     exposed: false, // set when a STARTED job expires late (matters in later stages)
@@ -194,6 +199,7 @@ export function createGame(economy, playerSeeds, options = {}) {
     pendingCourt: [], // NPC court cases awaiting the defendant's lawyer decision
     pendingDamages: [], // botched routed jobs the hirer may sue over (damages → the bank)
     pendingSettle: [], // natural-6 settlement offers awaiting accept/decline
+    globalEffects: [], // town-wide conditions (levies/booms) from civic jobs — the global card layer
     turn: 1, // 1-based round counter; game ends after round === max_turns completes
     activePlayerIndex: 0,
     over: false,

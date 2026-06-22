@@ -16,6 +16,7 @@ import { GameError, findEquipment, findBuilding, w } from "./economy.js";
 import { createInvoice } from "../state/state.js";
 import { defectPenalty } from "./defects.js";
 import { trainingSpeedBonus } from "./modifiers.js";
+import { applyGlobal } from "./globals.js";
 import { accrue, cashIn, cashOut, ACCT } from "../state/ledger.js";
 
 const PROGRESSING = new Set(["Queued", "Active", "OnHold"]);
@@ -137,6 +138,21 @@ function freeTradesmen(player, job) {
  * no debt), and the hirer gets the right to sue the contractor for damages (the job's value,
  * paid to the bank) within the sue window. Returns a log line, or null for a non-routed job.
  */
+/** A civic (political) job delivered: the Mayor owes favours — to the lead, and a cut to the sub. */
+function grantPoliticalReward(state, lead, sub, job) {
+  const n = job.favor_reward ?? 2;
+  for (let i = 0; i < n; i++) lead.hand.push({ id: "favor", type: "favor", name: "Favor" });
+  let line = `🏛️ civic project "${job.name}" delivered — ${lead.name} is owed ${n} Favor(s)`;
+  if (sub && sub !== lead) { sub.hand.push({ id: "favor", type: "favor", name: "Favor" }); line += `; ${sub.name} earns a Favor for the assist`; }
+  state.log.push(line);
+}
+
+/** A civic job that COLLAPSES drops a town-wide penalty on everyone. Returns the announcement. */
+function failPolitical(state, job) {
+  if (!job.political || !job.global_penalty) return null;
+  return applyGlobal(state, job.global_penalty, job.name);
+}
+
 function botchRoutedJob(state, contractor, job) {
   if (!job.hirer_id) return null;
   const hirer = state.players.find((p) => p.id === job.hirer_id);
@@ -173,6 +189,8 @@ export function expireOverdue(state, player) {
       );
       const owed = botchRoutedJob(state, player, job);
       if (owed) lines.push(owed);
+      const town = failPolitical(state, job);
+      if (town) lines.push(town);
     }
   }
   // Expired jobs leave the queue once reported.
@@ -243,6 +261,8 @@ export function runJobProgress(state, player) {
         lines.push(`✗ ${player.name}'s ${job.name} (${job.id}) — ${note}: failed, no pay`);
         const owed = botchRoutedJob(state, player, job);
         if (owed) lines.push(owed);
+        const town = failPolitical(state, job);
+        if (town) lines.push(town);
         continue;
       }
     }
@@ -299,12 +319,14 @@ function completeJob(state, player, job) {
       // it). Gross margin = this revenue (value) − the COGS_SUB they pay the sub = the markup.
       hirer.invoices.push(createInvoice(job, state.turn, terms));
       accrue(state, hirer, ACCT.AR, ACCT.REVENUE, job.value, `Subcontracted job delivered: ${job.name}`);
+      if (job.political) grantPoliticalReward(state, hirer, player, job); // favours: the lead + the sub
     }
   } else {
     player.invoices.push(createInvoice(job, state.turn, terms));
     // Accrual: revenue is EARNED now (Dr AR / Cr revenue) — cash arrives later when the invoice
     // collects. That gap is the lesson: you can be profitable on paper and short on cash.
     accrue(state, player, ACCT.AR, ACCT.REVENUE, job.value, `Job earned: ${job.name}`);
+    if (job.political) grantPoliticalReward(state, player, null, job); // a civic job you did yourself
   }
 }
 

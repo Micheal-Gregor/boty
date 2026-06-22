@@ -13,6 +13,7 @@ import { processDuePayables } from "./payables.js";
 import { tickDefects } from "./defects.js";
 import { tickModifiers, chargeInterest } from "./modifiers.js";
 import { tickExpansion } from "./expansion.js";
+import { chargeLevy, tickGlobals } from "./globals.js";
 import { returnCrew } from "./crew.js";
 import { post, ACCT } from "../state/ledger.js";
 
@@ -47,6 +48,7 @@ export function runUpkeep(state, player) {
   lines.push(...tickModifiers(state, player)); // premiums for insurance/marketing etc.
   lines.push(...chargeInterest(state, player, state.economy.line_of_credit.interest));
   lines.push(...tickExpansion(state, player)); // a readied move-in: pay the balance, capitalise, move
+  lines.push(...chargeLevy(state, player)); // a town levy in force (a failed civic job) hits every shop
 
   const o = overheadFor(state, player);
   post(state, player, "Upkeep — overhead", [
@@ -158,6 +160,7 @@ export function advance(state) {
     if (state.activePlayerIndex >= n) {
       state.activePlayerIndex = 0;
       state.turn++;
+      state.log.push(...tickGlobals(state)); // a new round — age out any town-wide effects
       if (state.turn > state.economy.max_turns) {
         state.over = true;
         return null;

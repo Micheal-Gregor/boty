@@ -56,6 +56,14 @@
     <button class="mute" aria-label="toggle sound" title={$muted ? "sound off" : "sound on"} onclick={toggleMute}>{$muted ? "🔇" : "🔊"}</button>
   </header>
 
+  {#if s.globalEffects?.length}
+    <div class="town-banner">
+      {#each s.globalEffects as g}
+        <span class="town-effect">🌐 {g.name}{#if g.kind === "levy"} — {g.magnitude} W/turn levy{/if} · {g.turnsLeft} round{g.turnsLeft === 1 ? "" : "s"} left</span>
+      {/each}
+    </div>
+  {/if}
+
   {#if aiTurn}
     <div class="ai-banner">
       <div class="ai-head">

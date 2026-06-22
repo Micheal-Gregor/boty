@@ -37,12 +37,12 @@ const game = (n = 4) => {
 // Complete at the next upkeep → move in, balance paid, fee capitalised.
 {
   const g = game(); const me = g.currentPlayer; me.cash = 60;
-  g.startExpansion("shop"); // cash 60 − 12 − 2 = 46
+  g.startExpansion("shop");
   g.state.turn += 1;
   tickExpansion(g.state, me);
   assert.equal(me.building, "shop", "moved into the Shop");
   assert.equal(me.pendingExpansion, null, "the project is closed out");
-  assert.equal(me.cash, 46 - (EX.shop.fee - Math.round(EX.shop.fee * EX.deposit_fraction)), "paid the balance on move-in");
+  assert.equal(me.cash, 60 - EX.insurance - EX.shop.fee, "across the project you pay insurance + the full fee");
   assert.equal(balances(me)[ACCT.BUILDING], EX.shop.fee, "the whole fee capitalised to the building asset");
   assert.ok(!balances(me)[ACCT.PREPAID], "the prepaid deposit rolled into the asset");
   ok("expansion complete: balance paid, fee capitalised, you move in next round");
