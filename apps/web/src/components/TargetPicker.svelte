@@ -2,7 +2,8 @@
   import { ui, playSabotage, playSue, playFavor, cancelPick } from "../lib/store.js";
 
   const s = $derived($ui.view);
-  const meId = $derived(s ? s.players[s.activePlayerIndex].id : null);
+  const me = $derived(s ? s.players[s.activePlayerIndex] : null);
+  const meId = $derived(me?.id ?? null);
   const type = $derived($ui.picking);
 
   const sabTargets = $derived(
@@ -21,9 +22,14 @@
   );
   const favorTargets = $derived(
     type === "favor" && s
-      ? s.players.filter((p) => p.id !== meId).flatMap((p) =>
-          (p.modifiers ?? []).map((m) => ({ owner: p, mod: m })),
-        )
+      ? [
+          // Your own code violations — call in a favor and the inspector waives it.
+          ...(me?.defects ?? []).map((d) => ({ ownerId: me.id, id: d.id, label: `Your shop: ${d.name}`, note: `waive the ${d.fine} W/turn fine` })),
+          // A rival's standing card — cut a good one short, or drag a bad one out.
+          ...s.players.filter((p) => p.id !== meId).flatMap((p) =>
+            (p.modifiers ?? []).map((m) => ({ ownerId: p.id, id: m.id, label: `${p.name}: ${m.name}`, note: m.positive ? "cancel it" : "drag it out" })),
+          ),
+        ]
       : [],
   );
 </script>
@@ -42,13 +48,13 @@
           <p class="muted">No rival jobs to sabotage right now.</p>
         {/each}
       {:else if type === "favor"}
-        <h2>🪙 Favor — cut a rival's standing card short</h2>
+        <h2>🪙 Favor — waive your own violation, or hit a rival's standing card</h2>
         {#each favorTargets as t}
-          <button class="target" onclick={() => playFavor(t.owner.id, t.mod.id)}>
-            {t.owner.name}: {t.mod.name} <span class="muted">{t.mod.positive ? "(cancel it)" : "(drag it out)"}</span>
+          <button class="target" onclick={() => playFavor(t.ownerId, t.id)}>
+            {t.label} <span class="muted">({t.note})</span>
           </button>
         {:else}
-          <p class="muted">No rival has a standing card to favor right now.</p>
+          <p class="muted">Nothing to favor — no code violation on your shop, and no rival standing card.</p>
         {/each}
       {:else}
         <h2>⚖️ Sue — collect a debt owed to you</h2>

@@ -122,15 +122,25 @@ export function marketingInjection(player) {
 }
 
 /**
- * Favor: nudge a target's modifier clock. Cut a GOOD thing (cancel a standing one, or knock a turn
- * off a timed one); prolong a BAD thing (+1 turn / a red-tape lag). Scarce and counterable.
+ * Favor: call in a political favor. Two uses:
+ *   • on your OWN code violation — the Mayor gets the building inspector off your back: the defect
+ *     is waived outright (no more fine, no repair bill).
+ *   • on a rival's standing card — cut a GOOD one short (cancel a standing one, or knock a turn off
+ *     a timed one) or prolong a BAD one (+1 turn of red tape).
+ * Scarce and counterable.
  */
-export function favorModifier(state, target, modId) {
-  const m = (target.modifiers ?? []).find((x) => x.id === modId);
-  if (!m) throw new GameError(`No modifier "${modId}" on ${target.name} to favor`);
+export function favorModifier(state, target, refId) {
+  // Clear one of the target's own code violations — the inspector looks the other way.
+  const di = (target.defects ?? []).findIndex((d) => d.id === refId);
+  if (di >= 0) {
+    const [d] = target.defects.splice(di, 1);
+    return `🪙 a favor with the inspector — ${d.name} is waived (no fine, no repair)`;
+  }
+  const m = (target.modifiers ?? []).find((x) => x.id === refId);
+  if (!m) throw new GameError(`No standing card or violation "${refId}" on ${target.name} to favor`);
   if (m.positive) {
     if (m.turnsLeft == null) {
-      target.modifiers = target.modifiers.filter((x) => x.id !== modId);
+      target.modifiers = target.modifiers.filter((x) => x.id !== refId);
       return `🪙 a favor is called in — ${target.name}'s ${m.name} is cancelled`;
     }
     m.turnsLeft -= 1;

@@ -3,7 +3,7 @@
 import assert from "node:assert/strict";
 import { loadEconomy } from "../src/engine/content-fs.js";
 import { Game } from "../src/engine/game.js";
-import { resetIds, createEquipment } from "../src/state/state.js";
+import { resetIds, createEquipment, createDefect } from "../src/state/state.js";
 import { drawFortune } from "../src/engine/fortune.js";
 import { buyService, hasModifier, tickModifiers, bearLoss, marketingInjection, factoringFeeRate, trainingSpeedBonus, drawCredit, repayCredit, chargeInterest, forceSettleCredit } from "../src/engine/modifiers.js";
 import { profitAndLoss, balanceSheet, balances, ACCT } from "../src/state/ledger.js";
@@ -58,6 +58,21 @@ const economy = await loadEconomy();
   assert.ok(!hasModifier(boe, "insurance"), "the favor cancelled the rival's insurance");
   assert.ok(!ana.hand.some((c) => c.type === "favor"), "the favor card was consumed");
   ok("favor: cuts a rival's standing perk short (scarce, one-shot)");
+}
+// Favor (new use): waive your OWN code violation — the inspector looks the other way.
+{
+  resetIds();
+  const g = new Game(economy, [{ name: "Ana", service: "mechanic" }], { seed: 1 });
+  g.start();
+  const [ana] = g.state.players;
+  ana.defects.push(createDefect({ name: "Unpermitted wiring", productivity_hit: 1, fine: 2, fix_cost: 6, fix_terms: 2 }, g.state.turn));
+  ana.hand.push({ id: "f1", type: "favor", name: "Favor" });
+  const apsBefore = ana.payables.length;
+  g.playFavor(ana.id, ana.defects[0].id); // favor targets your own violation
+  assert.equal(ana.defects.length, 0, "the code violation is waived");
+  assert.equal(ana.payables.length, apsBefore, "no repair bill is booked — it's a clean waiver");
+  assert.ok(!ana.hand.some((c) => c.type === "favor"), "the favor card was consumed");
+  ok("favor: waives your own code violation outright (the inspector backs off)");
 }
 
 // Accountant halves the factoring fee; training adds a speed bonus.
