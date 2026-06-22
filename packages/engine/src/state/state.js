@@ -71,6 +71,7 @@ export function createJob(card, currentTurn) {
     political: card.political ?? false,
     favor_reward: card.favor_reward ?? 0,
     global_penalty: card.global_penalty ?? null,
+    project_id: card.project_id ?? null, // a phase of a larger phased project (projects.js)
     state: "Queued", // Queued | Active | OnHold | Expired | Complete
     assigned_tradesmen: [],
     exposed: false, // set when a STARTED job expires late (matters in later stages)
@@ -200,6 +201,7 @@ export function createGame(economy, playerSeeds, options = {}) {
     pendingDamages: [], // botched routed jobs the hirer may sue over (damages → the bank)
     pendingSettle: [], // natural-6 settlement offers awaiting accept/decline
     globalEffects: [], // town-wide conditions (levies/booms) from civic jobs — the global card layer
+    projects: [], // phased story-projects in flight (deposit + phases + balance) — projects.js
     turn: 1, // 1-based round counter; game ends after round === max_turns completes
     activePlayerIndex: 0,
     over: false,

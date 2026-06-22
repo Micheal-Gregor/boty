@@ -35,6 +35,7 @@
 
   // --- AR / AP aging ---------------------------------------------------------------------
   const allPlayers = $derived($ui.view?.players ?? []);
+  const myProjects = $derived(($ui.view?.projects ?? []).filter((p) => p.leadId === player.id));
   const nameOf = (id) => allPlayers.find((p) => p.id === id)?.name ?? "a player";
   // Classify a due date relative to now. `pending` = a routed contract still being worked.
   function age(dueTurn, pending) {
@@ -80,6 +81,17 @@
       </span>
     {/if}
   </div>
+
+  {#each myProjects as proj (proj.id)}
+    <div class="project-card">
+      <div class="proj-head">🏛️ <strong>{proj.name}</strong> <span class="muted">· {proj.balance} W balance on delivery</span></div>
+      <div class="proj-phases">
+        {#each proj.phases as ph}
+          <span class="phase" class:done={ph.done}>{ph.done ? "✓" : "○"} {ph.name}{#if ph.trade} <span class="muted">({ph.trade})</span>{/if}</span>
+        {/each}
+      </div>
+    </div>
+  {/each}
 
   <h3>Tradespeople ({player.tradesmen.length}/{bld.capacity + (player.capacityBonus ?? 0)})</h3>
   <div class="slots">
@@ -133,7 +145,7 @@
   <div class="jobs">
     {#each player.jobs as j}
       <div class="card job">
-        <div class="card-name">{j.name} <span class="state">[{j.state}]</span>{#if j.readying} <span class="routed">🏗️ fit-out</span>{:else if j.political} <span class="routed">🏛️ civic</span>{:else if j.hirer_id} <span class="routed">⇄ contract</span>{/if}</div>
+        <div class="card-name">{j.name} <span class="state">[{j.state}]</span>{#if j.readying} <span class="routed">🏗️ fit-out</span>{:else if j.project_id} <span class="routed">🏛️ project phase</span>{:else if j.political} <span class="routed">🏛️ civic</span>{:else if j.hirer_id} <span class="routed">⇄ contract</span>{/if}</div>
         <div class="bar"><div class="fill" style="width:{Math.min(100, (100 * j.work_done) / j.work_amount)}%"></div></div>
         <div class="muted">
           {j.work_done}/{j.work_amount} · {j.value} W · {termsLabel(j)} · due in {j.deadline_turn - turn} · crew {j.assigned_tradesmen.length}/{j.max_tradesmen}
@@ -246,5 +258,10 @@
   .wh-name { font-weight: 600; }
   .wh-actions { display: flex; gap: 4px; flex-wrap: wrap; }
   .wh-readying { font-size: 0.85em; color: var(--accent, #e0b341); font-weight: 600; }
+  .project-card { margin: 6px 0; padding: 8px 10px; background: var(--panel-2, #1b1f27); border-left: 3px solid var(--accent, #e0b341); border-radius: 8px; }
+  .proj-head { margin-bottom: 4px; }
+  .proj-phases { display: flex; flex-wrap: wrap; gap: 4px 12px; font-size: 0.88em; }
+  .phase { color: var(--muted, #9aa0aa); }
+  .phase.done { color: #5fb87a; }
   .line.aged .row-actions { display: flex; gap: 4px; justify-content: flex-end; }
 </style>

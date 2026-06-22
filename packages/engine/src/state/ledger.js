@@ -8,7 +8,7 @@
 export const ACCT = {
   CASH: 1000, AR: 1100, PREPAID: 1200, EQUIPMENT: 1500, ACCUM_DEP_EQUIP: 1550,
   BUILDING: 1600, ACCUM_DEP_BLDG: 1650,
-  AP: 2000, LOC: 2100, TAXES_PAYABLE: 2300,
+  AP: 2000, LOC: 2100, DEFERRED_REV: 2200, TAXES_PAYABLE: 2300,
   CAPITAL: 3000, RETAINED: 3100, DRAWS: 3900,
   REVENUE: 4000, OTHER_INCOME: 4100,
   COGS_LABOUR: 5000, COGS_EQUIP: 5100, COGS_SUB: 5200,
@@ -20,7 +20,7 @@ export const ACCT = {
 export const ACCT_NAME = {
   1000: "Cash", 1100: "Accounts receivable", 1200: "Prepaid", 1500: "Equipment",
   1550: "Accum. deprec. — equip", 1600: "Shop & buildings", 1650: "Accum. deprec. — bldg",
-  2000: "Accounts payable", 2100: "Line of credit", 2300: "Taxes payable",
+  2000: "Accounts payable", 2100: "Line of credit", 2200: "Customer deposits", 2300: "Taxes payable",
   3000: "Owner's capital", 3100: "Retained earnings", 3900: "Owner's draws",
   4000: "Contract revenue", 4100: "Other income",
   5000: "COGS — labour", 5100: "COGS — equipment", 5200: "COGS — subcontract",

@@ -136,10 +136,11 @@ export function botActions(game, strategy = "balanced", opts = {}) {
     tryDo(() => game.buyEquipment("basic"));
   }
 
-  // 4. Assign idle tradespeople to the best workable jobs (value first, then urgency).
+  // 4. Assign idle tradespeople to the best workable jobs. Phases of a big project come FIRST (a
+  //    collapse costs everyone), then value, then urgency.
   const workable = () => p.jobs
     .filter((j) => ["Queued", "OnHold", "Active"].includes(j.state) && hasEquip(p, j.required_equipment) && j.assigned_tradesmen.length < j.max_tradesmen)
-    .sort((a, b) => b.value - a.value || a.deadline_turn - b.deadline_turn);
+    .sort((a, b) => (b.project_id ? 1 : 0) - (a.project_id ? 1 : 0) || b.value - a.value || a.deadline_turn - b.deadline_turn);
   for (let t = p.tradesmen.filter((x) => !x.assignedJob).length; t > 0; t--) {
     const job = workable()[0];
     if (!job) break;

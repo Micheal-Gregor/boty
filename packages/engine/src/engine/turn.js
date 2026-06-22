@@ -14,6 +14,7 @@ import { tickDefects } from "./defects.js";
 import { tickModifiers, chargeInterest } from "./modifiers.js";
 import { tickExpansion } from "./expansion.js";
 import { chargeLevy, tickGlobals } from "./globals.js";
+import { tickProjects } from "./projects.js";
 import { returnCrew } from "./crew.js";
 import { post, ACCT } from "../state/ledger.js";
 
@@ -40,6 +41,7 @@ export function runUpkeep(state, player) {
   player.bbbThisTurn = false; // reset before the draw, which may re-arm it via a BBB Special
   const lines = [];
   lines.push(...returnCrew(state, player)); // bring back anyone whose time out has elapsed
+  lines.push(...tickProjects(state, player)); // collapse any of this lead's projects past deadline
   lines.push(...expireOverdue(state, player));
   lines.push(...collectInvoices(state, player));
   lines.push(...processDuePayables(state, player));

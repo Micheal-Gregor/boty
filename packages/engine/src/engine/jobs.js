@@ -17,6 +17,7 @@ import { createInvoice } from "../state/state.js";
 import { defectPenalty } from "./defects.js";
 import { trainingSpeedBonus } from "./modifiers.js";
 import { applyGlobal } from "./globals.js";
+import { onPhaseComplete, onPhaseFailed } from "./projects.js";
 import { accrue, cashIn, cashOut, ACCT } from "../state/ledger.js";
 
 const PROGRESSING = new Set(["Queued", "Active", "OnHold"]);
@@ -177,6 +178,7 @@ export function expireOverdue(state, player) {
   const lines = [];
   for (const job of player.jobs) {
     if (job.state === "Expired" || job.state === "Complete") continue;
+    if (job.project_id) continue; // project phases live or die by the PROJECT deadline (tickProjects)
     if (state.turn > job.deadline_turn) {
       const started = job.assigned_tradesmen.length > 0 || job.work_done > 0;
       freeTradesmen(player, job);
@@ -259,6 +261,7 @@ export function runJobProgress(state, player) {
       note += `, ${card.name}${outcome ? ` (${outcome})` : ""}${card.flavor ? ` — “${card.flavor}”` : ""}`;
       if (job.state === "Expired") {
         lines.push(`✗ ${player.name}'s ${job.name} (${job.id}) — ${note}: failed, no pay`);
+        if (job.project_id) { lines.push(...onPhaseFailed(state, job)); continue; } // a phase fails → the project collapses now
         const owed = botchRoutedJob(state, player, job);
         if (owed) lines.push(owed);
         const town = failPolitical(state, job);
@@ -308,6 +311,17 @@ function completeJob(state, player, job) {
   freeTradesmen(player, job);
   player.jobs = player.jobs.filter((j) => j.id !== job.id);
   const terms = job.terms ?? state.economy.invoice_terms; // payment terms (longer = paid later)
+  if (job.project_id) {
+    // A phase of a larger project. Pay the sub if it was subbed out; the PROJECT books the customer
+    // money (deposit + balance), not a per-phase invoice.
+    if (job.hirer_id) {
+      const lead = state.players.find((p) => p.id === job.hirer_id);
+      const ap = lead?.payables.find((a) => a.job_id === job.id);
+      if (ap) { ap.pending = false; ap.due_turn = state.turn + terms; }
+    }
+    onPhaseComplete(state, job);
+    return;
+  }
   if (job.hirer_id) {
     // Routed/subcontract job delivered: the hirer's pending AP now comes DUE — they pay the
     // contractor (this player) the sub_cost, or refuse and face a suit.

@@ -50,6 +50,7 @@ function viewOf() {
     log: s.log.slice(-8),
     deckLeft: s.deck?.pile?.length ?? 0,
     globalEffects: (s.globalEffects ?? []).map((e) => ({ ...e })), // town-wide conditions (the global cards)
+    projects: (s.projects ?? []).map((p) => ({ ...p, phases: p.phases.map((ph) => ({ ...ph })) })), // phased story-projects in flight
     pnl: profitAndLoss(s.players[s.activePlayerIndex]), // the active player's books so far
     bs: balanceSheet(s.players[s.activePlayerIndex]),
     players: s.players.map((p) => ({

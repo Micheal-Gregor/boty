@@ -98,6 +98,42 @@
       "flavor": "The town's been promised a firehouse for years. Finish it and you're a hero with favours to spare — botch it and every shop's insurance jumps to cover the risk."
     },
     {
+      "type": "project",
+      "copies": 1,
+      "id": "opera_house",
+      "name": "The Maple Hollow Opera House",
+      "value": 44,
+      "deposit_fraction": 0.5,
+      "deadline": 7,
+      "political": true,
+      "favor_reward": 2,
+      "global_penalty": { "name": "Bond default", "kind": "levy", "magnitude": 2, "turns": 3 },
+      "phases": [
+        { "name": "Stage & frame", "trade": null, "work_amount": 6, "max_tradesmen": 2 },
+        { "name": "House wiring", "trade": "electrician", "sub_cost": 9, "work_amount": 5 },
+        { "name": "Orchestra-pit plumbing", "trade": "plumber", "sub_cost": 9, "work_amount": 5 }
+      ],
+      "flavor": "The richest commission in years — the Mayor's pet project, half the council against it. Land the Opera House and you own the town's gratitude; let the bonds default and every shop pays for the scandal."
+    },
+    {
+      "type": "project",
+      "copies": 1,
+      "id": "county_hospital",
+      "name": "The new County Hospital wing",
+      "value": 52,
+      "deposit_fraction": 0.5,
+      "deadline": 8,
+      "political": true,
+      "favor_reward": 3,
+      "global_penalty": { "name": "Emergency levy", "kind": "levy", "magnitude": 3, "turns": 3 },
+      "phases": [
+        { "name": "Pour the foundation", "trade": null, "work_amount": 7, "max_tradesmen": 2 },
+        { "name": "HVAC & ducting", "trade": "HVAC technician", "sub_cost": 10, "work_amount": 6 },
+        { "name": "Backup generators", "trade": "pipefitter", "sub_cost": 10, "work_amount": 6 }
+      ],
+      "flavor": "The county's been fighting over this wing for a decade. Deliver it and you're untouchable — miss the deadline and the county slaps an emergency levy on every business in town to cover the overrun."
+    },
+    {
       "type": "job",
       "copies": 4,
       "id": "brake_job",
