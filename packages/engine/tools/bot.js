@@ -1,7 +1,12 @@
-// Heuristic auto-players for the tuning harness (Stage 5). NOT part of the game — the real
-// game has humans decide — but they play plausibly enough to exercise the economy across
-// hundreds of games. They never play Sabotage/Sue (so no response windows open during
-// simulation); they focus on the core loop: take jobs, staff them, keep the lights on.
+// Heuristic auto-players for the tuning harness (Stage 5) AND the web's rival seats. They play
+// plausibly enough to exercise the economy across hundreds of games AND to feel like real
+// businesses at the table: take jobs, staff them, keep the lights on — and also stock standing
+// services at the BBB fair, call in Favors, and lean on the front-runner with Sabotage/Sue.
+//
+// Response-window safety: a bot only opens a Sabotage/Sue window against ANOTHER BOT, and resolves
+// it on the spot with the target's rational reply — so nothing leaks past the turn in the headless
+// harness, and the web never silently overrides a HUMAN's defense. The caller passes `humanIds`
+// (the seats that are human); in the harness that set is empty (everyone's a bot).
 //
 // Three strategies let the harness measure different questions:
 //   "balanced"  — do the dominant thing; used for the survivability runs.
@@ -22,12 +27,33 @@ function overheadGuess(state, p) {
 
 const tryDo = (fn) => { try { fn(); return true; } catch { return false; } };
 
-export function botActions(game, strategy = "balanced") {
+export function botActions(game, strategy = "balanced", opts = {}) {
   const state = game.state;
   const p = game.currentPlayer;
+  const humanIds = opts.humanIds ?? new Set(); // seats a bot must not open a response window against
   const over = () => overheadGuess(state, p);
   const cap = findBuilding(state.economy, p.building).capacity;
   const waiting = () => p.jobs.filter((j) => ["Queued", "OnHold"].includes(j.state)).length;
+  const byId = (id) => state.players.find((x) => x.id === id);
+  const hand = (pl, type) => pl.hand.some((c) => c.type === type);
+  const has = (k) => (p.modifiers ?? []).some((m) => m.kind === k);
+  const richestRival = (excludeHumans = false) =>
+    state.players
+      .filter((x) => x !== p && !x.bankrupt && (!excludeHumans || !humanIds.has(x.id)))
+      .sort((a, b) => b.cash - a.cash)[0] ?? null;
+  // Resolve a window we just opened against another bot, with the target's rational reply.
+  const settleBotThreat = () => {
+    const t = state.pendingThreat;
+    if (!t) return;
+    if (t.type === "sabotage") {
+      const owner = byId(t.ownerId);
+      tryDo(() => game.respondToThreat({ counter: owner ? hand(owner, "rush") : false }));
+    } else {
+      const tgt = byId(t.debtorId ?? t.contractorId);
+      const canFight = tgt && tgt.cash >= state.economy.civil.legal_fee;
+      tryDo(() => game.respondToThreat({ contest: !!canFight, ownLawyer: tgt ? hand(tgt, "slick_lawyer") : false }));
+    }
+  };
 
   // 1. Pay any DUE bill we can while still covering overhead — NPC vendors (avoid court) and
   //    delivered player contracts alike (an honest debtor pays the trades; floating only invites
@@ -36,7 +62,19 @@ export function botActions(game, strategy = "balanced") {
     if (!ap.pending && state.turn >= ap.due_turn && p.cash >= ap.amount + over()) tryDo(() => game.payPayable(ap.id));
   }
 
-  // 1b. Clear code violations while solvent — the fine + output drag usually outweighs the
+  // 1b. Call in a Favor: first to waive our own worst code violation (free — no fine, no repair);
+  //     otherwise to cancel the front-runner's strongest standing perk (gang up on the leader).
+  if (hand(p, "favor")) {
+    const worst = [...p.defects].sort((a, b) => (b.fine ?? 0) - (a.fine ?? 0))[0];
+    if (worst) tryDo(() => game.playFavor(p.id, worst.id));
+    else {
+      const leader = richestRival();
+      const perk = leader?.modifiers?.find((m) => m.positive);
+      if (perk && leader.cash > p.cash) tryDo(() => game.playFavor(leader.id, perk.id));
+    }
+  }
+
+  // 1c. Clear code violations while solvent — the fine + output drag usually outweighs the
   //     deferred repair bill, and a lingering defect quietly strangles throughput.
   for (const d of [...p.defects]) {
     if (p.cash > over()) tryDo(() => game.fixDefect(d.id));
@@ -60,6 +98,24 @@ export function botActions(game, strategy = "balanced") {
     if (next && p.cash > over() * 8 && (wantBiggerForJob || cappedWithBacklog)) {
       if (tryDo(() => game.relocate(next.id))) return; // relocating ends the turn
     }
+  }
+
+  // 2c. BBB vendor fair in town this turn — invest in a standing service when there's a real
+  //     surplus (premiums are overhead, so take at most one and keep a cushion), and add shop
+  //     capacity when a labor shop is capped with a backlog.
+  if (p.bbbThisTurn) {
+    const here = findBuilding(state.economy, p.building);
+    if (strategy !== "equipment" && p.tradesmen.length >= here.capacity && waiting() >= 2 && p.cash > over() * 8) {
+      tryDo(() => game.improveShop());
+    }
+    const idle = p.tradesmen.filter((t) => !t.assignedJob).length;
+    const pick =
+      !has("insurance") && p.equipment.length && p.cash > over() * 6 ? "insurance"
+      : !has("training") && p.tradesmen.length >= 2 && p.cash > over() * 6 ? "training"
+      : !has("accountant") && p.payables.length >= 2 && p.cash > over() * 6 ? "accountant"
+      : !has("marketing") && idle >= 1 && p.cash > over() * 6 ? "marketing"
+      : null;
+    if (pick) tryDo(() => game.buyService(pick));
   }
 
   // 3. Buy/rent equipment a high-value queued job is gated on, if affordable.
@@ -113,5 +169,31 @@ export function botActions(game, strategy = "balanced") {
       const claim = o.payables.find((a) => a.creditor_id === p.id && !a.pending && state.turn >= a.due_turn);
       if (claim && tryDo(() => game.factorClaim(claim.id))) break;
     }
+  }
+
+  // 7. Last resort: a bill is due we still can't cover and there's nothing left to factor — tap the
+  //    bank to stay solvent (a liability, force-settled at year-end).
+  const stuck = p.payables.some((a) => !a.pending && state.turn >= a.due_turn && p.cash < a.amount);
+  if (stuck && p.cash < over() && !p.invoices.length) tryDo(() => game.drawCredit());
+
+  // 8. Hobble the front-runner: holding a Sabotage and a RICHER bot rival is out front → pull in
+  //    their best job's deadline. Never aimed at a human seat (that needs their live response).
+  if (hand(p, "sabotage")) {
+    const mark = richestRival(true);
+    if (mark && mark.cash > p.cash) {
+      const job = [...mark.jobs]
+        .filter((j) => ["Queued", "OnHold", "Active"].includes(j.state))
+        .sort((a, b) => b.value - a.value)[0];
+      if (job && tryDo(() => game.playSabotage(job.id))) settleBotThreat();
+    }
+  }
+
+  // 9. Collect hard: sue a BOT rival who's dodging a delivered, still-suable debt they owe us.
+  for (const o of state.players) {
+    if (o === p || o.bankrupt || humanIds.has(o.id)) continue;
+    const debt = o.payables.find(
+      (a) => a.creditor_id === p.id && !a.is_npc && !a.pending && a.sue_window_remaining > 0 && state.turn >= a.due_turn && (a.turns_dodged ?? 0) >= 1,
+    );
+    if (debt && tryDo(() => game.sue(o.id, debt.id))) { settleBotThreat(); break; }
   }
 }

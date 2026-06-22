@@ -225,7 +225,8 @@ async function advanceUntilHuman(initialCtx) {
     if (game.settleCases.length) game.autoResolveSettle();
     if (game.courtCases.length) game.autoResolveCourt();
     if (game.damagesCases.length) game.autoResolveDamages();
-    try { botActions(game, ai[p.id]); } catch { /* best effort */ }
+    const humanIds = new Set(game.state.players.filter((x) => !ai[x.id]).map((x) => x.id));
+    try { botActions(game, ai[p.id], { humanIds }); } catch { /* best effort */ }
     const lines = game.state.log.slice(before).slice(-5); // this rival's moves this turn
 
     const ctx = game.endTurn();
