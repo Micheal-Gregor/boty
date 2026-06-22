@@ -40,6 +40,8 @@
         <h2>{worker.id}</h2>
         <div class="stack">
           <div class="stack-row"><span>Tool</span><span>{worker.tool ?? "bare-handed"}</span></div>
+          {#if me.modifiers?.some((m) => m.kind === "training")}<div class="stack-row"><span>Training</span><span class="bonus">🎓 +1/turn · shop-wide</span></div>{/if}
+          {#if me.defects?.length}<div class="stack-row"><span>Code drag</span><span class="malus">🚧 −{me.defects.reduce((s, d) => s + (d.productivity_hit ?? 0), 0)}/turn · shop-wide</span></div>{/if}
           <div class="stack-row"><span>Status</span><span>{worker.out_until && worker.out_until > view.turn ? "out until t" + worker.out_until : worker.assignedJob ? "on a job" : "idle"}</span></div>
         </div>
         {#if picking}
@@ -124,6 +126,8 @@
   .stack { display: flex; flex-direction: column; gap: 3px; margin-bottom: 10px; }
   .stack-row { display: flex; justify-content: space-between; font-size: 0.9em; }
   .stack-row span:first-child { color: var(--muted, #9aa0aa); }
+  .stack-row .bonus { color: #5fb87a; }
+  .stack-row .malus { color: #e8746a; }
   .bar { height: 6px; background: var(--panel-2, #1b1f27); border-radius: 3px; overflow: hidden; margin-bottom: 8px; }
   .bar .fill { height: 100%; background: var(--accent, #e0b341); }
   .picker { background: var(--panel-2, #1b1f27); border-radius: 8px; padding: 8px; margin-bottom: 10px; display: flex; flex-direction: column; gap: 4px; }
