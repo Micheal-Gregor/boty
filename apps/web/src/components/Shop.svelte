@@ -1,5 +1,5 @@
 <script>
-  import { ui, act, startPick, playSue, openEntity } from "../lib/store.js";
+  import { ui, act, startPick, playSue, openEntity, openConfirm } from "../lib/store.js";
   import { findBuilding, findEquipment } from "@boty/engine";
   import Art from "./Art.svelte";
   import Flash from "./Flash.svelte";
@@ -78,7 +78,7 @@
     {:else}
       <span class="wh-actions">
         {#if player.bbbThisTurn}<button class="mini" title="Capital project: deposit + insurance now, six trade contracts to the town, +1 capacity next round (the fee capitalises)" onclick={() => act((g) => g.startExpansion("improve"))}>⬆️ Upgrade</button>{/if}
-        {#if nextBuilding}<button class="mini" title="Ready the {nextBuilding.name}: pay a deposit + insurance, the town does the fit-out, move in next round (you keep this shop's low rent until then)" onclick={() => act((g) => g.startExpansion(nextBuilding.id))}>Move → {nextBuilding.name}</button>{/if}
+        {#if nextBuilding}<button class="mini" onclick={() => openConfirm({ title: `Move to the ${nextBuilding.name}?`, body: `Readying it is a capital project: you pay a deposit + insurance now, six trade contracts go out to the town for the fit-out, you keep this shop's low rent until you move in, then pay the balance and relocate next round. Can't cover the balance and you forfeit the deposit.`, yes: "Start the move" }, () => act((g) => g.startExpansion(nextBuilding.id)))}>Move → {nextBuilding.name}</button>{/if}
       </span>
     {/if}
   </div>

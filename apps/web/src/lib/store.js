@@ -20,10 +20,38 @@ export const ui = writable({
   screen: "setup", game: null, view: null, ctx: null, flavor, economy, error: null, rev: 0,
   aiActing: null, threat: null, picking: null, reckoning: null, final: null, court: null, damages: null, settle: null,
   cardView: null, popups: [], settingsOpen: false, flash: null, entityCard: null, handView: false, rivalView: false,
+  rulesOpen: false, confirm: null,
 });
+
+export function openRules() { push({ rulesOpen: true }); }
+export function closeRules() { push({ rulesOpen: false }); }
+
+// A generic Yes/No confirmation (e.g. before a shop move). The callback is held out of the store.
+let confirmCb = null;
+export function openConfirm(opts, cb) { confirmCb = cb; push({ confirm: { title: opts.title, body: opts.body, yes: opts.yes ?? "Yes" } }); }
+export function confirmYes() { const cb = confirmCb; confirmCb = null; push({ confirm: null }); if (cb) cb(); }
+export function confirmNo() { confirmCb = null; push({ confirm: null }); }
 
 export function openRivals() { push({ rivalView: true }); }
 export function closeRivals() { push({ rivalView: false }); }
+
+// The end-of-year report behind the win screen — standings, consolation awards, full per-player books.
+function finalReport() {
+  const players = game.state.players.map((p) => ({
+    name: p.name, service: p.service, cash: p.cash, bankrupt: p.bankrupt,
+    pnl: profitAndLoss(p), bs: balanceSheet(p),
+    crew: p.tradesmen.length, equipment: p.equipment.length, services: p.modifiers?.length ?? 0,
+  }));
+  const ranked = [...players].sort((a, b) => (a.bankrupt !== b.bankrupt ? (a.bankrupt ? 1 : -1) : b.cash - a.cash));
+  ranked.forEach((r, i) => (r.place = i + 1));
+  const awards = [];
+  const lead = (fn, icon, label, unit) => { const t = [...players].sort((a, b) => fn(b) - fn(a))[0]; if (t && fn(t) > 0) awards.push({ icon, label, who: t.name, val: `${fn(t)} ${unit}` }); };
+  lead((p) => p.pnl.revenue, "💸", "Top line — most revenue", "W");
+  lead((p) => p.crew, "👷", "Biggest crew", "hands");
+  lead((p) => p.equipment, "🔧", "Best equipped", "tools");
+  lead((p) => p.services, "🛡️", "Most buttoned-up", "services");
+  return { results: ranked, awards, award: flavor?.award ?? "Business of the Year", town: flavor?.town ?? "town", bureau: flavor?.bureau };
+}
 
 // --- Flash-and-vanish errors (E5 §1): a blocked action flashes in ITS section, not the bottom. ---
 let flashTimer = null;
@@ -309,7 +337,7 @@ export function endTurn() {
   if (game.state.pendingThreat) return fail("Resolve the response window first");
   const ctx = game.endTurn();
   if (ctx.reckoning) return enterReckoning(ctx.order);
-  if (ctx.over) { playSfx("chime", 0.5); return push({ screen: "gala", ctx, final: ctx }); }
+  if (ctx.over) { playSfx("chime", 0.5); return push({ screen: "gala", ctx, final: finalReport() }); }
   advanceUntilHuman(ctx);
 }
 
@@ -349,7 +377,7 @@ async function advanceUntilHuman(initialCtx) {
 
     const ctx = game.endTurn();
     if (ctx.reckoning) { push({ aiActing: null }); return enterReckoning(ctx.order); }
-    if (ctx.over) { playSfx("chime", 0.5); return push({ aiActing: null, screen: "gala", ctx, final: ctx }); }
+    if (ctx.over) { playSfx("chime", 0.5); return push({ aiActing: null, screen: "gala", ctx, final: finalReport() }); }
     push({ aiActing: { name: p.name, drew, lines } }); // recap + the updated table snapshot
     if (!skipAI) await sleep(800);
     lastCtx = ctx;
@@ -384,10 +412,10 @@ function enterReckoning(order) {
 function advanceSeat() {
   reckon.idx += 1;
   if (reckon.idx >= reckon.order.length) {
-    const final = game.closeBooks();
+    game.closeBooks();
     reckon = null;
     playSfx("chime", 0.5);
-    return push({ screen: "gala", final, reckoning: null });
+    return push({ screen: "gala", final: finalReport(), reckoning: null });
   }
   const id = reckon.order[reckon.idx];
   game.seatReckoning(id);
