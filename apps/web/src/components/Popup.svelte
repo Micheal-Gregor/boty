@@ -1,5 +1,6 @@
 <script>
   import { ui, dismissPopup } from "../lib/store.js";
+  import { settings } from "../lib/settings.js";
   import Art from "./Art.svelte";
 
   const queue = $derived($ui.popups ?? []);
@@ -37,6 +38,12 @@
           {/each}
           <div class="exp-row total"><span>Total per turn</span><span>{p.recurring.total} W</span></div>
         </div>
+      {:else if p.kind === "card"}
+        <div class="pop-art"><Art kind="card" id={p.cardId} label={p.name} autoplay={$settings.animateCards} /></div>
+        <h2>{p.name}</h2>
+        {#if p.flavor}<p class="pop-flavor">“{p.flavor}”</p>{/if}
+        <p class="pop-effect">{p.text}</p>
+        {#if p.rule}<div class="pop-rule">📜 {p.rule}</div>{/if}
       {/if}
 
       <button class="pop-close" onclick={dismissPopup}>{more ? "Next ▶" : "Continue ▶"}</button>
@@ -61,5 +68,7 @@
   .exp-row span:first-child { color: var(--muted, #9aa0aa); }
   .exp-row.total { border-top: 1px solid var(--line, #2a2f3a); margin-top: 4px; padding-top: 4px; font-weight: 700; }
   .exp-row.total span:first-child { color: inherit; }
+  .pop-effect { margin: 4px 0; }
+  .pop-rule { margin-top: 10px; padding: 8px 10px; background: var(--panel-2, #1b1f27); border-left: 3px solid var(--accent, #e0b341); border-radius: 6px; font-size: 0.86em; color: var(--ink, #e7e7ea); }
   .pop-close { margin-top: 16px; width: 100%; padding: 10px; font-weight: 700; }
 </style>

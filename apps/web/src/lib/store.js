@@ -18,7 +18,7 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 export const ui = writable({
   screen: "setup", game: null, view: null, ctx: null, flavor, economy, error: null, rev: 0,
   aiActing: null, threat: null, picking: null, reckoning: null, final: null, court: null, damages: null, settle: null,
-  cardView: null, popups: [], settingsOpen: false, flash: null, entityCard: null,
+  cardView: null, popups: [], settingsOpen: false, flash: null, entityCard: null, handView: false,
 });
 
 // --- Flash-and-vanish errors (E5 §1): a blocked action flashes in ITS section, not the bottom. ---
@@ -63,7 +63,34 @@ function enqueueTurnStart(ctx) {
     enqueuePopup({ kind: "round", turn: ctx.turn, season: view.season, town: flavor?.town });
   }
   enqueuePopup({ kind: "summary", name: me.name, recurring: view.recurring, cash: me.cash, upkeepNet: ctx.upkeepNet ?? 0, drew: (ctx.drawn ?? []).length });
+  // Then read each card you drew — with a rule explainer for the ones that have a special rule.
+  for (const d of ctx.drawn ?? []) {
+    const def = cardById.get(d.cardId) ?? {};
+    enqueuePopup({ kind: "card", cardId: d.cardId, name: d.name, flavor: d.flavor, text: d.text, rule: ruleFor(def) });
+  }
 }
+
+// Rule explainers — fire for the cards that carry a special rule (E5 §5); the self-evident ones
+// (job/incident/payable/windfall/shock/crew/theft/character/retirement/summons) get none.
+const RULES = {
+  subcontract: "You broker this one: a rival in the trade does the work for a fee, you bill the customer and pocket the markup. It isn't yours to staff.",
+  civic: "A civic job — deliver it and the Mayor owes favours; let it collapse and a town-wide penalty hits everyone, you included.",
+  project: "A phased project: take the 50% deposit now, collect the balance only when every phase lands. Some phases you do, some you sub out.",
+  defect: "A code violation — it fines you and drags your output every turn until you fix it (or call in a Favor with the inspector).",
+  gift: "A character hands you a card to keep and play later — open your Hand to use it.",
+  bbb_special: "The BBB vendor fair is in town THIS turn only — buy services and shop upgrades while it lasts.",
+};
+function ruleFor(def) {
+  if (def.subcontract && def.political) return RULES.civic;
+  if (def.subcontract) return RULES.subcontract;
+  if (def.type === "project") return RULES.project;
+  if (def.type === "defect") return RULES.defect;
+  if (def.type === "gift") return RULES.gift;
+  if (def.type === "bbb_special") return RULES.bbb_special;
+  return null;
+}
+export function openHand() { push({ handView: true }); }
+export function closeHand() { push({ handView: false }); }
 
 const declinedDamages = new Set(); // jobIds the human chose not to sue over
 const openDamages = () => game.damagesCases.filter((c) => !declinedDamages.has(c.jobId));
