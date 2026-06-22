@@ -3,7 +3,8 @@
 import assert from "node:assert/strict";
 import { loadEconomy } from "../src/engine/content-fs.js";
 import { Game } from "../src/engine/game.js";
-import { resetIds } from "../src/state/state.js";
+import { resetIds, createEquipment } from "../src/state/state.js";
+import { drawFortune } from "../src/engine/fortune.js";
 import { buyService, hasModifier, tickModifiers, bearLoss, marketingInjection, factoringFeeRate, trainingSpeedBonus, drawCredit, repayCredit, chargeInterest } from "../src/engine/modifiers.js";
 import { profitAndLoss, balanceSheet, balances, ACCT } from "../src/state/ledger.js";
 
@@ -92,6 +93,23 @@ const economy = await loadEconomy();
   g.repayCredit(draw);
   assert.equal(balances(ana)[ACCT.LOC] || 0, 0, "repayment clears the line of credit");
   ok("line of credit: cash now, a liability + interest, repayable");
+}
+
+// Tool theft: uninsured writes off the rig; insured keeps it for a deductible.
+{
+  resetIds();
+  const theft = { type: "theft", id: "tool_theft", name: "Tool theft" };
+  const g = new Game(economy, [{ name: "Ana", service: "mechanic" }], { seed: 1, fortune: [theft, theft] });
+  g.start();
+  const ana = g.state.players[0];
+  ana.equipment.push(createEquipment("basic", { owned: true }));
+  drawFortune(g.state, ana, 1); // uninsured
+  assert.equal(ana.equipment.filter((e) => e.owned).length, 0, "uninsured: the stolen rig is written off");
+  buyService(g.state, ana, "insurance");
+  ana.equipment.push(createEquipment("basic", { owned: true }));
+  drawFortune(g.state, ana, 1); // insured
+  assert.equal(ana.equipment.filter((e) => e.owned).length, 1, "insured: the rig is replaced (kept)");
+  ok("tool theft: insurance saves the asset");
 }
 
 console.log(`\nAll modifier checks passed (${passed}).`);

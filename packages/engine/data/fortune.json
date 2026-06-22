@@ -31,6 +31,13 @@
     { "type": "crew", "copies": 1, "id": "injury",    "name": "On-the-job injury","effect": "injury",   "duration": 2, "claim": 4, "flavor": "A ladder slips at the worst moment — nobody's badly hurt, but it's a workers' comp claim and a hand on the bench." },
     { "type": "crew", "copies": 1, "id": "poached",   "name": "Poached!",         "effect": "poached",  "raise": 3,               "flavor": "The Pettigrews dangle a fat paycheck at one of your best — match it or lose them." },
 
+    { "type": "windfall", "copies": 1, "id": "harvest_festival", "name": "Harvest Festival", "cash": 6, "flavor_by_season": { "Fall": "The Harvest Festival packs Main Street — your booth does a brisk trade.", "Winter": "The winter market is quieter, but the booth still turns a tidy profit." } },
+    { "type": "shock", "copies": 1, "id": "heat_wave", "name": "Heat wave", "cash": -3, "flavor_by_season": { "Summer": "A brutal heat wave bakes the Hollow — crews slow down and the AC bills pile up.", "Spring": "An early hot spell catches everyone off guard." } },
+    { "type": "shock", "copies": 1, "id": "ice_storm", "name": "Ice storm", "cash": -3, "flavor_by_season": { "Winter": "An ice storm glazes the county — downed lines, cancelled days, a cold snap of costs.", "Fall": "A freak early freeze coats everything in ice overnight." } },
+    { "type": "shock", "copies": 1, "id": "storm_of_decade", "name": "Storm of the decade", "cash": -5, "flavor": "The storm they'll talk about for years tears through Maple Hollow — everyone's reeling and scrambling." },
+    { "type": "crew", "copies": 1, "id": "winter_holidays", "name": "Winter holidays", "effect": "sideline", "duration": 1, "flavor_by_season": { "Winter": "The whole town slows for the holidays — a hand takes the week to be with family." } },
+    { "type": "theft", "copies": 1, "id": "tool_theft", "name": "Tool theft", "flavor": "Someone helped themselves to your gear overnight. This is exactly what insurance is for." },
+
     { "type": "windfall", "copies": 2, "id": "file_patent",      "name": "File a patent",            "per_equipment": 2, "flavor": "You patent that jig you welded up — licensing checks roll in for every rig you run." },
     { "type": "windfall", "copies": 2, "id": "equipment_award",  "name": "Win an efficiency award",  "per_equipment": 2, "flavor": "The supplier names you 'Shop of the Quarter' — a little bonus for every tool on your floor." },
     { "type": "shock",    "copies": 1, "id": "depreciation",     "name": "Depreciation audit",       "per_equipment": -2, "flavor": "The county reassesses your gear; every rig on the books gets its own little tax." },

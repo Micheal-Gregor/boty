@@ -26,12 +26,13 @@ function newGame(options) {
 
 // --- Deck composition (copies expanded; Dial-1 / Dial-4 shares) ---------------------------
 {
-  assert.equal(decks.fortune.length, 59, "fortune deck is 59 cards");
+  assert.equal(decks.fortune.length, 65, "fortune deck is 65 cards");
   assert.equal(count(decks.fortune, (c) => c.type === "job"), 20, "jobs");
   assert.equal(count(decks.fortune, (c) => c.type === "defect"), 3, "code-violation defects");
-  assert.equal(count(decks.fortune, (c) => c.type === "crew"), 5, "crew-life events");
-  assert.equal(count(decks.fortune, (c) => c.type === "windfall"), 14, "windfalls (incl. count-scaling bonuses)");
-  assert.equal(count(decks.fortune, (c) => c.type === "shock"), 6, "shocks (incl. count-scaling penalties)");
+  assert.equal(count(decks.fortune, (c) => c.type === "crew"), 6, "crew-life events");
+  assert.equal(count(decks.fortune, (c) => c.type === "theft"), 1, "equipment theft");
+  assert.equal(count(decks.fortune, (c) => c.type === "windfall"), 15, "windfalls (incl. count-scaling bonuses)");
+  assert.equal(count(decks.fortune, (c) => c.type === "shock"), 9, "shocks (incl. weather + count-scaling)");
   assert.equal(count(decks.fortune, (c) => c.type === "payable"), 4, "NPC vendor bills");
   assert.equal(count(decks.fortune, (c) => c.type === "gift"), 4, "gifts");
   assert.equal(count(decks.fortune, (c) => c.type === "summons"), 2, "civil summons");

@@ -9,9 +9,9 @@
 //   • gift     → deals you a Civil hand card (sabotage/rush/buy-time/slick-lawyer) to hold;
 //                inert until Stage 4 wires up the response window. No-op if that pile is dry.
 
-import { w } from "./economy.js";
+import { w, findEquipment } from "./economy.js";
 import { createJob, createPayable, createTradesman, createDefect } from "../state/state.js";
-import { cashIn, cashOut, ACCT } from "../state/ledger.js";
+import { post, cashIn, cashOut, ACCT } from "../state/ledger.js";
 import { bearLoss, marketingInjection } from "./modifiers.js";
 import { applyCrewEvent } from "./crew.js";
 import { resolveCivilEvent } from "./payables.js";
@@ -130,6 +130,24 @@ function resolveCard(state, player, card) {
     }
     case "crew":
       return applyCrewEvent(state, player, card);
+    case "theft": {
+      // A rig is stolen: insured → pay the deductible and it's replaced; uninsured → written off.
+      const owned = player.equipment.filter((e) => e.owned);
+      if (!owned.length) return { type: "theft", name: card.name, text: "nothing worth stealing" };
+      const eq = owned[0];
+      const def = findEquipment(state.economy, eq.defId);
+      const { borne, insured } = bearLoss(player, def.buy_cost);
+      if (insured) {
+        cashOut(state, player, ACCT.REPAIRS, borne, `${card.name} — deductible`);
+        return { type: "theft", name: card.name, text: `${def.name} stolen but insured — ${w(borne)} deductible, replaced` };
+      }
+      player.equipment = player.equipment.filter((e) => e.id !== eq.id);
+      post(state, player, `${card.name} — ${def.name} written off`, [
+        { acct: ACCT.LEGAL, amt: def.buy_cost },
+        { acct: ACCT.EQUIPMENT, amt: -def.buy_cost },
+      ]);
+      return { type: "theft", name: card.name, text: `${def.name} stolen — written off (${w(def.buy_cost)})` };
+    }
     case "defect": {
       const defect = createDefect(card, state.turn);
       player.defects.push(defect);
