@@ -11,17 +11,19 @@
   const worker = $derived(ec?.kind === "worker" && me ? me.tradesmen.find((t) => t.id === ec.id) : null);
   const gear = $derived(ec?.kind === "equipment" && me ? me.equipment.find((e) => e.id === ec.id) : null);
   const job = $derived(ec?.kind === "job" && me ? me.jobs.find((j) => j.id === ec.id) : null);
-  const entity = $derived(worker ?? gear ?? job ?? null);
+  const defect = $derived(ec?.kind === "defect" && me ? me.defects?.find((d) => d.id === ec.id) : null);
+  const entity = $derived(worker ?? gear ?? job ?? defect ?? null);
 
-  // The entity vanished (fired / disposed / completed) → close the card.
+  // The entity vanished (fired / disposed / completed / fixed) → close the card.
   $effect(() => { if (ec && me && !entity) closeEntity(); });
 
   let picking = $state(false); // inline assign-picker open?
   const gearName = (e) => findEquipment(econ, e.defId).name;
-  const idle = $derived(me ? me.tradesmen.filter((t) => !me.equipment.some((e) => e.assigned_to === t.id)) : []);
+  const sidelined = (t) => t.out_until != null && t.out_until > (view?.turn ?? 0);
+  const freeWorkers = $derived(me ? me.tradesmen.filter((t) => t.assignedJob == null && !sidelined(t)) : []);
   const handHas = (type) => me?.hand?.some((c) => c.type === type);
   const workScore = (j) => j.assigned_tradesmen.reduce((s, tid) => s + (me.tradesmen.find((t) => t.id === tid)?.productivity ?? 0), 0);
-  const canAssignJob = (j) => ["Queued", "OnHold", "Active"].includes(j.state) && j.assigned_tradesmen.length < j.max_tradesmen && idle.length > 0;
+  const canAssignJob = (j) => ["Queued", "OnHold", "Active"].includes(j.state) && j.assigned_tradesmen.length < j.max_tradesmen && freeWorkers.length > 0;
 
   function go(fn) { picking = false; act(fn); }
 </script>
@@ -86,12 +88,25 @@
           <div class="stack-row"><span>Value · due</span><span>{job.value} W · turn {job.deadline_turn}</span></div>
         </div>
         <div class="ent-actions">
-          {#if canAssignJob(job)}<button onclick={() => go((g) => g.assignJob(job.id))}>👷 Assign worker</button>{/if}
+          {#if canAssignJob(job)}<button onclick={() => go((g) => g.assignJob(job.id))}>👷 Assign worker</button>
+          {:else if ["Queued", "OnHold", "Active"].includes(job.state) && job.assigned_tradesmen.length < job.max_tradesmen}<button disabled title="All your crew are on jobs or out — hire one, or free one up first">👷 No free crew</button>{/if}
           {#if job.state === "Active"}<button onclick={() => go((g) => g.holdJob(job.id))}>Hold</button>{/if}
           {#if handHas("rush")}<button onclick={() => go((g) => g.playRush(job.id))}>⏩ Rush</button>{/if}
           {#if handHas("buy_time")}<button onclick={() => go((g) => g.playBuyTime(job.id))}>⏳ Buy Time</button>{/if}
           {#if !job.hirer_id && (job.state === "Queued" || job.state === "OnHold")}<button onclick={() => go((g) => g.sellJob(job.id))}>Sell</button>{/if}
           {#if job.droppable}<button class="hostile" onclick={() => go((g) => g.dropJob(job.id))}>Drop</button>{/if}
+        </div>
+
+      {:else if defect}
+        <div class="ent-art"><Art kind="card" id="code_violation" label={defect.name} /></div>
+        <h2>🚧 {defect.name}</h2>
+        <div class="stack">
+          <div class="stack-row"><span>Output drag</span><span>−{defect.productivity_hit}/turn</span></div>
+          <div class="stack-row"><span>Fine</span><span>{defect.fine} W/turn</span></div>
+          <div class="stack-row"><span>Fix cost</span><span>{defect.fix_cost} W{#if defect.fix_trade} · needs {defect.fix_trade}{/if}</span></div>
+        </div>
+        <div class="ent-actions">
+          <button onclick={() => go((g) => g.fixDefect(defect.id))}>🔧 Fix · {defect.fix_cost} W</button>
         </div>
       {/if}
     </div>

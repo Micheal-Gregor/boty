@@ -107,10 +107,12 @@ main { max-width: 1200px; margin: 0 auto; padding: 16px; }
 .art-slot.sm { padding: 10px 2px; }
 .slots { display: flex; flex-wrap: wrap; gap: 8px; }
 .slot { background: var(--slot); border: 1px solid var(--line); border-radius: 8px; padding: 6px; width: 92px; text-align: center; }
-/* Clickable entity thumbnails (E5): a slot/card that opens its action-card modal — strip the
-   default gold button chrome so it keeps the slot/card look. */
-button.card-open { color: var(--ink); font-weight: normal; cursor: pointer; }
-.card.card-open { display: block; width: 100%; }
+/* The clickable THUMBNAIL inside a slot/card (E5): tapping it opens the action-card modal, while
+   the quick-action buttons beside it stay one-tap. Strip the default gold button chrome. */
+button.thumb { background: none; border: none; color: var(--ink); font: inherit; width: 100%; padding: 0; cursor: pointer; display: block; }
+.slot button.thumb { text-align: center; }
+.card button.thumb { text-align: left; }
+.defect-card button.thumb { margin-bottom: 4px; }
 .slot.busy { outline: 2px solid var(--accent); }
 .slot.out { opacity: 0.5; outline: 1px dashed var(--bad); }
 .slot-id { font-weight: 600; font-size: 0.8rem; }
