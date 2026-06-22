@@ -95,8 +95,10 @@ export function botActions(game, strategy = "balanced", opts = {}) {
     const next = tiers.find((b) => b.tier === (here.tier ?? 1) + 1);
     const wantBiggerForJob = p.jobs.some((j) => ["Queued", "OnHold"].includes(j.state) && j.required_building_tier > (here.tier ?? 1) && j.value >= 15);
     const cappedWithBacklog = p.tradesmen.length >= here.capacity && waiting() >= 2 && strategy !== "equipment";
-    if (next && p.cash > over() * 8 && (wantBiggerForJob || cappedWithBacklog)) {
-      if (tryDo(() => game.relocate(next.id))) return; // relocating ends the turn
+    // Expansion is a multi-round cash commitment (deposit now, balance next round) — only take it
+    // from a fat cushion so a follow-up shock doesn't fold us mid-move.
+    if (next && !p.pendingExpansion && p.cash > over() * 15 && (wantBiggerForJob || cappedWithBacklog)) {
+      tryDo(() => game.startExpansion(next.id));
     }
   }
 
@@ -105,8 +107,8 @@ export function botActions(game, strategy = "balanced", opts = {}) {
   //     capacity when a labor shop is capped with a backlog.
   if (p.bbbThisTurn) {
     const here = findBuilding(state.economy, p.building);
-    if (strategy !== "equipment" && p.tradesmen.length >= here.capacity && waiting() >= 2 && p.cash > over() * 8) {
-      tryDo(() => game.improveShop());
+    if (strategy !== "equipment" && !p.pendingExpansion && p.tradesmen.length >= here.capacity && waiting() >= 2 && p.cash > over() * 12) {
+      tryDo(() => game.startExpansion("improve"));
     }
     const idle = p.tradesmen.filter((t) => !t.assignedJob).length;
     const pick =

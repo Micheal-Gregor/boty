@@ -12,6 +12,7 @@ import { collectInvoices, expireOverdue } from "./jobs.js";
 import { processDuePayables } from "./payables.js";
 import { tickDefects } from "./defects.js";
 import { tickModifiers, chargeInterest } from "./modifiers.js";
+import { tickExpansion } from "./expansion.js";
 import { returnCrew } from "./crew.js";
 import { post, ACCT } from "../state/ledger.js";
 
@@ -45,6 +46,7 @@ export function runUpkeep(state, player) {
   lines.push(...tickDefects(state, player));
   lines.push(...tickModifiers(state, player)); // premiums for insurance/marketing etc.
   lines.push(...chargeInterest(state, player, state.economy.line_of_credit.interest));
+  lines.push(...tickExpansion(state, player)); // a readied move-in: pay the balance, capitalise, move
 
   const o = overheadFor(state, player);
   post(state, player, "Upkeep — overhead", [

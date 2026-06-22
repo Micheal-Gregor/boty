@@ -71,10 +71,14 @@
 
   <div class="warehouse">
     <span class="wh-name">🏚️ {bld.name} <span class="muted">tier {bld.tier ?? 1} · cap {bld.capacity + (player.capacityBonus ?? 0)}</span></span>
-    <span class="wh-actions">
-      {#if player.bbbThisTurn}<button class="mini" title="Capital improvement: +1 capacity, booked to the balance sheet" onclick={() => act((g) => g.improveShop())}>⬆️ Upgrade</button>{/if}
-      {#if nextBuilding}<button class="mini" onclick={() => act((g) => g.relocate(nextBuilding.id))}>Move → {nextBuilding.name}</button>{/if}
-    </span>
+    {#if player.pendingExpansion}
+      <span class="wh-readying">🏗️ readying {player.pendingExpansion.targetName} — move in next round</span>
+    {:else}
+      <span class="wh-actions">
+        {#if player.bbbThisTurn}<button class="mini" title="Capital project: deposit + insurance now, six trade contracts to the town, +1 capacity next round (the fee capitalises)" onclick={() => act((g) => g.startExpansion("improve"))}>⬆️ Upgrade</button>{/if}
+        {#if nextBuilding}<button class="mini" title="Ready the {nextBuilding.name}: pay a deposit + insurance, the town does the fit-out, move in next round (you keep this shop's low rent until then)" onclick={() => act((g) => g.startExpansion(nextBuilding.id))}>Move → {nextBuilding.name}</button>{/if}
+      </span>
+    {/if}
   </div>
 
   <h3>Tradespeople ({player.tradesmen.length}/{bld.capacity + (player.capacityBonus ?? 0)})</h3>
@@ -129,7 +133,7 @@
   <div class="jobs">
     {#each player.jobs as j}
       <div class="card job">
-        <div class="card-name">{j.name} <span class="state">[{j.state}]</span>{#if j.hirer_id} <span class="routed">⇄ contract</span>{/if}</div>
+        <div class="card-name">{j.name} <span class="state">[{j.state}]</span>{#if j.readying} <span class="routed">🏗️ fit-out</span>{:else if j.hirer_id} <span class="routed">⇄ contract</span>{/if}</div>
         <div class="bar"><div class="fill" style="width:{Math.min(100, (100 * j.work_done) / j.work_amount)}%"></div></div>
         <div class="muted">
           {j.work_done}/{j.work_amount} · {j.value} W · {termsLabel(j)} · due in {j.deadline_turn - turn} · crew {j.assigned_tradesmen.length}/{j.max_tradesmen}
@@ -241,5 +245,6 @@
   .warehouse { display: flex; justify-content: space-between; align-items: center; gap: 8px; flex-wrap: wrap; margin: 4px 0 4px; padding: 6px 8px; background: var(--panel-2, #1b1f27); border-radius: 8px; }
   .wh-name { font-weight: 600; }
   .wh-actions { display: flex; gap: 4px; flex-wrap: wrap; }
+  .wh-readying { font-size: 0.85em; color: var(--accent, #e0b341); font-weight: 600; }
   .line.aged .row-actions { display: flex; gap: 4px; justify-content: flex-end; }
 </style>

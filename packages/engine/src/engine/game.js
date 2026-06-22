@@ -11,6 +11,7 @@ import * as cards from "./cards.js";
 import * as payables from "./payables.js";
 import * as defects from "./defects.js";
 import * as modifiers from "./modifiers.js";
+import * as expansion from "./expansion.js";
 import { drawFortune } from "./fortune.js";
 import { getawayThreshold, rollGetaway, getawayOdds } from "./litigation.js";
 import { w } from "./economy.js";
@@ -174,6 +175,14 @@ export class Game {
   cancelRental(instanceId) { return this.#act((p) => shop.cancelRental(this.state, p, instanceId)); }
   relocate(buildingId) { return this.#act((p) => shop.relocate(this.state, p, buildingId)); }
   improveShop() { return this.#act((p) => { this.#requireBBB(p); return shop.improveShop(this.state, p); }); }
+  // Growth as a deferred capital project: relocating up (a building id) or an in-place capacity bump
+  // ("improve", BBB-gated). Pays a deposit, posts the town's trade contracts, completes next round.
+  startExpansion(target) {
+    return this.#act((p) => {
+      if (target === "improve") this.#requireBBB(p);
+      return expansion.startExpansion(this.state, p, target);
+    });
+  }
   buyService(kind) { return this.#act((p) => { this.#requireBBB(p); return modifiers.buyService(this.state, p, kind); }); }
   #requireBBB(p) { if (!p.bbbThisTurn) throw new GameError("The BBB vendor fair isn't in town — wait for a BBB Special"); }
   drawCredit() { return this.#act((p) => modifiers.drawCredit(this.state, p, this.state.economy.line_of_credit.draw), true); }
