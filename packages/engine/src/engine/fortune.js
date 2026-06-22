@@ -80,6 +80,24 @@ function resolveCard(state, player, card) {
   switch (card.type) {
     case "job": {
       const job = createJob(card, state.turn);
+      // Subcontract job: you broker it. A rival running `sub_trade` does the work for `sub_cost`;
+      // you (the GC) bill the customer `value` on delivery and pocket the markup — or factor the
+      // invoice to break even. The sub holds the job; you hold the AP that pays them.
+      if (job.subcontract && player.service !== job.sub_trade) {
+        const sub = pickContractor(state, player, job.sub_trade);
+        if (sub) {
+          job.hirer_id = player.id;
+          sub.jobs.push(job);
+          player.payables.push(createPayable({
+            vendor: `${sub.name} (sub: ${job.name})`, amount: job.sub_cost, dueTurn: null,
+            isNpc: false, creditorId: sub.id, jobId: job.id, pending: true,
+          }));
+          const markup = Math.round((job.value / job.sub_cost - 1) * 100);
+          return { type: "job", name: card.name, job, routedTo: sub.id,
+            text: `subcontracted to ${sub.name} (the ${job.sub_trade}) — you'll owe ${w(job.sub_cost)}, bill the customer ${w(job.value)} (${markup}% markup)` };
+        }
+        // No sub at the table → you keep it and do it yourself (capture the whole value) below.
+      }
       // Trade-routed: if this job needs a trade the drawer lacks, refer it to a player who has
       // that trade — they do it as their own NPC-paid job; the drawer takes a finder's commission.
       if (job.required_trade && player.service !== job.required_trade) {

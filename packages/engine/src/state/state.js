@@ -60,6 +60,12 @@ export function createJob(card, currentTurn) {
     // owes the contract value on completion. required_trade is the gating trade.
     required_trade: card.required_trade ?? null,
     hirer_id: null,
+    // Subcontract job: you broker it. A rival running `sub_trade` does the work for `sub_cost`;
+    // you bill the customer `value` (a markup baked in) and pocket the spread (or factor to break
+    // even). When brokered, hirer_id is set to YOU (the GC) and the sub holds the job.
+    subcontract: card.subcontract ?? false,
+    sub_trade: card.sub_trade ?? null,
+    sub_cost: card.sub_cost ?? 0,
     state: "Queued", // Queued | Active | OnHold | Expired | Complete
     assigned_tradesmen: [],
     exposed: false, // set when a STARTED job expires late (matters in later stages)

@@ -142,11 +142,13 @@ function botchRoutedJob(state, contractor, job) {
   const hirer = state.players.find((p) => p.id === job.hirer_id);
   if (!hirer) return null;
   hirer.payables = hirer.payables.filter((a) => a.job_id !== job.id); // liability cleared
+  // A botched sub costs the GC their lost markup (value − sub_cost); a plain routed job, the value.
+  const dmg = job.subcontract ? Math.max(1, job.value - (job.sub_cost ?? 0)) : job.value;
   state.pendingDamages.push({
     hirerId: hirer.id, contractorId: contractor.id, jobId: job.id, jobName: job.name,
-    value: job.value, window: state.economy.sue_window,
+    value: dmg, window: state.economy.sue_window,
   });
-  return `↳ ${contractor.name} botched ${hirer.name}'s ${job.name} — ${hirer.name}'s ${w(job.value)} liability cleared; they may sue for damages`;
+  return `↳ ${contractor.name} botched ${hirer.name}'s ${job.name} — ${hirer.name}'s liability cleared; they may sue for ${w(dmg)} damages`;
 }
 
 // --- Upkeep: clocks + expiry ------------------------------------------------------------
@@ -287,11 +289,17 @@ function completeJob(state, player, job) {
   player.jobs = player.jobs.filter((j) => j.id !== job.id);
   const terms = job.terms ?? state.economy.invoice_terms; // payment terms (longer = paid later)
   if (job.hirer_id) {
-    // Routed job delivered: the hirer's pending AP now comes DUE — they pay the contractor
-    // (this player) or refuse and face a suit. No NPC invoice; the contractor's pay is the AP.
+    // Routed/subcontract job delivered: the hirer's pending AP now comes DUE — they pay the
+    // contractor (this player) the sub_cost, or refuse and face a suit.
     const hirer = state.players.find((p) => p.id === job.hirer_id);
     const ap = hirer?.payables.find((a) => a.job_id === job.id);
     if (ap) { ap.pending = false; ap.due_turn = state.turn + terms; }
+    if (job.subcontract && hirer) {
+      // The GC delivers to the customer: book their marked-up invoice (collects later, or factor
+      // it). Gross margin = this revenue (value) − the COGS_SUB they pay the sub = the markup.
+      hirer.invoices.push(createInvoice(job, state.turn, terms));
+      accrue(state, hirer, ACCT.AR, ACCT.REVENUE, job.value, `Subcontracted job delivered: ${job.name}`);
+    }
   } else {
     player.invoices.push(createInvoice(job, state.turn, terms));
     // Accrual: revenue is EARNED now (Dr AR / Cr revenue) — cash arrives later when the invoice
@@ -320,7 +328,8 @@ export function sellJob(state, player, jobId) {
 function completionNote(state, job) {
   if (job.hirer_id) {
     const hirer = state.players.find((p) => p.id === job.hirer_id);
-    return `delivered for ${hirer?.name ?? "the hirer"} — they owe ${w(job.value)} (collects when they pay)`;
+    const owed = job.subcontract ? job.sub_cost : job.value;
+    return `delivered for ${hirer?.name ?? "the hirer"} — they owe you ${w(owed)} (collects when they pay)`;
   }
   return `invoice for ${w(job.value)} (collects in ${state.economy.invoice_terms} turns)`;
 }

@@ -22,7 +22,7 @@
   ],
   "scripts": {
     "start": "node bin/cli.js",
-    "test": "node test/smoke.js && node test/stage2.js && node test/stage3.js && node test/stage4.js && node test/ledger.js && node test/modifiers.js && node test/crew.js && node test/incidents.js",
+    "test": "node test/smoke.js && node test/stage2.js && node test/stage3.js && node test/stage4.js && node test/ledger.js && node test/modifiers.js && node test/crew.js && node test/incidents.js && node test/subcontract.js",
     "tune": "node tools/tune.js"
   },
   "license": "UNLICENSED"

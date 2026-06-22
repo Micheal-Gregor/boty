@@ -26,10 +26,11 @@ function newGame(options) {
 
 // --- Deck composition (copies expanded; Dial-1 / Dial-4 shares) ---------------------------
 {
-  assert.equal(decks.fortune.length, 76, "fortune deck is 76 cards");
+  assert.equal(decks.fortune.length, 79, "fortune deck is 79 cards");
+  assert.equal(count(decks.fortune, (c) => c.subcontract), 3, "subcontract jobs (the GC web)");
   assert.equal(count(decks.fortune, (c) => c.type === "bbb_special"), 2, "BBB Special (services fair)");
   assert.equal(count(decks.fortune, (c) => c.type === "incident"), 4, "building incidents");
-  assert.equal(count(decks.fortune, (c) => c.type === "job"), 21, "jobs (incl. the emergency call-out)");
+  assert.equal(count(decks.fortune, (c) => c.type === "job"), 24, "jobs (incl. 3 subcontract jobs)");
   assert.equal(count(decks.fortune, (c) => c.type === "defect"), 4, "code-violation / inspection defects");
   assert.equal(count(decks.fortune, (c) => c.type === "crew"), 6, "crew-life events");
   assert.equal(count(decks.fortune, (c) => c.type === "theft"), 1, "equipment theft");
