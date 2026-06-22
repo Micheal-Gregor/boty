@@ -1,5 +1,5 @@
 <script>
-  import { ui, confirmYes, confirmNo } from "../lib/store.js";
+  import { ui, confirmYes, confirmNo, confirmAlt } from "../lib/store.js";
   const c = $derived($ui.confirm);
 </script>
 
@@ -12,6 +12,9 @@
         <button class="no" onclick={confirmNo}>No</button>
         <button class="yes" onclick={confirmYes}>{c.yes} ▶</button>
       </div>
+      {#if c.alt}
+        <button class="alt" onclick={confirmAlt}>⚖️ {c.alt.label}</button>
+      {/if}
     </div>
   </div>
 {/if}
@@ -24,4 +27,5 @@
   .cbtns { display: flex; gap: 8px; }
   .cbtns button { flex: 1; padding: 10px; font-weight: 700; }
   .cbtns .no { background: var(--panel-2, #1b1f27); color: var(--ink, #e7e7ea); border: 1px solid var(--line, #2a2f3a); }
+  .alt { width: 100%; margin-top: 8px; padding: 9px; font-weight: 700; background: var(--panel-2, #1b1f27); color: var(--accent, #e0b341); border: 1px solid var(--accent, #e0b341); border-radius: 8px; }
 </style>

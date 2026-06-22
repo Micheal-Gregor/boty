@@ -3,7 +3,7 @@
 // intents to Supabase, and the UI won't change. AI seats are driven by the engine's own bots.
 
 import { writable, get } from "svelte/store";
-import { Game, profitAndLoss, balanceSheet, recurringExpenses, seasonFor, workerProductivity, findEquipment } from "@boty/engine";
+import { Game, profitAndLoss, balanceSheet, recurringExpenses, seasonFor, workerProductivity, findEquipment, classifyTermination, unionActive } from "@boty/engine";
 import { settings } from "./settings.js";
 import { botActions } from "@boty/engine/bots";
 import { loadContent } from "./content.js";
@@ -27,17 +27,42 @@ export function openRules() { push({ rulesOpen: true }); }
 export function closeRules() { push({ rulesOpen: false }); }
 
 // A generic Yes/No confirmation (e.g. before a shop move). The callback is held out of the store.
-let confirmCb = null;
-export function openConfirm(opts, cb) { confirmCb = cb; push({ confirm: { title: opts.title, body: opts.body, yes: opts.yes ?? "Yes" } }); }
-export function confirmYes() { const cb = confirmCb; confirmCb = null; push({ confirm: null }); if (cb) cb(); }
-export function confirmNo() { confirmCb = null; push({ confirm: null }); }
+let confirmCb = null, confirmAltCb = null;
+export function openConfirm(opts, cb, altCb = null) { confirmCb = cb; confirmAltCb = altCb; push({ confirm: { title: opts.title, body: opts.body, yes: opts.yes ?? "Yes", alt: opts.alt ?? null } }); }
+export function confirmYes() { const cb = confirmCb; confirmCb = confirmAltCb = null; push({ confirm: null }); if (cb) cb(); }
+export function confirmAlt() { const cb = confirmAltCb; confirmCb = confirmAltCb = null; push({ confirm: null }); if (cb) cb(); }
+export function confirmNo() { confirmCb = confirmAltCb = null; push({ confirm: null }); }
 
 // Guarded actions — a Yes/No before something you can't easily undo (used from the shop & the cards).
 export function confirmSell(jobId, price) {
   openConfirm({ title: "Sell this job?", body: `Hand it to the bank for ${price} W now instead of doing the work — you give up the full contract value.`, yes: "Sell it" }, () => act((g) => g.sellJob(jobId)));
 }
+// Classify a firing live, so the human sees exactly what risk they're taking on (E5 + employment).
+const meLive = () => game.state.players[game.state.activePlayerIndex];
+export function terminationInfo(workerId) {
+  const p = meLive();
+  const t = p.tradesmen.find((x) => x.id === workerId);
+  if (!t) return null;
+  const c = classifyTermination(game.state, p, t);
+  return { kind: c.kind, reason: c.reason, threshold: c.threshold, term: economy.termination, union: unionActive(game.state), hasLawyer: handHas(p, "slick_lawyer") };
+}
 export function confirmFire(workerId) {
-  openConfirm({ title: `Let ${workerId} go?`, body: `Firing costs a ${economy.severance} W severance, frees their tool, and pulls them off any job — make sure you mean it.`, yes: "Fire" }, () => act((g) => g.fire(workerId)));
+  const info = terminationInfo(workerId);
+  if (!info) return;
+  const term = info.term;
+  const fireAct = (ownLawyer) => act((g) => g.fire(workerId, { ownLawyer }));
+  if (info.kind === "legit") {
+    openConfirm({ title: `Lay ${workerId} off?`, body: `No work on the books and they're healthy — a clean layoff. No severance, no wrongful-termination claim.`, yes: "Lay off" }, () => fireAct(false));
+    return;
+  }
+  const odds = (lawyer) => Math.max(0, Math.min(6, info.threshold + (info.union ? term.union_shift : 0) - (lawyer ? term.lawyer_shift : 0)));
+  const thr = odds(false);
+  const tag = { "with cause": "WITH CAUSE", "no cause": "NO CAUSE — you still have work for them", "punitive": "PUNITIVE — they're out sick/injured" }[info.kind];
+  let body = `${tag}${info.reason ? ` (${info.reason})` : ""}. You roll a d6: ${thr}-or-under and they sue (you pay the ${term.court_fee} W court fee); a second roll ${thr}-or-under and they WIN — you also pay ${term.award} W.`;
+  if (info.union) body += ` ⚑ The trades are unionised (+2 to their odds) — a Favor busts it.`;
+  const opts = { title: `Fire ${workerId}?`, body, yes: "Fire" };
+  if (info.hasLawyer) opts.alt = { label: `Fire + Slick Lawyer (${odds(true)}-or-under)` };
+  openConfirm(opts, () => fireAct(false), info.hasLawyer ? () => fireAct(true) : null);
 }
 export function confirmDispose(equipId, name) {
   openConfirm({ title: `Dispose of the ${name}?`, body: `You sell it back for a fraction of cost (a real loss on the books), and whoever was using it goes bare-handed.`, yes: "Dispose" }, () => act((g) => g.disposeEquipment(equipId)));
@@ -144,6 +169,8 @@ const ALERTS = [
   [/🏛️ (.+?) DELIVERED "(.+?)"/, "🏛️ Project delivered", (m) => `${m[1]} delivered ${m[2]} — collects the balance, favours all round.`],
   [/✗ "(.+?)" COLLAPSED past/, "✗ Project collapsed", (m) => `${m[1]} blew its deadline — the balance is forfeit.`],
   [/🏛️ civic project "(.+?)" delivered/, "🏛️ Civic job delivered", (m) => `${m[1]} was delivered — favours earned.`],
+  [/🌐 Town labor union grips/, "🪙 Union drive", () => `The trades unionised — every firing is far riskier now (+2 to their odds). A Favor busts it.`],
+  [/⚖️ (.+?) fired .+? SUED AND WON/, "⚖️ Wrongful termination", (m) => `${m[1]} fired a worker who sued and won — a costly payout on the books.`],
   [/🌐 (.+?) grips Maple Hollow/, "🌐 Town penalty", (m) => `${m[1]} — a town-wide levy now hits every shop, including yours.`],
   [/🏗️ (.+?) moved into (.+?) \(from/, "🏗️ Moved in", (m) => `${m[1]} finished readying and moved into ${m[2]}.`],
   [/⚠ (.+?) couldn't cover the .* balance on (.+?) —/, "⚠ Move forfeited", (m) => `${m[1]} couldn't close out ${m[2]} — the deposit is lost.`],

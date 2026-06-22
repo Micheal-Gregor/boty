@@ -40,10 +40,12 @@
         <h2>{worker.id}</h2>
         <div class="stack">
           <div class="stack-row"><span>Tool</span><span>{worker.tool ?? "bare-handed"}</span></div>
+          {#if worker.prod_mod}<div class="stack-row"><span>Last review</span><span class={worker.prod_mod > 0 ? "bonus" : "malus"}>{worker.prod_mod > 0 ? `⭐ +${worker.prod_mod}` : `📉 ${worker.prod_mod}`}/turn</span></div>{/if}
           {#if me.modifiers?.some((m) => m.kind === "training")}<div class="stack-row"><span>Training</span><span class="bonus">🎓 +1/turn · shop-wide</span></div>{/if}
           {#if me.defects?.length}<div class="stack-row"><span>Code drag</span><span class="malus">🚧 −{me.defects.reduce((s, d) => s + (d.productivity_hit ?? 0), 0)}/turn · shop-wide</span></div>{/if}
           <div class="stack-row"><span>Status</span><span>{worker.out_until && worker.out_until > view.turn ? "out until t" + worker.out_until : worker.assignedJob ? "on a job" : "idle"}</span></div>
         </div>
+        {#if worker.flag}<p class="flag">{worker.flag === "theft" ? "🚨 Suspected of theft" : "📋 On notice — poor review"} · grounds to fire <em>with cause</em></p>{/if}
         {#if picking}
           <div class="picker">
             <p class="muted">Put a tool on {worker.id}:</p>
@@ -128,6 +130,8 @@
   .stack-row span:first-child { color: var(--muted, #9aa0aa); }
   .stack-row .bonus { color: #5fb87a; }
   .stack-row .malus { color: #e8746a; }
+  .flag { margin: 8px 0 0; padding: 8px 10px; border-radius: 8px; background: rgba(232,116,106,0.12); border: 1px solid rgba(232,116,106,0.4); color: #f0a59c; font-size: 0.85rem; }
+  .flag em { font-style: normal; font-weight: 700; color: #5fb87a; }
   .bar { height: 6px; background: var(--panel-2, #1b1f27); border-radius: 3px; overflow: hidden; margin-bottom: 8px; }
   .bar .fill { height: 100%; background: var(--accent, #e0b341); }
   .picker { background: var(--panel-2, #1b1f27); border-radius: 8px; padding: 8px; margin-bottom: 10px; display: flex; flex-direction: column; gap: 4px; }
