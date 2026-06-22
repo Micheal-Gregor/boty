@@ -106,8 +106,6 @@ function enqueueTurnStart(ctx) {
     enqueuePopup({ kind: "round", turn: ctx.turn, season: view.season, town: flavor?.town });
   }
   surfaceNewOutcomes(); // alert windows for what resolved during the rivals' round / your upkeep
-  for (const rc of rivalDrawBuffer) enqueuePopup({ kind: "card", rival: rc.rival, cardId: rc.cardId, name: rc.name, flavor: rc.flavor, text: rc.text });
-  rivalDrawBuffer = [];
   enqueuePopup({ kind: "summary", name: me.name, recurring: view.recurring, cash: me.cash, upkeepNet: ctx.upkeepNet ?? 0, drew: (ctx.drawn ?? []).length });
   // Then read each card you drew — with a rule explainer for the ones that have a special rule.
   for (const d of ctx.drawn ?? []) {
@@ -160,7 +158,6 @@ function surfaceNewOutcomes() {
 }
 
 // --- Rival card pop-ups (E5 §4) — what the rivals drew, per the Settings filter ----------------
-let rivalDrawBuffer = [];
 function rivalCardInteresting(d) {
   const mode = get(settings).rivalPopups;
   if (mode === "none") return false;
@@ -240,7 +237,7 @@ export function newGame(seats) {
   game.state.flavor = flavor;
   ai = {};
   declinedDamages.clear();
-  lastScanned = 0; lastRoundShown = 0; rivalDrawBuffer = [];
+  lastScanned = 0; lastRoundShown = 0;
   game.state.players.forEach((p, i) => { ai[p.id] = seats[i].strategy ?? null; });
   const ctx = game.start();
   push({ screen: "board", ctx, error: null, aiActing: null, threat: null, picking: null, reckoning: null, final: null, court: null });
@@ -359,8 +356,15 @@ export function resolveCourtUI(payableId, lawyer) {
 }
 
 let skipAI = false;
-/** Fast-forward the rest of the AI phase (the "Skip ▶▶" button). */
-export function skipAITurns() { skipAI = true; }
+/** Fast-forward the rest of the AI phase (the "Skip ▶▶" button): drain the rival pop-ups too. */
+export function skipAITurns() { skipAI = true; clearPopups(); }
+
+/** Resolve once the pop-up queue has drained (the human has read this rival's turn). */
+function waitForPopups() {
+  return new Promise((resolve) => {
+    const unsub = ui.subscribe((v) => { if (!v.popups.length) { unsub(); resolve(); } });
+  });
+}
 
 /**
  * Step through AI seats until a human is up — but make it WATCHABLE: for each rival, announce
@@ -374,9 +378,20 @@ async function advanceUntilHuman(initialCtx) {
     const p = game.currentPlayer;
     if (!ai[p.id]) break; // human is up
     const drew = (lastCtx?.drawn ?? []).map((d) => d.name); // what the deck just dealt this rival
-    for (const d of lastCtx?.drawn ?? []) if (rivalCardInteresting(d)) rivalDrawBuffer.push({ rival: p.name, cardId: d.cardId, name: d.name, flavor: d.flavor, text: d.text });
-    push({ aiActing: { name: p.name, drew, lines: [] }, court: null, settle: null });
-    if (!skipAI) await sleep(450);
+    const mode = get(settings).rivalPopups;
+
+    if (mode !== "none" && !skipAI) {
+      // Opponent's turn opens with their executive summary, then their cards open & close in order —
+      // wait for you to read the table before they make their moves.
+      const rp = game.state.players.find((x) => x.id === p.id);
+      enqueuePopup({ kind: "summary", rival: true, name: p.name, recurring: recurringExpenses(game.state, rp), cash: rp.cash, upkeepNet: lastCtx?.upkeepNet ?? 0, drew: (lastCtx?.drawn ?? []).length });
+      for (const d of lastCtx?.drawn ?? []) if (mode === "all" || rivalCardInteresting(d)) enqueuePopup({ kind: "card", rival: p.name, cardId: d.cardId, name: d.name, flavor: d.flavor, text: d.text });
+      await waitForPopups();
+      if (game.state.over) return;
+    } else {
+      push({ aiActing: { name: p.name, drew, lines: [] }, court: null, settle: null });
+      if (!skipAI) await sleep(450);
+    }
 
     const before = game.state.log.length;
     if (game.settleCases.length) game.autoResolveSettle();

@@ -1,5 +1,5 @@
 <script>
-  import { ui, dismissPopup } from "../lib/store.js";
+  import { ui, dismissPopup, skipAITurns } from "../lib/store.js";
   import { settings } from "../lib/settings.js";
   import Art from "./Art.svelte";
 
@@ -24,7 +24,7 @@
         <p class="pop-flavor">{p.season?.flavor ?? `A new round dawns over ${p.town ?? "Maple Hollow"}.`}</p>
 
       {:else if p.kind === "summary"}
-        <h2>📋 {p.name} — turn start</h2>
+        <h2>{p.rival ? "🤖" : "📋"} {p.name} — turn start</h2>
         <div class="summary-grid">
           <div class="summ-stat"><span class="lbl">Crew / capacity</span><span class="val">{p.recurring.crew} / {p.recurring.capacity}</span></div>
           <div class="summ-stat"><span class="lbl">Cash on hand</span><span class="val">{p.cash} W</span></div>
@@ -51,7 +51,10 @@
         {#if p.rule}<div class="pop-rule">📜 {p.rule}</div>{/if}
       {/if}
 
-      <button class="pop-close" onclick={dismissPopup}>{more ? "Next ▶" : "Continue ▶"}</button>
+      <div class="pop-foot">
+        {#if p.rival}<button class="skip-rivals" onclick={skipAITurns}>Skip rivals ▶▶</button>{/if}
+        <button class="pop-close" onclick={dismissPopup}>{more ? "Next ▶" : "Continue ▶"}</button>
+      </div>
     </div>
   </div>
 {/if}
@@ -76,5 +79,7 @@
   .pop-effect { margin: 4px 0; }
   .pop-rival { font-size: 0.82em; color: var(--muted, #9aa0aa); font-weight: 600; margin-bottom: 4px; }
   .pop-rule { margin-top: 10px; padding: 8px 10px; background: var(--panel-2, #1b1f27); border-left: 3px solid var(--accent, #e0b341); border-radius: 6px; font-size: 0.86em; color: var(--ink, #e7e7ea); }
-  .pop-close { margin-top: 16px; width: 100%; padding: 10px; font-weight: 700; }
+  .pop-foot { display: flex; gap: 8px; margin-top: 16px; }
+  .pop-close { flex: 1; padding: 10px; font-weight: 700; }
+  .skip-rivals { flex: 0 0 auto; padding: 10px 12px; background: var(--panel-2, #1b1f27); color: var(--muted, #9aa0aa); border: 1px solid var(--line, #2a2f3a); font-size: 0.85em; }
 </style>
