@@ -80,8 +80,8 @@ function resolveCard(state, player, card) {
   switch (card.type) {
     case "job": {
       const job = createJob(card, state.turn);
-      // Trade-routed: if this job needs a trade the drawer lacks, route it to a player who has
-      // that trade — they do the work, the drawer (hirer) owes the contract value on completion.
+      // Trade-routed: if this job needs a trade the drawer lacks, refer it to a player who has
+      // that trade — they do it as their own NPC-paid job; the drawer takes a finder's commission.
       if (job.required_trade && player.service !== job.required_trade) {
         const contractor = pickContractor(state, player, job.required_trade);
         if (contractor) {
