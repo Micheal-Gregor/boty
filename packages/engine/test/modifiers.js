@@ -112,4 +112,18 @@ const economy = await loadEconomy();
   ok("tool theft: insurance saves the asset");
 }
 
+// Mayor's re-election drive: a donation earns you a Favor.
+{
+  resetIds();
+  const dona = { type: "character", id: "reelection_drive", name: "Mayor's re-election drive", effect: "donation", cost: 3 };
+  const g = new Game(economy, [{ name: "Ana", service: "mechanic" }], { seed: 1, fortune: [dona] });
+  g.start();
+  const ana = g.state.players[0];
+  const cash0 = ana.cash;
+  drawFortune(g.state, ana, 1);
+  assert.equal(ana.cash, cash0 - 3, "donation paid");
+  assert.ok(ana.hand.some((c) => c.type === "favor"), "earned a Favor card");
+  ok("mayor's donation: pay to earn a Favor");
+}
+
 console.log(`\nAll modifier checks passed (${passed}).`);

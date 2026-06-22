@@ -128,6 +128,20 @@ function resolveCard(state, player, card) {
       if (handCard) player.hand.push(handCard);
       return { type: "gift", name: card.name, got: handCard?.name ?? null, text: handCard ? `🃏 drew ${handCard.name} to hand` : "nothing left to draw" };
     }
+    case "character": {
+      // Most characters skin existing card types; this handles their bespoke effects.
+      if (card.effect === "donation") {
+        // The Mayor's re-election drive: chip in and you're owed a favor.
+        const cost = card.cost ?? 2;
+        if (player.cash >= cost) {
+          cashOut(state, player, ACCT.MEALS, cost, `${card.name} — donation`);
+          player.hand.push({ id: "favor", type: "favor", name: "Favor" });
+          return { type: "character", name: card.name, text: `donated ${w(cost)} — the Mayor owes you a Favor` };
+        }
+        return { type: "character", name: card.name, text: "couldn't spare a donation this time" };
+      }
+      return { type: "character", name: card.name, text: card.text ?? "" };
+    }
     case "crew":
       return applyCrewEvent(state, player, card);
     case "theft": {

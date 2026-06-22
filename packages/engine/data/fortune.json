@@ -38,6 +38,12 @@
     { "type": "crew", "copies": 1, "id": "winter_holidays", "name": "Winter holidays", "effect": "sideline", "duration": 1, "flavor_by_season": { "Winter": "The whole town slows for the holidays — a hand takes the week to be with family." } },
     { "type": "theft", "copies": 1, "id": "tool_theft", "name": "Tool theft", "flavor": "Someone helped themselves to your gear overnight. This is exactly what insurance is for." },
 
+    { "type": "character", "copies": 1, "id": "reelection_drive", "name": "Mayor's re-election drive", "effect": "donation", "cost": 3, "flavor": "Mayor Crabtree's campaign passes the hat at the Grange hall — chip in and he'll remember it." },
+    { "type": "defect", "copies": 1, "id": "surprise_inspection", "name": "Surprise inspection", "fine": 2, "fix_cost": 5, "fix_trade": "electrician", "fix_terms": 2, "productivity_hit": 2, "flavor": "Inspector Grit turns up unannounced, clipboard out — and he's found something." },
+    { "type": "payable", "copies": 1, "id": "reassessment", "name": "Property reassessment", "amount": 6, "due": 3, "flavor": "Assessor Tolliver 'updates' your assessment — the new tax bill lands with a thud." },
+    { "type": "windfall", "copies": 1, "id": "small_business_grant", "name": "Small-business grant", "cash": 7, "flavor": "Hal Ramsey at the Chamber comes through with a small-business grant — free money, for once." },
+    { "type": "job", "copies": 1, "id": "emergency_call", "name": "Emergency call-out", "value": 14, "work_amount": 6, "deadline": 3, "terms": 1, "min_tradesmen": 1, "max_tradesmen": 2, "required_equipment": null, "droppable": false, "flavor": "Chief Boon needs it fixed NOW — pays well, but the clock is brutal and you can't walk away." },
+
     { "type": "windfall", "copies": 2, "id": "file_patent",      "name": "File a patent",            "per_equipment": 2, "flavor": "You patent that jig you welded up — licensing checks roll in for every rig you run." },
     { "type": "windfall", "copies": 2, "id": "equipment_award",  "name": "Win an efficiency award",  "per_equipment": 2, "flavor": "The supplier names you 'Shop of the Quarter' — a little bonus for every tool on your floor." },
     { "type": "shock",    "copies": 1, "id": "depreciation",     "name": "Depreciation audit",       "per_equipment": -2, "flavor": "The county reassesses your gear; every rig on the books gets its own little tax." },
