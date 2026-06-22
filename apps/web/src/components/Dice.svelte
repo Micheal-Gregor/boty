@@ -25,7 +25,7 @@
 {#if d}
   <div class="dice-overlay">
     <div class="dice-box">
-      {#if d.stepIdx === 0 && d.value == null}<button class="x" onclick={cancelDice} title="Cancel">✕</button>{/if}
+      {#if d.stepIdx === 0 && d.value == null && !d.noCancel}<button class="x" onclick={cancelDice} title="Cancel">✕</button>{/if}
       <h2>{d.title}</h2>
       <p class="sub">{d.sub}</p>
       {#if d.steps > 1}<p class="step">Roll {d.stepIdx + 1} of {d.steps}</p>{/if}

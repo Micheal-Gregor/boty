@@ -139,7 +139,7 @@ function dodgeNpc(state, player, ap) {
  * the defence target) before the roll. Win → walk clean (debt wiped, fee reimbursed); lose →
  * pay the amount + damages fee. Consumes the lawyer card if used. Returns a log line.
  */
-export function resolveCourt(state, caseEntry, useLawyer, accuserLawyers = 0) {
+export function resolveCourt(state, caseEntry, useLawyer, accuserLawyers = 0, roll = null) {
   const e = state.economy;
   const player = state.players.find((p) => p.id === caseEntry.playerId);
   const ap = player.payables.find((a) => a.id === caseEntry.payableId);
@@ -151,7 +151,7 @@ export function resolveCourt(state, caseEntry, useLawyer, accuserLawyers = 0) {
   // A collections case carries the agency's guaranteed lawyer on the accuser's side.
   const accLawyers = accuserLawyers + (caseEntry.agencyLawyer ? 1 : 0);
   const g = getawayThreshold(e, e.civil.getaway_owed, defLawyers, accLawyers);
-  const res = rollGetaway(state.die, g);
+  const res = rollGetaway(roll != null ? () => roll : state.die, g);
   if (ap) removeAp(player, ap);
   cashOut(state, player, ACCT.LEGAL, e.civil.legal_fee, "Court — legal fee"); // paid regardless
   const tag = defLawyers ? " (lawyered up)" : caseEntry.agencyLawyer ? " (vs collections)" : "";

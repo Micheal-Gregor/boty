@@ -237,13 +237,29 @@ export class Game {
    * Resolve one court case. The defendant may play a Slick Lawyer (+2 to their walk threshold);
    * `accuserLawyers` is how many the table threw in for the vendor (−2 each).
    */
-  resolveCourt(payableId, { lawyer = false, accuserLawyers = 0 } = {}) {
+  resolveCourt(payableId, { lawyer = false, accuserLawyers = 0, roll = null } = {}) {
     const i = this.state.pendingCourt.findIndex((c) => c.payableId === payableId);
     if (i < 0) throw new GameError(`No pending court case for "${payableId}"`);
     const [c] = this.state.pendingCourt.splice(i, 1);
-    const line = payables.resolveCourt(this.state, c, lawyer, accuserLawyers);
+    const line = payables.resolveCourt(this.state, c, lawyer, accuserLawyers, roll);
     this.state.log.push(line);
     return line;
+  }
+
+  /** The getaway threshold a court / sue / damages roll WOULD use — for the dice UI (no side effects). */
+  courtThreshold(payableId, lawyer = false) {
+    const c = this.state.pendingCourt.find((x) => x.payableId === payableId);
+    if (!c) return null;
+    const e = this.state.economy;
+    return getawayThreshold(e, e.civil.getaway_owed, lawyer ? 1 : 0, (c.agencyLawyer ? 1 : 0));
+  }
+  threatThreshold(ownLawyer = false) {
+    const t = this.state.pendingThreat;
+    if (!t || (t.type !== "sue" && t.type !== "damages")) return null;
+    const e = this.state.economy;
+    const base = t.type === "damages" ? e.civil.getaway_dispute : e.civil.getaway_owed;
+    const acc = (t.type === "damages" ? t.accuserLawyers : t.creditorLawyers) ?? 0;
+    return getawayThreshold(e, base, ownLawyer ? 1 : 0, acc);
   }
 
   /** Resolve ALL pending court cases (for AI seats / CLI / harness). Plays a lawyer if held. */
@@ -415,7 +431,7 @@ export class Game {
     return { threat: this.state.pendingThreat, message: msg };
   }
 
-  #resolveDamages(t, { contest = true, ownLawyer = false }) {
+  #resolveDamages(t, { contest = true, ownLawyer = false, roll = null }) {
     const e = this.state.economy;
     const hirer = this.#playerById(t.hirerId);
     const contractor = this.#playerById(t.contractorId);
@@ -430,7 +446,7 @@ export class Game {
       defLawyers = 1;
     }
     const g = getawayThreshold(e, e.civil.getaway_dispute, defLawyers, t.accuserLawyers);
-    const res = rollGetaway(this.state.die, g);
+    const res = rollGetaway(roll != null ? () => roll : this.state.die, g);
     const FEE = e.civil.legal_fee;
     cashOut(this.state, hirer, ACCT.LEGAL, FEE, "Damages — fee");
     cashOut(this.state, contractor, ACCT.LEGAL, FEE, "Damages — fee");
@@ -472,7 +488,7 @@ export class Game {
     return `💥 Word gets around the Hollow: ${owner.name}'s ${job.name} slips toward the wire — ${cards.applySabotage(this.state.economy, job)}.`;
   }
 
-  #resolveSue(t, { contest = true, ownLawyer = false }) {
+  #resolveSue(t, { contest = true, ownLawyer = false, roll = null }) {
     const e = this.state.economy;
     const creditor = this.#playerById(t.creditorId);
     const debtor = this.#playerById(t.debtorId);
@@ -501,7 +517,7 @@ export class Game {
     // Refusing to pay for delivered work is the clearly-wrong case → owed base (walk on 1–2).
     // Each Slick Lawyer shifts ±2. Legal fee 1 W each.
     const g = getawayThreshold(e, e.civil.getaway_owed, defLawyers, t.creditorLawyers);
-    const res = rollGetaway(this.state.die, g);
+    const res = rollGetaway(roll != null ? () => roll : this.state.die, g);
     const FEE = e.civil.legal_fee;
     cashOut(this.state, creditor, ACCT.LEGAL, FEE, "Suit — fee");
     cashOut(this.state, debtor, ACCT.LEGAL, FEE, "Suit — fee");

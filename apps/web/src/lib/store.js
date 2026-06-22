@@ -74,7 +74,7 @@ function publishDice() {
   const { spec, stepIdx, value, result } = diceState;
   const step = spec.steps[stepIdx];
   const finished = !!result && (result.stop || stepIdx === spec.steps.length - 1);
-  push({ dice: { title: spec.title, sub: spec.sub, prompt: step.prompt, stepIdx, steps: spec.steps.length, value, result: result?.text ?? null, tone: result?.tone ?? null, finished } });
+  push({ dice: { title: spec.title, sub: spec.sub, prompt: step.prompt, stepIdx, steps: spec.steps.length, value, result: result?.text ?? null, tone: result?.tone ?? null, finished, noCancel: !!spec.noCancel } });
 }
 export function openDice(spec) { diceState = { spec, rolls: [], stepIdx: 0, value: null, result: null }; playSfx("flip", 0.3); publishDice(); }
 export function rollDie() {
@@ -371,10 +371,36 @@ function aiRespond(t, targetId) {
   }
 }
 
-/** The human target responds via the modal. */
+/** The human target responds via the modal. A contested sue/damages is settled by a die the human
+ *  physically rolls (the defendant "walks" on ≤ threshold); a concede or a Sabotage applies directly. */
 export function respond(decision) {
+  const t = game.state.pendingThreat;
+  const getaway = t && (t.type === "sue" || t.type === "damages");
+  if (getaway && decision.contest) {
+    const ownLawyer = !!decision.ownLawyer;
+    const thr = game.threatThreshold(ownLawyer);
+    const FEE = economy.civil.legal_fee;
+    let title, amount;
+    if (t.type === "damages") { title = `Damages — ${player(t.hirerId)?.name ?? "the hirer"} v. you`; amount = t.value; }
+    else { title = `Sued by ${player(t.creditorId)?.name ?? "a creditor"}`; amount = player(t.debtorId)?.payables.find((a) => a.id === t.payableId)?.amount; }
+    push({ threat: null });
+    openDice({
+      title, noCancel: true,
+      sub: `You walk on ${thr}-or-under${ownLawyer ? " · lawyer played" : ""}`,
+      steps: [{ prompt: `Roll to beat the ${amount != null ? amount + " W " : ""}claim`,
+        resolve: (v) => v <= thr
+          ? { text: `🛡️ Rolled ${v} — you WALK. The claim is dismissed (just the ${FEE} W fee).`, stop: true, tone: "good" }
+          : { text: `⚖️ Rolled ${v} — over ${thr}. You LOSE${amount != null ? ` — pay up to ${amount} W` : ""} + the ${FEE} W fee.`, stop: true, tone: "bad" } }],
+      onDone: ([roll]) => applyRespond({ contest: true, ownLawyer, roll }),
+    });
+    return;
+  }
+  applyRespond(decision);
+}
+function applyRespond(decision) {
   try { game.respondToThreat(decision); } catch (e) { return fail(e?.message ?? String(e)); }
   push({ threat: null, error: null });
+  surfaceNewOutcomes();
   refreshDamages();
 }
 
@@ -426,10 +452,26 @@ export function endTurn() {
   advanceUntilHuman(ctx);
 }
 
-/** A failed Demand Roll summons you to court. AI seats auto-defend; a human gets the modal. */
+/** A failed Demand Roll summons you to court. AI seats auto-defend; a human rolls the getaway die. */
 export function resolveCourtUI(payableId, lawyer) {
-  try { game.resolveCourt(payableId, { lawyer }); } catch (e) { return fail(e?.message ?? String(e)); }
-  push({ court: game.courtCases.length ? [...game.courtCases] : null });
+  const thr = game.courtThreshold(payableId, lawyer);
+  const c = game.courtCases.find((x) => x.payableId === payableId);
+  const vendor = c?.vendor ?? "the creditor"; const amount = c?.amount;
+  const FEE = economy.civil.legal_fee;
+  push({ court: null });
+  openDice({
+    title: `Court — ${vendor}`, noCancel: true,
+    sub: `You walk on ${thr}-or-under${lawyer ? " · lawyer played" : ""}${c?.agencyLawyer ? " · vs collections" : ""}`,
+    steps: [{ prompt: `Roll to beat the ${amount != null ? amount + " W " : ""}claim`,
+      resolve: (v) => v <= thr
+        ? { text: `🛡️ Rolled ${v} — you WALK. ${vendor}'s debt is wiped (just the ${FEE} W fee).`, stop: true, tone: "good" }
+        : { text: `⚖️ Rolled ${v} — over ${thr}. You LOSE — pay ${vendor}${amount != null ? " " + amount + " W" : ""} + the ${FEE} W fee.`, stop: true, tone: "bad" } }],
+    onDone: ([roll]) => {
+      try { game.resolveCourt(payableId, { lawyer, roll }); } catch (e) { return fail(e?.message ?? String(e)); }
+      surfaceNewOutcomes();
+      push({ court: game.courtCases.length ? [...game.courtCases] : null });
+    },
+  });
 }
 
 let skipAI = false;
