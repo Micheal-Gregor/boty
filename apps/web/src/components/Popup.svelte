@@ -18,7 +18,7 @@
   <div class="pop-overlay" onclick={dismissPopup}>
     <div class="pop" onclick={(e) => e.stopPropagation()}>
       {#if p.kind === "round"}
-        <div class="pop-art"><Art kind="season" id={p.season?.name?.toLowerCase() ?? "spring"} label={p.season?.name} /></div>
+        <div class="pop-art"><Art kind="season" id={p.season?.name?.toLowerCase() ?? "spring"} label={p.season?.name} autoplay /></div>
         <h2>Round {p.turn} · {p.season?.name ?? ""}</h2>
         <p class="pop-flavor">{p.season?.flavor ?? `A new round dawns over ${p.town ?? "Maple Hollow"}.`}</p>
 

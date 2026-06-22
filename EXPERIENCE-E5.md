@@ -52,6 +52,23 @@ Reachable any time (gear icon). Persisted locally.
 
 ---
 
+## 3b. Card animation behaviour (still ↔ animation)
+
+Every visual is a **still by default**; the still **is the animation's first frame** (one asset id,
+no separate thumbnail). Cards are **thumbnails when closed**.
+
+- **Default open = still, not animated.** A Settings toggle **"Animate my cards on open"** (default
+  **off**) makes *your* cards auto-play when opened.
+- **Round-intro pop-up auto-animates by default** (the one exception).
+- **Opponents' cards never auto-animate.**
+- **Click the image to start/stop** any card that *has* an animation (regardless of the auto setting).
+- **Sound on/off control at the card's top-right** while it plays (muted until you turn it on).
+- **Still-only assets can't animate** — the click is a no-op.
+
+*Pipeline (built):* `Art` renders a `<video>` (poster = the still) whenever an animation file exists
+for that id, else the still image, else the placeholder. `autoplay` / `animatable` props; the caller
+decides auto-play from context (round = on · opponent = off · your cards = the setting).
+
 ## 4. Interactive card modals (open card = the action surface)
 
 Open cards carry their actions as buttons. Productivity math (§7) is surfaced on the card.

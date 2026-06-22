@@ -9,6 +9,7 @@ const DEFAULTS = {
   music: true,
   rivalPopups: "interesting", // "interesting" | "all" | "none"
   autoClose: false, // auto-dismiss your own card pop-ups after a beat
+  animateCards: false, // auto-play your card animations on open (else open as a still; click to play)
 };
 
 function load() {
