@@ -45,9 +45,9 @@
   "sue_window": 4,
 
   "buildings": [
-    { "id": "garage",    "name": "Garage",    "tier": 1, "capacity": 2, "rent": 2 },
-    { "id": "shop",      "name": "Shop",      "tier": 2, "capacity": 4, "rent": 3 },
-    { "id": "warehouse", "name": "Warehouse", "tier": 3, "capacity": 6, "rent": 5 }
+    { "id": "garage",    "name": "Garage",    "tier": 1, "capacity": 2, "rent": 1 },
+    { "id": "shop",      "name": "Shop",      "tier": 2, "capacity": 4, "rent": 2 },
+    { "id": "warehouse", "name": "Warehouse", "tier": 3, "capacity": 6, "rent": 4 }
   ],
 
   "equipment": [
