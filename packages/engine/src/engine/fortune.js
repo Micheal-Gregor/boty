@@ -14,6 +14,7 @@ import { createJob, createPayable, createTradesman, createDefect } from "../stat
 import { post, cashIn, cashOut, ACCT } from "../state/ledger.js";
 import { bearLoss, marketingInjection } from "./modifiers.js";
 import { applyCrewEvent } from "./crew.js";
+import { applyIncident } from "./incidents.js";
 import { resolveCivilEvent } from "./payables.js";
 import { releaseTradesman } from "./jobs.js";
 import { seasonName } from "./season.js";
@@ -146,6 +147,8 @@ function resolveCard(state, player, card) {
       }
       return { type: "character", name: card.name, text: card.text ?? "" };
     }
+    case "incident":
+      return applyIncident(state, player, card);
     case "crew":
       return applyCrewEvent(state, player, card);
     case "theft": {
