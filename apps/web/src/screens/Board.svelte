@@ -1,5 +1,5 @@
 <script>
-  import { ui, act, endTurn, isAI, viewCard, cardInLine, skipAITurns, openSettings, openHand } from "../lib/store.js";
+  import { ui, act, endTurn, isAI, viewCard, cardInLine, skipAITurns, openSettings, openHand, openRivals } from "../lib/store.js";
   import { muted, toggleMute, playSfx, playMusic } from "../lib/sound.js";
   import { seasonFor, findBuilding } from "@boty/engine";
   import Shop from "../components/Shop.svelte";
@@ -8,6 +8,7 @@
   import Settings from "../components/Settings.svelte";
   import EntityCard from "../components/EntityCard.svelte";
   import HandView from "../components/HandView.svelte";
+  import RivalShop from "../components/RivalShop.svelte";
   import Flash from "../components/Flash.svelte";
 
   // Which play-area is showing on a phone. On wide screens all three are columns and this is moot.
@@ -59,6 +60,7 @@
     <span class="round">round {s.turn} / {econ.max_turns}</span>
     <span class="turn">▶ {me.name}'s turn</span>
     <button class="mute" aria-label="toggle sound" title={$muted ? "sound off" : "sound on"} onclick={toggleMute}>{$muted ? "🔇" : "🔊"}</button>
+    <button class="mute" aria-label="view rivals" title="rivals' shops" onclick={openRivals}>👥</button>
     <button class="mute" aria-label="open hand" title="open hand" onclick={openHand}>🃏</button>
     <button class="mute" aria-label="settings" title="settings" onclick={openSettings}>⚙️</button>
   </header>
@@ -67,6 +69,7 @@
   <Settings />
   <EntityCard />
   <HandView />
+  <RivalShop />
 
   {#if s.globalEffects?.length}
     <div class="town-banner">

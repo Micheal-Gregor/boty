@@ -2,8 +2,9 @@
 // engine locally in the browser (LocalTransport); later a RemoteTransport will send the same
 // intents to Supabase, and the UI won't change. AI seats are driven by the engine's own bots.
 
-import { writable } from "svelte/store";
+import { writable, get } from "svelte/store";
 import { Game, profitAndLoss, balanceSheet, recurringExpenses, seasonFor, workerProductivity, findEquipment } from "@boty/engine";
+import { settings } from "./settings.js";
 import { botActions } from "@boty/engine/bots";
 import { loadContent } from "./content.js";
 import { unlockAudio, playSfx } from "./sound.js";
@@ -18,8 +19,11 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 export const ui = writable({
   screen: "setup", game: null, view: null, ctx: null, flavor, economy, error: null, rev: 0,
   aiActing: null, threat: null, picking: null, reckoning: null, final: null, court: null, damages: null, settle: null,
-  cardView: null, popups: [], settingsOpen: false, flash: null, entityCard: null, handView: false,
+  cardView: null, popups: [], settingsOpen: false, flash: null, entityCard: null, handView: false, rivalView: false,
 });
+
+export function openRivals() { push({ rivalView: true }); }
+export function closeRivals() { push({ rivalView: false }); }
 
 // --- Flash-and-vanish errors (E5 §1): a blocked action flashes in ITS section, not the bottom. ---
 let flashTimer = null;
@@ -62,6 +66,9 @@ function enqueueTurnStart(ctx) {
     lastRoundShown = ctx.turn;
     enqueuePopup({ kind: "round", turn: ctx.turn, season: view.season, town: flavor?.town });
   }
+  surfaceNewOutcomes(); // alert windows for what resolved during the rivals' round / your upkeep
+  for (const rc of rivalDrawBuffer) enqueuePopup({ kind: "card", rival: rc.rival, cardId: rc.cardId, name: rc.name, flavor: rc.flavor, text: rc.text });
+  rivalDrawBuffer = [];
   enqueuePopup({ kind: "summary", name: me.name, recurring: view.recurring, cash: me.cash, upkeepNet: ctx.upkeepNet ?? 0, drew: (ctx.drawn ?? []).length });
   // Then read each card you drew — with a rule explainer for the ones that have a special rule.
   for (const d of ctx.drawn ?? []) {
@@ -91,6 +98,37 @@ function ruleFor(def) {
 }
 export function openHand() { push({ handView: true }); }
 export function closeHand() { push({ handView: false }); }
+
+// --- Computed outcomes → ALERT windows (E5 §6) -------------------------------------------------
+// Scan new log lines for the big "calculated" results and surface each as an acknowledge popup.
+let lastScanned = 0;
+const ALERTS = [
+  [/💀 (.+?) cannot cover/, "💀 Bankruptcy", (m) => `${m[1]} ran out of cash and folded — their shop is out of the game.`],
+  [/🏛️ (.+?) DELIVERED "(.+?)"/, "🏛️ Project delivered", (m) => `${m[1]} delivered ${m[2]} — collects the balance, favours all round.`],
+  [/✗ "(.+?)" COLLAPSED past/, "✗ Project collapsed", (m) => `${m[1]} blew its deadline — the balance is forfeit.`],
+  [/🏛️ civic project "(.+?)" delivered/, "🏛️ Civic job delivered", (m) => `${m[1]} was delivered — favours earned.`],
+  [/🌐 (.+?) grips Maple Hollow/, "🌐 Town penalty", (m) => `${m[1]} — a town-wide levy now hits every shop, including yours.`],
+  [/🏗️ (.+?) moved into (.+?) \(from/, "🏗️ Moved in", (m) => `${m[1]} finished readying and moved into ${m[2]}.`],
+  [/⚠ (.+?) couldn't cover the .* balance on (.+?) —/, "⚠ Move forfeited", (m) => `${m[1]} couldn't close out ${m[2]} — the deposit is lost.`],
+];
+function surfaceNewOutcomes() {
+  if (!game) return;
+  const log = game.state.log;
+  for (let i = lastScanned; i < log.length; i++) {
+    for (const [re, title, body] of ALERTS) { const m = re.exec(log[i]); if (m) { enqueuePopup({ kind: "alert", title, body: body(m) }); break; } }
+  }
+  lastScanned = log.length;
+}
+
+// --- Rival card pop-ups (E5 §4) — what the rivals drew, per the Settings filter ----------------
+let rivalDrawBuffer = [];
+function rivalCardInteresting(d) {
+  const mode = get(settings).rivalPopups;
+  if (mode === "none") return false;
+  if (mode === "all") return true;
+  const def = cardById.get(d.cardId) ?? {};
+  return (def.subcontract && def.political) || def.type === "project" || def.type === "incident"; // "interesting"
+}
 
 const declinedDamages = new Set(); // jobIds the human chose not to sue over
 const openDamages = () => game.damagesCases.filter((c) => !declinedDamages.has(c.jobId));
@@ -163,6 +201,7 @@ export function newGame(seats) {
   game.state.flavor = flavor;
   ai = {};
   declinedDamages.clear();
+  lastScanned = 0; lastRoundShown = 0; rivalDrawBuffer = [];
   game.state.players.forEach((p, i) => { ai[p.id] = seats[i].strategy ?? null; });
   const ctx = game.start();
   push({ screen: "board", ctx, error: null, aiActing: null, threat: null, picking: null, reckoning: null, final: null, court: null });
@@ -172,7 +211,7 @@ export function newGame(seats) {
 /** Run an engine action for the current (human) player, catching illegal moves. */
 export function act(fn) {
   if (game && ai[game.currentPlayer.id]) return; // a rival is acting — ignore stray human input
-  try { fn(game); playSfx("click", 0.3); push({ error: null, flash: null }); }
+  try { fn(game); playSfx("click", 0.3); push({ error: null, flash: null }); surfaceNewOutcomes(); }
   catch (e) { flashError(e?.message ?? String(e)); }
 }
 
@@ -296,6 +335,7 @@ async function advanceUntilHuman(initialCtx) {
     const p = game.currentPlayer;
     if (!ai[p.id]) break; // human is up
     const drew = (lastCtx?.drawn ?? []).map((d) => d.name); // what the deck just dealt this rival
+    for (const d of lastCtx?.drawn ?? []) if (rivalCardInteresting(d)) rivalDrawBuffer.push({ rival: p.name, cardId: d.cardId, name: d.name, flavor: d.flavor, text: d.text });
     push({ aiActing: { name: p.name, drew, lines: [] }, court: null, settle: null });
     if (!skipAI) await sleep(450);
 
