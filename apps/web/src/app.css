@@ -63,6 +63,11 @@ main { max-width: 1200px; margin: 0 auto; padding: 16px; }
 .town-stage { margin-bottom: 10px; }
 .town-stage .art-slot, .town-stage .art-img { min-height: 130px; }
 .shop-stage { margin-bottom: 8px; }
+/* Show the shop art at its own aspect (incl. tall 9:16) without cropping — contain, capped, centered. */
+.shop-stage .art-img, .shop-stage .art-vid { width: 100%; max-height: 340px; object-fit: contain; background: #0d0f14; border-radius: 8px; display: block; margin: 0 auto; }
+.shop-stage .art-slot { min-height: 150px; }
+/* A rival's sheet (shown while you watch their turn) is read-only — dim it and swallow clicks. */
+.sheet-lock.locked { pointer-events: none; opacity: 0.5; filter: grayscale(0.4); }
 
 .panel { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 12px; }
 .actions { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 12px; margin-bottom: 10px; border: 0; padding: 0; min-width: 0; }

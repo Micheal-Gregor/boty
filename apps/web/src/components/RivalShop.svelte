@@ -32,7 +32,7 @@
         <span class="cash" class:broke={p.bankrupt}>{p.bankrupt ? "BANKRUPT" : p.cash + " W"}</span>
         <span class="muted">{bld?.name} · cap {(bld?.capacity ?? 0) + (p.capacityBonus ?? 0)}</span>
       </div>
-      <div class="shop-art"><Art kind={`shop/${tradeSlug(p.service)}`} id={p.building} label={`${p.service} ${bld?.name}`} small /></div>
+      <div class="shop-art"><Art kind={`shop/${tradeSlug(p.service)}`} id={p.building} label={`${p.service} ${bld?.name}`} /></div>
 
       <h3>Crew ({p.tradesmen.length})</h3>
       <div class="chips">{#each p.tradesmen as t}<span class="chip">{t.id} ⚡{t.productivity}{#if t.tool} · {t.tool}{/if}</span>{:else}<span class="muted">none</span>{/each}</div>
@@ -61,6 +61,7 @@
   .cash { font-size: 1.3em; font-weight: 800; color: var(--accent, #e0b341); }
   .cash.broke { color: #e0564b; font-size: 1em; }
   .shop-art { border-radius: 10px; overflow: hidden; margin-bottom: 8px; }
+  .shop-art :global(.art-img), .shop-art :global(.art-vid) { width: 100%; max-height: 240px; object-fit: contain; background: #0d0f14; display: block; }
   .rival h3 { margin: 10px 0 4px; font-size: 0.82em; color: var(--muted, #9aa0aa); }
   .chips { display: flex; flex-wrap: wrap; gap: 5px; }
   .chip { background: var(--panel-2, #1b1f27); border: 1px solid var(--line, #2a2f3a); border-radius: 14px; padding: 4px 10px; font-size: 0.85em; }

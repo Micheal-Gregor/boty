@@ -155,9 +155,12 @@
     <!-- YOUR SHOP: your sheet + the action bar -->
     <section class="tabview shop-view" class:active={tab === "shop"}>
       <div class="shop-stage">
-        <Art kind={`shop/${tradeSlug(me.service)}`} id={me.building} label={`${me.service} ${findBuilding(econ, me.building).name}`} small />
+        <Art kind={`shop/${tradeSlug(me.service)}`} id={me.building} label={`${me.service} ${findBuilding(econ, me.building).name}`} />
       </div>
-      <Shop player={me} {econ} {handHas} {nextBuilding} />
+      <!-- During a rival's turn `me` is THAT rival (you're watching), so lock the sheet — it's not yours to act on. -->
+      <div class="sheet-lock" class:locked={!!aiTurn}>
+        <Shop player={me} {econ} {handHas} {nextBuilding} />
+      </div>
       <fieldset class="actions" disabled={!!aiTurn}>
         <Flash section="general" />
         <button title="Borrow cash now — a liability with interest, force-settled at year-end" onclick={() => act((g) => g.drawCredit())}>🏦 Bank Credit</button>
