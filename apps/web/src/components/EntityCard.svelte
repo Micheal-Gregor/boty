@@ -1,7 +1,11 @@
 <script>
   import { ui, act, closeEntity, confirmFire, confirmDispose, confirmSell, playFavor } from "../lib/store.js";
   import { findEquipment } from "@boty/engine";
+  import { crewIdentity } from "../lib/crew.js";
   import Art from "./Art.svelte";
+
+  const tradeSlug = (svc) => (svc === "HVAC technician" ? "hvac" : (svc ?? "").toLowerCase());
+  const equipArtId = (e) => (e.defId === "pro" ? `pro/${tradeSlug(me?.service)}` : e.defId); // per-trade pro gear
 
   const econ = $derived($ui.economy);
   const view = $derived($ui.view);
@@ -13,6 +17,7 @@
   const job = $derived(ec?.kind === "job" && me ? me.jobs.find((j) => j.id === ec.id) : null);
   const defect = $derived(ec?.kind === "defect" && me ? me.defects?.find((d) => d.id === ec.id) : null);
   const glob = $derived(ec?.kind === "global" && view ? (view.globalEffects ?? []).find((g) => g.id === ec.id) : null);
+  const ident = $derived(worker ? crewIdentity(worker.id) : null);
   const entity = $derived(worker ?? gear ?? job ?? defect ?? glob ?? null);
   const globalDesc = (g) =>
     g.kind === "levy" ? `Every shop in town pays a ${g.magnitude} W levy every turn — you included.`
@@ -44,7 +49,8 @@
       {#if worker}
         <span class="headline">⚡{worker.productivity}</span>
         <div class="ent-art"><Art kind="crew" id={worker.id} label="portrait" /></div>
-        <h2>{worker.id}</h2>
+        <h2>{ident.name}</h2>
+        <p class="ent-sub">{worker.id} · <em>“{ident.flavor}”</em></p>
         <div class="stack">
           <div class="stack-row"><span>Tool</span><span>{worker.tool ?? "bare-handed"}</span></div>
           {#if worker.prod_mod}<div class="stack-row"><span>Last review</span><span class={worker.prod_mod > 0 ? "bonus" : "malus"}>{worker.prod_mod > 0 ? `⭐ +${worker.prod_mod}` : `📉 ${worker.prod_mod}`}/turn</span></div>{/if}
@@ -68,7 +74,7 @@
         </div>
 
       {:else if gear}
-        <div class="ent-art"><Art kind="equipment" id={gear.defId} label={gearName(gear)} /></div>
+        <div class="ent-art"><Art kind="equipment" id={equipArtId(gear)} label={gearName(gear)} /></div>
         <h2>{gearName(gear)}</h2>
         <div class="stack">
           <div class="stack-row"><span>Tenure</span><span>{gear.owned ? "owned" : "rented"}</span></div>
@@ -155,6 +161,8 @@
   .flag { margin: 8px 0 0; padding: 8px 10px; border-radius: 8px; background: rgba(232,116,106,0.12); border: 1px solid rgba(232,116,106,0.4); color: #f0a59c; font-size: 0.85rem; }
   .flag em { font-style: normal; font-weight: 700; color: #5fb87a; }
   .gdesc { color: var(--ink, #e7e7ea); margin: 0 0 10px; line-height: 1.4; }
+  .ent-sub { margin: -4px 0 10px; color: var(--muted, #9aa0aa); font-size: 0.86rem; }
+  .ent-sub em { color: var(--ink, #cfd2d8); }
   .bar { height: 6px; background: var(--panel-2, #1b1f27); border-radius: 3px; overflow: hidden; margin-bottom: 8px; }
   .bar .fill { height: 100%; background: var(--accent, #e0b341); }
   .picker { background: var(--panel-2, #1b1f27); border-radius: 8px; padding: 8px; margin-bottom: 10px; display: flex; flex-direction: column; gap: 4px; }

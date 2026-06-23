@@ -8,6 +8,7 @@ import { settings } from "./settings.js";
 import { botActions } from "@boty/engine/bots";
 import { loadContent } from "./content.js";
 import { unlockAudio, playSfx } from "./sound.js";
+import { townlifeId } from "../components/Art.svelte";
 
 const { economy, decks, flavor } = loadContent();
 const AI_DELAY = 650; // ms between AI seats, so you can watch the table move
@@ -177,7 +178,8 @@ function enqueueTurnStart(ctx) {
   if (isAI(me.id)) return; // rivals' turn-start summaries arrive with the watchable-AI work (Phase 4)
   if (ctx.turn > lastRoundShown) {
     lastRoundShown = ctx.turn;
-    enqueuePopup({ kind: "round", turn: ctx.turn, season: view.season, town: flavor?.town });
+    const seasonSlug = (view.season?.name ?? "spring").toLowerCase();
+    enqueuePopup({ kind: "round", turn: ctx.turn, season: view.season, town: flavor?.town, townlife: townlifeId(seasonSlug) });
   }
   surfaceNewOutcomes(); // alert windows for what resolved during the rivals' round / your upkeep
   enqueuePopup({ kind: "summary", name: me.name, recurring: view.recurring, cash: me.cash, upkeepNet: ctx.upkeepNet ?? 0, drew: (ctx.drawn ?? []).length });

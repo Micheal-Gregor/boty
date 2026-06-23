@@ -23,6 +23,23 @@
     const h = [...String(id)].reduce((a, c) => a + c.charCodeAt(0), 0);
     return crewPool[h % crewPool.length];
   }
+
+  const has = (k) => !!(stills[k] || anims[k]);
+  // Per-trade pro gear: art/equipment/pro/<trade>, falling back to a generic art/equipment/pro.
+  export function equipKey(id) {
+    if (has(`equipment/${id}`)) return `equipment/${id}`;
+    if (id.includes("/")) { const base = `equipment/${id.split("/")[0]}`; if (has(base)) return base; }
+    return `equipment/${id}`;
+  }
+  // Turn-start town life: a random scene from art/townlife/<season>/ (or a flat townlife/ pool).
+  // Returns the id AFTER "townlife/" (e.g. "spring/fair"), or null if none dropped yet.
+  export function townlifeId(season) {
+    const all = [...new Set([...Object.keys(stills), ...Object.keys(anims)].filter((k) => k.startsWith("townlife/")))];
+    if (!all.length) return null;
+    const seasonal = all.filter((k) => k.startsWith(`townlife/${season}/`));
+    const pool = seasonal.length ? seasonal : all;
+    return pool[Math.floor(Math.random() * pool.length)].replace(/^townlife\//, "");
+  }
 </script>
 
 <script>
@@ -30,7 +47,7 @@
   // `animatable` — allow click-to-play (off for, e.g., tiny shop thumbnails). Still-only assets and
   // placeholders never animate.
   let { kind = "cards", id = "", label = "", small = false, autoplay = false, animatable = true } = $props();
-  const akey = $derived(kind === "crew" ? crewKey(id) : `${kind}/${id}`);
+  const akey = $derived(kind === "crew" ? crewKey(id) : kind === "equipment" ? equipKey(id) : `${kind}/${id}`);
   const still = $derived(stills[akey]);
   const anim = $derived(anims[akey]);
 
