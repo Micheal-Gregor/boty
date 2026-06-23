@@ -14,6 +14,7 @@
   const p = $derived(players[idx]);
   const bld = $derived(p ? findBuilding(econ, p.building) : null);
   const gearName = (e) => findEquipment(econ, e.defId).name;
+  const tradeSlug = (svc) => (svc === "HVAC technician" ? "hvac" : svc.toLowerCase()); // same slug as the player's own shop
   const next = () => (idx = (idx + 1) % players.length);
   const prev = () => (idx = (idx - 1 + players.length) % players.length);
 </script>
@@ -31,7 +32,7 @@
         <span class="cash" class:broke={p.bankrupt}>{p.bankrupt ? "BANKRUPT" : p.cash + " W"}</span>
         <span class="muted">{bld?.name} · cap {(bld?.capacity ?? 0) + (p.capacityBonus ?? 0)}</span>
       </div>
-      <div class="shop-art"><Art kind={`shop/${p.service}`} id={p.building} label={`${p.service} ${bld?.name}`} small /></div>
+      <div class="shop-art"><Art kind={`shop/${tradeSlug(p.service)}`} id={p.building} label={`${p.service} ${bld?.name}`} small /></div>
 
       <h3>Crew ({p.tradesmen.length})</h3>
       <div class="chips">{#each p.tradesmen as t}<span class="chip">{t.id} ⚡{t.productivity}{#if t.tool} · {t.tool}{/if}</span>{:else}<span class="muted">none</span>{/each}</div>
