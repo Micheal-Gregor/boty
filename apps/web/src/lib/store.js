@@ -82,8 +82,7 @@ export function rollDie() {
   const v = 1 + Math.floor(Math.random() * 6);
   diceState.value = v; diceState.rolls.push(v);
   diceState.result = diceState.spec.steps[diceState.stepIdx].resolve(v, diceState.rolls);
-  playSfx("click", 0.3);
-  publishDice();
+  publishDice(); // the die <button> press already clicks via the app-wide listener
 }
 export function diceNext() {
   if (!diceState || diceState.value == null) return;
@@ -324,7 +323,7 @@ export function newGame(seats) {
 /** Run an engine action for the current (human) player, catching illegal moves. */
 export function act(fn) {
   if (game && ai[game.currentPlayer.id]) return; // a rival is acting — ignore stray human input
-  try { fn(game); playSfx("click", 0.3); push({ error: null, flash: null }); surfaceNewOutcomes(); }
+  try { fn(game); push({ error: null, flash: null }); surfaceNewOutcomes(); } // the triggering button clicks via the app-wide listener
   catch (e) { flashError(e?.message ?? String(e)); }
 }
 

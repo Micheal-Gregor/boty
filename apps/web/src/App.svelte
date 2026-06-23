@@ -1,5 +1,7 @@
 <script>
+  import { onMount } from "svelte";
   import { ui } from "./lib/store.js";
+  import { playSfx } from "./lib/sound.js";
   import Setup from "./screens/Setup.svelte";
   import Board from "./screens/Board.svelte";
   import Reckoning from "./screens/Reckoning.svelte";
@@ -10,6 +12,15 @@
   import DamagesModal from "./components/DamagesModal.svelte";
   import SettleModal from "./components/SettleModal.svelte";
   import CardModal from "./components/CardModal.svelte";
+
+  // One soft click for EVERY button press, app-wide (capture phase, so it still fires when a modal
+  // stops propagation). Card opens / litigation / the Gala layer their own accent (flip/gavel/chime)
+  // on top; this just guarantees no button — Next, Continue, End turn, header icons — is ever silent.
+  onMount(() => {
+    const onClick = (e) => { const b = e.target?.closest?.("button"); if (b && !b.disabled) playSfx("click", 0.3); };
+    document.addEventListener("click", onClick, true);
+    return () => document.removeEventListener("click", onClick, true);
+  });
 </script>
 
 <main>
