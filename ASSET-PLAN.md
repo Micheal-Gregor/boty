@@ -69,7 +69,7 @@ One animation per character at `townsfolk/<slug>`. When a card that character is
 |---|---|---|
 | Mayor Crabtree | `crabtree` | civic_townhall, reelection_drive, county_hospital, opera_house, union_drive |
 | Inspector Grit | `grit` | code_violation, osha_writeup, surprise_inspection |
-| Dwight Folsom (banker) | `folsom` | *(Bank Credit action — wire on request)* |
+| Dwight Folsom (banker) | `folsom` | the **Bank Credit** button — a yes/no confirm with his face before you borrow |
 | Dot | `dot` | diner_trouble, referral_bonus, old_client |
 | Sven Svenson | `svenson` | supplier_invoice, supply_credit, vendor_contract |
 | Old Man Hettrick | `hettrick` | brake_job |

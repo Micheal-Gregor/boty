@@ -30,7 +30,7 @@ export function closeRules() { push({ rulesOpen: false }); }
 
 // A generic Yes/No confirmation (e.g. before a shop move). The callback is held out of the store.
 let confirmCb = null, confirmAltCb = null;
-export function openConfirm(opts, cb, altCb = null) { confirmCb = cb; confirmAltCb = altCb; push({ confirm: { title: opts.title, body: opts.body, yes: opts.yes ?? "Yes", alt: opts.alt ?? null } }); }
+export function openConfirm(opts, cb, altCb = null) { confirmCb = cb; confirmAltCb = altCb; push({ confirm: { title: opts.title, body: opts.body, yes: opts.yes ?? "Yes", alt: opts.alt ?? null, npc: opts.npc ?? null } }); }
 export function confirmYes() { const cb = confirmCb; confirmCb = confirmAltCb = null; push({ confirm: null }); if (cb) cb(); }
 export function confirmAlt() { const cb = confirmAltCb; confirmCb = confirmAltCb = null; push({ confirm: null }); if (cb) cb(); }
 export function confirmNo() { confirmCb = confirmAltCb = null; push({ confirm: null }); }
@@ -117,6 +117,16 @@ function openFiringDice(workerId, ownLawyer, info) {
 }
 export function confirmDispose(equipId, name) {
   openConfirm({ title: `Dispose of the ${name}?`, body: `You sell it back for a fraction of cost (a real loss on the books), and whoever was using it goes bare-handed.`, yes: "Dispose" }, () => act((g) => g.disposeEquipment(equipId)));
+}
+// Borrowing means looking Dwight Folsom in the eye first — a beat to think twice before taking on debt.
+export function borrowCredit() {
+  const loc = economy.line_of_credit;
+  openConfirm({
+    npc: "folsom",
+    title: "Dwight Folsom · First Hollow Bank",
+    body: `Folsom will advance you ${loc.draw} W against your line — but it's a liability at ${Math.round(loc.interest * 100)}% interest, and the bank gets paid back at year-end before you count any winnings. Sure you want to borrow?`,
+    yes: `Borrow ${loc.draw} W`,
+  }, () => act((g) => g.drawCredit()));
 }
 
 export function openRivals() { push({ rivalView: true }); }

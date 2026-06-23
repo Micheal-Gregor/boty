@@ -1,5 +1,5 @@
 <script>
-  import { ui, act, endTurn, isAI, viewCard, cardInLine, skipAITurns, openSettings, openHand, openRivals, openRules, openEntity } from "../lib/store.js";
+  import { ui, act, endTurn, isAI, viewCard, cardInLine, skipAITurns, openSettings, openHand, openRivals, openRules, openEntity, borrowCredit } from "../lib/store.js";
   import { muted, toggleMute, playSfx, playMusic } from "../lib/sound.js";
   import { seasonFor, findBuilding } from "@boty/engine";
   import Shop from "../components/Shop.svelte";
@@ -163,7 +163,7 @@
       </div>
       <fieldset class="actions" disabled={!!aiTurn}>
         <Flash section="general" />
-        <button title="Borrow cash now — a liability with interest, force-settled at year-end" onclick={() => act((g) => g.drawCredit())}>🏦 Bank Credit</button>
+        <button title="Borrow cash now — a liability with interest, force-settled at year-end" onclick={borrowCredit}>🏦 Bank Credit</button>
         {#if locOwed > 0}<button title="Repay the line of credit" onclick={() => act((g) => g.repayCredit())}>Repay ({locOwed} W)</button>{/if}
         <button class="end" onclick={endTurn}>End turn ▶</button>
       </fieldset>
