@@ -43,7 +43,7 @@
 
       {#if worker}
         <span class="headline">⚡{worker.productivity}</span>
-        <div class="ent-art"><Art kind="portraits" id={worker.id} label="portrait" /></div>
+        <div class="ent-art"><Art kind="crew" id={worker.id} label="portrait" /></div>
         <h2>{worker.id}</h2>
         <div class="stack">
           <div class="stack-row"><span>Tool</span><span>{worker.tool ?? "bare-handed"}</span></div>

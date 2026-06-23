@@ -12,6 +12,17 @@
   };
   const stills = build(imgMods);
   const anims = build(vidMods);
+
+  // The crew is a POOL: drop any number of portraits in art/crew/ (named anything) and each worker
+  // is assigned a stable one by hashing its id — so ~20 faces cover a whole table, and a worker keeps
+  // the same face all game. An exact crew/<id> file still wins if you ever want to pin one.
+  const crewPool = [...new Set([...Object.keys(stills), ...Object.keys(anims)].filter((k) => k.startsWith("crew/")))].sort();
+  export function crewKey(id) {
+    const exact = `crew/${id}`;
+    if (stills[exact] || anims[exact] || !crewPool.length) return exact;
+    const h = [...String(id)].reduce((a, c) => a + c.charCodeAt(0), 0);
+    return crewPool[h % crewPool.length];
+  }
 </script>
 
 <script>
@@ -19,8 +30,9 @@
   // `animatable` — allow click-to-play (off for, e.g., tiny shop thumbnails). Still-only assets and
   // placeholders never animate.
   let { kind = "cards", id = "", label = "", small = false, autoplay = false, animatable = true } = $props();
-  const still = $derived(stills[`${kind}/${id}`]);
-  const anim = $derived(anims[`${kind}/${id}`]);
+  const akey = $derived(kind === "crew" ? crewKey(id) : `${kind}/${id}`);
+  const still = $derived(stills[akey]);
+  const anim = $derived(anims[akey]);
 
   let vid = $state(null);
   let playing = $state(false);

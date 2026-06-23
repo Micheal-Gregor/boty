@@ -99,7 +99,7 @@
     {#each player.tradesmen as t}
       <div class="slot person" class:busy={t.assignedJob} class:out={sidelined(t)}>
         <button class="thumb" onclick={() => openEntity("worker", t.id)}>
-          <Art kind="portraits" id={t.id} label="portrait" small />
+          <Art kind="crew" id={t.id} label="portrait" small />
           <div class="slot-id">{t.id} <span class="prod">⚡{t.productivity}</span></div>
           <div class="muted">{t.tool ?? "bare-handed"}</div>
           <div class="muted">{sidelined(t) ? "out until t" + t.out_until : t.assignedJob ? "on " + t.assignedJob : "idle"}</div>
