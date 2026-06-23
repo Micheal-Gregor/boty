@@ -16,6 +16,7 @@ This replaces the ~220-asset vision in [ASSETS.md](ASSETS.md) with **what the ga
 | 2 | Main Street, by season | `town/<season>/mainst` | ✅ | 4 | 4 *(done)* |
 | 3 | Fortune cards (where the townsfolk & locations live) | `card/<id>` | ✅ | ~60 | ~30 |
 | 4 | Crew portraits (a shared pool) | `crew/` | ✅ | 20 | 12 |
+| 4b | **Townsfolk** — 12 named NPCs (animations) | `townsfolk/<slug>` | ✅ | 12 | 12 |
 | 5 | Crew **names + flavor** (text, not art) | — | 🔧 | — | — |
 | 6 | Equipment — basic (generic, a POOL) | `equipment/basic/` | ✅ | ~10 | 3 |
 | 7 | Equipment — **pro, per trade (POOLS)** | `equipment/pro/<trade>/` | ✅ | 6 × 6 trades | 6 (mechanic) |
@@ -61,7 +62,25 @@ The cinematic ones (incidents, civic, big jobs) most reward a short animation; t
 ## 4. Crew portraits ✅ — a shared pool
 `crew/` — any filenames, assigned to workers by a stable hash. **~20 faces** comfortably covers a 6-player table with rare repeats; **12** is a fine lean start. A worker keeps its face all game.
 
-## 5. Crew names + flavor 🔧 — the part that makes 20 faces feel like 200 people
+## 4b. Townsfolk — the 12 named NPCs ✅ — meet the cast
+One animation per character at `townsfolk/<slug>`. When a card that character is **behind** comes up, their intro plays first (you close it, then the card opens) — so players learn who's helping or hurting them. Edit the card→character mapping in `apps/web/src/lib/townsfolk.js`.
+
+| Character | slug | Behind these cards |
+|---|---|---|
+| Mayor Crabtree | `crabtree` | civic_townhall, reelection_drive, county_hospital, opera_house, union_drive |
+| Inspector Grit | `grit` | code_violation, osha_writeup, surprise_inspection |
+| Dwight Folsom (banker) | `folsom` | *(Bank Credit action — wire on request)* |
+| Dot | `dot` | diner_trouble, referral_bonus, old_client |
+| Sven Svenson | `svenson` | supplier_invoice, supply_credit, vendor_contract |
+| Old Man Hettrick | `hettrick` | brake_job |
+| Marge Tolliver (assessor) | `tolliver` | reassessment, depreciation, tax_refund |
+| Eunice Vale (BBB) | `vale` | bbb_special |
+| Hal Ramsey (Chamber) | `ramsey` | small_business_grant, networking_lunch, county_fair, trade_feature |
+| The Developer | `developer` | tower_fitout, warehouse_fit |
+| Chief Boon | `boon` | emergency_call, civic_firehouse |
+| The Newcomer | `newcomer` | poached |
+
+## 5. Crew names + flavor ✅ — the part that makes 20 faces feel like 200 people
 You asked for a **name generator + random flavor** per tradesperson. That's a code feature, not art:
 - **Hook I'll add:** a pool of first/last names + a pool of one-line personalities ("never misses a Monday", "great with customers, slow with paperwork"), assigned when you hire — shown on the worker card next to the pooled face. Give me a list of names/quips you like, or I'll seed a Maple-Hollow-flavored set.
 

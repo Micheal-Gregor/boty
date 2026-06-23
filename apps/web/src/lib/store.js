@@ -9,6 +9,7 @@ import { botActions } from "@boty/engine/bots";
 import { loadContent } from "./content.js";
 import { unlockAudio, playSfx } from "./sound.js";
 import { townlifeId } from "../components/Art.svelte";
+import { npcIntroFor } from "./townsfolk.js";
 
 const { economy, decks, flavor } = loadContent();
 const AI_DELAY = 650; // ms between AI seats, so you can watch the table move
@@ -183,9 +184,12 @@ function enqueueTurnStart(ctx) {
   }
   surfaceNewOutcomes(); // alert windows for what resolved during the rivals' round / your upkeep
   enqueuePopup({ kind: "summary", name: me.name, recurring: view.recurring, cash: me.cash, upkeepNet: ctx.upkeepNet ?? 0, drew: (ctx.drawn ?? []).length });
-  // Then read each card you drew — with a rule explainer for the ones that have a special rule.
+  // Then read each card you drew — preceded by a townsfolk intro when one of the cast is behind it,
+  // with a rule explainer for the cards that have a special rule.
   for (const d of ctx.drawn ?? []) {
     const def = cardById.get(d.cardId) ?? {};
+    const intro = npcIntroFor(d.cardId);
+    if (intro) enqueuePopup({ kind: "character", ...intro });
     enqueuePopup({ kind: "card", cardId: d.cardId, name: d.name, flavor: d.flavor, text: d.text, rule: ruleFor(def) });
   }
 }
@@ -505,7 +509,11 @@ async function advanceUntilHuman(initialCtx) {
       // wait for you to read the table before they make their moves.
       const rp = game.state.players.find((x) => x.id === p.id);
       enqueuePopup({ kind: "summary", rival: true, name: p.name, recurring: recurringExpenses(game.state, rp), cash: rp.cash, upkeepNet: lastCtx?.upkeepNet ?? 0, drew: (lastCtx?.drawn ?? []).length });
-      for (const d of lastCtx?.drawn ?? []) if (mode === "all" || rivalCardInteresting(d)) enqueuePopup({ kind: "card", rival: p.name, cardId: d.cardId, name: d.name, flavor: d.flavor, text: d.text });
+      for (const d of lastCtx?.drawn ?? []) if (mode === "all" || rivalCardInteresting(d)) {
+        const intro = npcIntroFor(d.cardId);
+        if (intro) enqueuePopup({ kind: "character", rival: p.name, ...intro });
+        enqueuePopup({ kind: "card", rival: p.name, cardId: d.cardId, name: d.name, flavor: d.flavor, text: d.text });
+      }
       await waitForPopups();
       if (game.state.over) return;
     } else {

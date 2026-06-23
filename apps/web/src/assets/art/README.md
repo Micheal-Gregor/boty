@@ -24,6 +24,11 @@ art/
 ├── crew/                ← tradesperson portraits. A POOL: any filenames (01.webp, hank.webp…),
 │                          assigned to workers automatically. ~20 covers a table.
 │
+├── townsfolk/           ← the 12 named NPCs (animations). One file per character, named by slug —
+│                          plays as an intro before a card that character is behind. Slugs:
+│                          crabtree, grit, folsom, dot, svenson, hettrick, tolliver, vale,
+│                          ramsey, developer, boon, newcomer  (e.g. townsfolk/dot.mp4)
+│
 ├── shop/                ← shop exterior, per trade × building
 │   ├── mechanic/           garage.*  shop.*  warehouse.*
 │   ├── plumber/            (same three in every trade folder)

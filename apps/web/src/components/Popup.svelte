@@ -42,6 +42,13 @@
           {/each}
           <div class="exp-row total"><span>Total per turn</span><span>{p.recurring.total} W</span></div>
         </div>
+      {:else if p.kind === "character"}
+        {#if p.rival}<div class="pop-rival">🤖 {p.rival}'s turn:</div>{/if}
+        <div class="pop-art"><Art kind="townsfolk" id={p.npc} label={p.name} autoplay /></div>
+        <h2>{p.name}</h2>
+        <p class="pop-flavor">{p.role}</p>
+        <p class="pop-effect">{p.line}</p>
+
       {:else if p.kind === "alert"}
         <h2>{p.title}</h2>
         <p class="pop-effect">{p.body}</p>
