@@ -23,6 +23,13 @@
         <span>Music</span>
         <input type="checkbox" checked={$settings.music} onchange={(e) => setSetting("music", e.currentTarget.checked)} />
       </label>
+      <label class="set-row vol">
+        <span>Volume</span>
+        <span class="vol-ctl">
+          <input type="range" min="0" max="100" value={Math.round(($settings.volume ?? 0.7) * 100)} oninput={(e) => setSetting("volume", e.currentTarget.value / 100)} />
+          <span class="vol-pct">{Math.round(($settings.volume ?? 0.7) * 100)}%</span>
+        </span>
+      </label>
       <label class="set-row">
         <span>Auto-close my pop-ups</span>
         <input type="checkbox" checked={$settings.autoClose} onchange={(e) => setSetting("autoClose", e.currentTarget.checked)} />
@@ -52,6 +59,9 @@
   .pop h3 { margin: 16px 0 8px; font-size: 0.92em; }
   .set-row { display: flex; justify-content: space-between; align-items: center; padding: 8px 0; border-bottom: 1px solid var(--line, #2a2f3a); }
   .set-row input { width: 20px; height: 20px; accent-color: var(--accent, #e0b341); }
+  .vol-ctl { display: flex; align-items: center; gap: 10px; }
+  .vol-ctl input[type="range"] { width: 150px; height: auto; accent-color: var(--accent, #e0b341); cursor: pointer; }
+  .vol-pct { min-width: 36px; text-align: right; color: var(--muted, #9aa0aa); font-variant-numeric: tabular-nums; font-size: 0.9em; }
   .seg { display: flex; gap: 4px; }
   .seg-btn { flex: 1; padding: 8px; background: var(--panel-2, #1b1f27); border: 1px solid var(--line, #2a2f3a); border-radius: 8px; }
   .seg-btn.on { border-color: var(--accent, #e0b341); color: var(--accent, #e0b341); font-weight: 700; }

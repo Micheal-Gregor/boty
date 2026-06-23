@@ -7,6 +7,7 @@ const KEY = "boty.settings";
 const DEFAULTS = {
   sound: true,
   music: true,
+  volume: 0.7, // master level (0–1) scaling every sfx + the music loop
   rivalPopups: "interesting", // "interesting" | "all" | "none"
   autoClose: false, // auto-dismiss your own card pop-ups after a beat
   animateCards: false, // auto-play your card animations on open (else open as a still; click to play)

@@ -23,6 +23,8 @@
   const favorTargets = $derived(
     type === "favor" && s
       ? [
+          // The town union — a favor busts it, and firing gets cheap again.
+          ...(s.globalEffects ?? []).filter((g) => g.kind === "union").map((g) => ({ ownerId: meId, id: "union", label: `🪙 ${g.name}`, note: "bust the union" })),
           // Your own code violations — call in a favor and the inspector waives it.
           ...(me?.defects ?? []).map((d) => ({ ownerId: me.id, id: d.id, label: `Your shop: ${d.name}`, note: `waive the ${d.fine} W/turn fine` })),
           // A rival's standing card — cut a good one short, or drag a bad one out.

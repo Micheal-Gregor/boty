@@ -1,5 +1,5 @@
 <script>
-  import { ui, act, endTurn, isAI, viewCard, cardInLine, skipAITurns, openSettings, openHand, openRivals, openRules } from "../lib/store.js";
+  import { ui, act, endTurn, isAI, viewCard, cardInLine, skipAITurns, openSettings, openHand, openRivals, openRules, openEntity } from "../lib/store.js";
   import { muted, toggleMute, playSfx, playMusic } from "../lib/sound.js";
   import { seasonFor, findBuilding } from "@boty/engine";
   import Shop from "../components/Shop.svelte";
@@ -81,7 +81,7 @@
   {#if s.globalEffects?.length}
     <div class="town-banner">
       {#each s.globalEffects as g}
-        <span class="town-effect">🌐 {g.name}{#if g.kind === "levy"} — {g.magnitude} W/turn levy{/if} · {g.turnsLeft} round{g.turnsLeft === 1 ? "" : "s"} left</span>
+        <button class="town-effect" onclick={() => openEntity("global", g.id)} title="View this town effect">🌐 {g.name}{#if g.kind === "levy"} — {g.magnitude} W/turn levy{/if} · {g.kind === "union" ? "until busted" : `${g.turnsLeft} round${g.turnsLeft === 1 ? "" : "s"} left`}</button>
       {/each}
     </div>
   {/if}

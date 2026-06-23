@@ -1,5 +1,5 @@
 <script>
-  import { ui, act, closeEntity, confirmFire, confirmDispose, confirmSell } from "../lib/store.js";
+  import { ui, act, closeEntity, confirmFire, confirmDispose, confirmSell, playFavor } from "../lib/store.js";
   import { findEquipment } from "@boty/engine";
   import Art from "./Art.svelte";
 
@@ -12,7 +12,14 @@
   const gear = $derived(ec?.kind === "equipment" && me ? me.equipment.find((e) => e.id === ec.id) : null);
   const job = $derived(ec?.kind === "job" && me ? me.jobs.find((j) => j.id === ec.id) : null);
   const defect = $derived(ec?.kind === "defect" && me ? me.defects?.find((d) => d.id === ec.id) : null);
-  const entity = $derived(worker ?? gear ?? job ?? defect ?? null);
+  const glob = $derived(ec?.kind === "global" && view ? (view.globalEffects ?? []).find((g) => g.id === ec.id) : null);
+  const entity = $derived(worker ?? gear ?? job ?? defect ?? glob ?? null);
+  const globalDesc = (g) =>
+    g.kind === "levy" ? `Every shop in town pays a ${g.magnitude} W levy every turn — you included.`
+    : g.kind === "boom" ? `Boom times: new jobs pay +${Math.round(g.magnitude * 100)}%.`
+    : g.kind === "recession" ? `Lean times: new jobs pay −${Math.round(g.magnitude * 100)}%.`
+    : g.kind === "union" ? `The trades are organised. Firing anyone is far riskier (+2 to their odds) — even a thief is hard to shake. A Favor busts it.`
+    : `A town-wide effect.`;
 
   // The entity vanished (fired / disposed / completed / fixed) → close the card.
   $effect(() => { if (ec && me && !entity) closeEntity(); });
@@ -113,6 +120,21 @@
         <div class="ent-actions">
           <button onclick={() => go((g) => g.fixDefect(defect.id))}>🔧 Fix · {defect.fix_cost} W</button>
         </div>
+
+      {:else if glob}
+        <div class="ent-art"><Art kind="card" id={glob.kind === "union" ? "union_drive" : "county_fair"} label={glob.name} /></div>
+        <h2>🌐 {glob.name}</h2>
+        <p class="gdesc">{globalDesc(glob)}</p>
+        <div class="stack">
+          <div class="stack-row"><span>Reach</span><span>town-wide</span></div>
+          <div class="stack-row"><span>Lasts</span><span>{glob.kind === "union" ? "until busted" : `${glob.turnsLeft} round${glob.turnsLeft === 1 ? "" : "s"}`}</span></div>
+        </div>
+        {#if glob.kind === "union"}
+          <div class="ent-actions">
+            {#if handHas("favor")}<button onclick={() => { closeEntity(); playFavor(me.id, "union"); }}>🪙 Bust the union (play a Favor)</button>
+            {:else}<p class="flag">You need a Favor card in hand to bust the union.</p>{/if}
+          </div>
+        {/if}
       {/if}
     </div>
   </div>
@@ -132,6 +154,7 @@
   .stack-row .malus { color: #e8746a; }
   .flag { margin: 8px 0 0; padding: 8px 10px; border-radius: 8px; background: rgba(232,116,106,0.12); border: 1px solid rgba(232,116,106,0.4); color: #f0a59c; font-size: 0.85rem; }
   .flag em { font-style: normal; font-weight: 700; color: #5fb87a; }
+  .gdesc { color: var(--ink, #e7e7ea); margin: 0 0 10px; line-height: 1.4; }
   .bar { height: 6px; background: var(--panel-2, #1b1f27); border-radius: 3px; overflow: hidden; margin-bottom: 8px; }
   .bar .fill { height: 100%; background: var(--accent, #e0b341); }
   .picker { background: var(--panel-2, #1b1f27); border-radius: 8px; padding: 8px; margin-bottom: 10px; display: flex; flex-direction: column; gap: 4px; }

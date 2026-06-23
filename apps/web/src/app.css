@@ -153,7 +153,8 @@ button.thumb { background: none; border: none; color: var(--ink); font: inherit;
 /* AI pacing + watchability */
 .ai-banner { background: var(--panel-2); border: 1px solid var(--accent); border-radius: 8px; padding: 8px 12px; margin-bottom: 10px; color: var(--accent); }
 .town-banner { display: flex; flex-wrap: wrap; gap: 6px 14px; background: rgba(224, 86, 75, 0.12); border: 1px solid #e0564b; border-radius: 8px; padding: 6px 12px; margin-bottom: 10px; }
-.town-effect { color: #e8746a; font-weight: 600; font-size: 0.9em; }
+.town-effect { color: #e8746a; font-weight: 600; font-size: 0.9em; background: none; border: none; cursor: pointer; padding: 2px 4px; border-radius: 6px; text-decoration: underline dotted; text-underline-offset: 3px; }
+.town-effect:hover { background: rgba(232, 116, 106, 0.18); }
 .ai-head { display: flex; align-items: center; justify-content: space-between; font-weight: 600; }
 .ai-head .skip { background: transparent; color: var(--accent); border: 1px solid var(--accent); padding: 2px 10px; font-size: 0.75rem; border-radius: 6px; }
 .ai-drew { color: var(--ink); font-weight: 400; font-size: 0.82rem; margin-top: 4px; }

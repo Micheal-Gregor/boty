@@ -27,7 +27,7 @@
     if (show.jobs) for (const j of me.jobs) out.push({ kind: "job", id: j.id, type: "Job", title: j.name, sub: `${j.work_done}/${j.work_amount} · ${j.value} W`, art: ["card", j.card] });
     if (show.persistent) for (const m of me.modifiers ?? []) out.push({ kind: "mod", type: "Persistent", title: m.name, sub: m.positive ? "🛡️ standing" : "⚠️ standing", icon: m.positive ? "🛡️" : "⚠️" });
     if (show.playable) for (const c of me.hand ?? []) out.push({ kind: "play", type: "Playable", title: c.name, sub: "🃏 hand card", icon: "🃏" });
-    if (show.global) for (const g of view.globalEffects ?? []) out.push({ kind: "global", type: "Global", title: g.name, sub: `${g.turnsLeft} round(s) left`, icon: "🌐" });
+    if (show.global) for (const g of view.globalEffects ?? []) out.push({ kind: "global", id: g.id, type: "Global", title: g.name, sub: g.kind === "union" ? "until busted" : `${g.turnsLeft} round(s) left`, icon: "🌐" });
     return out;
   });
 
@@ -40,7 +40,8 @@
     [...scroller.querySelectorAll(".cc")].forEach((el, i) => { const c = el.offsetLeft + el.offsetWidth / 2; const d = Math.abs(c - mid); if (d < bestD) { bestD = d; best = i; } });
     activeIdx = best;
   }
-  function clickCard(it) { if (["worker", "equipment", "job"].includes(it.kind)) { closeHand(); openEntity(it.kind, it.id); } }
+  const openable = (k) => ["worker", "equipment", "job", "global"].includes(k);
+  function clickCard(it) { if (openable(it.kind)) { closeHand(); openEntity(it.kind, it.id); } }
 </script>
 
 {#if open && me}
@@ -51,7 +52,7 @@
 
       <div class="cc-scroll" bind:this={scroller} onscroll={onScroll}>
         {#each items as it, i (it.kind + (it.id ?? it.title))}
-          <button class="cc" class:active={i === activeIdx} class:near={Math.abs(i - activeIdx) === 1} class:flat={!["worker", "equipment", "job"].includes(it.kind)} onclick={() => clickCard(it)}>
+          <button class="cc" class:active={i === activeIdx} class:near={Math.abs(i - activeIdx) === 1} class:flat={!openable(it.kind)} onclick={() => clickCard(it)}>
             <div class="cc-art">{#if it.art}<Art kind={it.art[0]} id={it.art[1]} label={it.title} />{:else}<div class="cc-icon">{it.icon}</div>{/if}</div>
             <div class="cc-type">{it.type}</div>
             <div class="cc-title">{it.title}</div>

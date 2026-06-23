@@ -8,7 +8,8 @@ import { writable } from "svelte/store";
 import { settings } from "./settings.js";
 
 // Settings gate the sound/music independently of the quick mute toggle.
-let sfxOn = true, musicOn = true;
+let sfxOn = true, musicOn = true, masterVol = 0.7;
+let musicBaseVol = 0.28; // the per-track base, scaled by masterVol
 
 const files = import.meta.glob("../assets/sound/**/*.{mp3,ogg,m4a,wav}", {
   eager: true, query: "?url", import: "default",
@@ -42,6 +43,8 @@ export function toggleMute() { muted.update((v) => !v); }
 
 settings.subscribe((s) => {
   sfxOn = s.sound; musicOn = s.music;
+  masterVol = typeof s.volume === "number" ? Math.max(0, Math.min(1, s.volume)) : 0.7;
+  if (musicEl) musicEl.volume = musicBaseVol * masterVol; // live-adjust the loop as the slider moves
   if (!musicOn && musicEl) { try { musicEl.pause(); } catch { /* ignore */ } }
   else if (musicOn && musicId && !isMuted) { const id = musicId; musicId = null; playMusic(id); }
 });
@@ -54,7 +57,7 @@ export function playSfx(id, vol = 0.5) {
   if (isMuted || !sfxOn || !unlocked) return;
   const url = lookup[`sfx/${id}`];
   if (!url) return;
-  try { const a = new Audio(url); a.volume = vol; a.play().catch(() => {}); } catch { /* ignore */ }
+  try { const a = new Audio(url); a.volume = Math.max(0, Math.min(1, vol * masterVol)); a.play().catch(() => {}); } catch { /* ignore */ }
 }
 
 /** Loop a music track by id (e.g. a season). Switches smoothly when the id changes. */
@@ -63,12 +66,13 @@ export function playMusic(id, vol = 0.28) {
   if (musicId === id && musicEl) return; // already on this track
   const url = lookup[`music/${id}`];
   musicId = id;
+  musicBaseVol = vol;
   if (musicEl) { try { musicEl.pause(); } catch { /* ignore */ } musicEl = null; }
   if (!url || isMuted) return; // remember intent (musicId) but stay silent
   try {
     musicEl = new Audio(url);
     musicEl.loop = true;
-    musicEl.volume = vol;
+    musicEl.volume = Math.max(0, Math.min(1, vol * masterVol));
     musicEl.play().catch(() => {});
   } catch { /* ignore */ }
 }
