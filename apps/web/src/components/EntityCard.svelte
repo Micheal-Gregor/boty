@@ -74,7 +74,7 @@
         </div>
 
       {:else if gear}
-        <div class="ent-art"><Art kind="equipment" id={equipArtId(gear)} label={gearName(gear)} /></div>
+        <div class="ent-art"><Art kind="equipment" id={equipArtId(gear)} seed={gear.id} label={gearName(gear)} /></div>
         <h2>{gearName(gear)}</h2>
         <div class="stack">
           <div class="stack-row"><span>Tenure</span><span>{gear.owned ? "owned" : "rented"}</span></div>

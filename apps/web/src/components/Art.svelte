@@ -25,10 +25,21 @@
   }
 
   const has = (k) => !!(stills[k] || anims[k]);
-  // Per-trade pro gear: art/equipment/pro/<trade>, falling back to a generic art/equipment/pro.
-  export function equipKey(id) {
+  const allArtKeys = [...new Set([...Object.keys(stills), ...Object.keys(anims)])];
+  const hashStr = (s) => [...String(s)].reduce((a, c) => (a + c.charCodeAt(0)) >>> 0, 0);
+  // Pick one file from a folder pool (files directly under <prefix>/), stable for a given seed.
+  function poolUnder(prefix, seed) {
+    const re = new RegExp(`^${prefix.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}/[^/]+$`);
+    const pool = allArtKeys.filter((k) => re.test(k)).sort();
+    return pool.length ? pool[hashStr(seed) % pool.length] : null;
+  }
+  // Equipment art: a POOL folder (equipment/basic/* or equipment/pro/<trade>/*) picked stably per
+  // rig; else a single file (equipment/basic.* or equipment/pro/<trade>.*); else a generic pro.*.
+  export function equipKey(id, seed = "") {
+    const fromPool = poolUnder(`equipment/${id}`, seed);
+    if (fromPool) return fromPool;
     if (has(`equipment/${id}`)) return `equipment/${id}`;
-    if (id.includes("/")) { const base = `equipment/${id.split("/")[0]}`; if (has(base)) return base; }
+    if (id.startsWith("pro/") && has("equipment/pro")) return "equipment/pro";
     return `equipment/${id}`;
   }
   // Turn-start town life: a random scene from art/townlife/<season>/ (or a flat townlife/ pool).
@@ -46,8 +57,8 @@
   // `autoplay` — start the animation on open (round intro & your cards when "Animate cards" is on).
   // `animatable` — allow click-to-play (off for, e.g., tiny shop thumbnails). Still-only assets and
   // placeholders never animate.
-  let { kind = "cards", id = "", label = "", small = false, autoplay = false, animatable = true } = $props();
-  const akey = $derived(kind === "crew" ? crewKey(id) : kind === "equipment" ? equipKey(id) : `${kind}/${id}`);
+  let { kind = "cards", id = "", label = "", small = false, autoplay = false, animatable = true, seed = "" } = $props();
+  const akey = $derived(kind === "crew" ? crewKey(id) : kind === "equipment" ? equipKey(id, seed) : `${kind}/${id}`);
   const still = $derived(stills[akey]);
   const anim = $derived(anims[akey]);
 

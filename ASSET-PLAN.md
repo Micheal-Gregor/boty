@@ -17,8 +17,8 @@ This replaces the ~220-asset vision in [ASSETS.md](ASSETS.md) with **what the ga
 | 3 | Fortune cards (where the townsfolk & locations live) | `card/<id>` | ✅ | ~60 | ~30 |
 | 4 | Crew portraits (a shared pool) | `crew/` | ✅ | 20 | 12 |
 | 5 | Crew **names + flavor** (text, not art) | — | 🔧 | — | — |
-| 6 | Equipment — basic (generic) | `equipment/basic` | ✅ | 2–3 | 1 |
-| 7 | Equipment — **pro, per trade** | `equipment/pro/<trade>` | 🔧 | 6 | 6 |
+| 6 | Equipment — basic (generic, a POOL) | `equipment/basic/` | ✅ | ~10 | 3 |
+| 7 | Equipment — **pro, per trade (POOLS)** | `equipment/pro/<trade>/` | ✅ | 6 × 6 trades | 6 (mechanic) |
 | 8 | Shops, by trade × building | `shop/<trade>/<building>` | ✅ | 18 | 6 |
 
 **Full set ≈ 159 stills (48 of them animated). Lean first pass ≈ 83.** Down from 220.
@@ -65,9 +65,11 @@ The cinematic ones (incidents, civic, big jobs) most reward a short animation; t
 You asked for a **name generator + random flavor** per tradesperson. That's a code feature, not art:
 - **Hook I'll add:** a pool of first/last names + a pool of one-line personalities ("never misses a Monday", "great with customers, slow with paperwork"), assigned when you hire — shown on the worker card next to the pooled face. Give me a list of names/quips you like, or I'll seed a Maple-Hollow-flavored set.
 
-## 6. Equipment — basic ✅ / pro per trade 🔧
-- **Basic gear** `equipment/basic` — 1 generic image (or 2–3 variants if you want variety). ✅
-- **Pro gear, specialised per trade** so a welder's rig ≠ a plumber's: `equipment/pro/<trade>` (mechanic, plumber, electrician, pipefitter, welder, hvac) = **6**. 🔧 **Hook I'll add:** key the pro-gear art by the shop's trade.
+## 6. Equipment — basic + per-trade pro, both POOLS ✅
+Drop multiples and each rig gets a stable random one (any filenames, like crew):
+- **Basic gear** → `equipment/basic/` — your ~10 generic pics.
+- **Pro gear, per trade** → `equipment/pro/<trade>/` (mechanic, plumber, electrician, pipefitter, welder, hvac) — ~6 each.
+- A single `equipment/basic.*` or `equipment/pro/<trade>.*` still works; `equipment/pro.*` is a last-resort fallback for a trade you haven't filled.
 
 ## 7. Shops ✅
 `shop/<trade>/<building>` — **6 trades × 3 buildings = 18.** Trades: `mechanic, plumber, electrician, pipefitter, welder, hvac`. Buildings: `garage, shop, warehouse`. Lean: the 6 `garage` images first (every shop starts there), then add `shop`, then `warehouse`.

@@ -32,9 +32,17 @@ art/
 │   ├── welder/
 │   └── hvac/
 │
-├── equipment/           ← basic.*  (generic basic gear)
-│   └── pro/                pro gear specialised per trade: pro/mechanic.* … pro/hvac.*
-│                           (a plain equipment/pro.* is the fallback if a trade is missing)
+├── equipment/           ← POOLS (any filenames; each rig gets a stable random one)
+│   ├── basic/              generic basic gear — drop your 10 here (01.webp …)
+│   └── pro/
+│       ├── mechanic/       pro gear for mechanics — drop your 6 here
+│       ├── plumber/        (one folder per trade; same idea)
+│       ├── electrician/
+│       ├── pipefitter/
+│       ├── welder/
+│       └── hvac/
+│                           (a single equipment/basic.* or equipment/pro/<trade>.* still works;
+│                            equipment/pro.* is a last-resort fallback for an unfilled trade)
 │
 └── season/              ← OPTIONAL fallback round-intro art (spring.* …) used only if townlife/ is empty
 ```

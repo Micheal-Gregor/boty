@@ -118,7 +118,7 @@
     {#each player.equipment as e}
       <div class="slot gear">
         <button class="thumb" onclick={() => openEntity("equipment", e.id)}>
-          <Art kind="equipment" id={equipArtId(e)} label={findEquipment(econ, e.defId).name} small />
+          <Art kind="equipment" id={equipArtId(e)} seed={e.id} label={findEquipment(econ, e.defId).name} small />
           <div class="slot-id">{findEquipment(econ, e.defId).name}</div>
           <div class="muted">{e.owned ? "owned" : "rented"} · {e.assignedToId ? "→ " + e.assignedToId : "💤 idle"}</div>
         </button>
