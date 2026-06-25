@@ -12,6 +12,7 @@ import { botActions } from "./bot.js";
 
 const GAMES = parseInt(process.argv[2], 10) || 200;
 const PLAYERS = parseInt(process.argv[3], 10) || 4;
+const DIFFICULTY = process.argv[4] || "standard"; // steady | standard | cutthroat
 
 const economy = await loadEconomy();
 const decks = await loadDecks();
@@ -41,7 +42,7 @@ function runToEnd(game, strategyFor) {
 
 function healthGame(seed) {
   const seeds = Array.from({ length: PLAYERS }, (_, i) => ({ name: `P${i + 1}`, service: S[i % S.length] }));
-  const state = runToEnd(new Game(economy, seeds, { ...decks, seed }), () => "balanced");
+  const state = runToEnd(new Game(economy, seeds, { ...decks, seed, difficulty: DIFFICULTY }), () => "balanced");
   const cashes = state.players.map((p) => p.cash);
   const survivors = state.players.filter((p) => !p.bankrupt);
   const log = state.log.join("\n");
@@ -92,7 +93,7 @@ const strippedFortune = decks.fortune.filter((c) => !isScaling(c));
 
 // --- Report ------------------------------------------------------------------------------
 
-console.log(`\nOrder to Cash — tuning harness   (${GAMES} games × ${economy.max_turns} turns)\n`);
+console.log(`\nOrder to Cash — tuning harness   (${GAMES} games × ${economy.max_turns} turns · ${DIFFICULTY})\n`);
 
 const h = health();
 console.log(`A) Economy health — ${PLAYERS} players, balanced bot`);

@@ -337,11 +337,12 @@ export const isAI = (playerId) => !!ai[playerId];
 const player = (id) => game.state.players.find((p) => p.id === id);
 const handHas = (p, type) => p.hand.some((c) => c.type === type);
 
-/** Start a new game. seats: [{ name, service, strategy|null }]. */
-export function newGame(seats) {
+/** Start a new game. seats: [{ name, service, strategy|null }]. difficulty: steady|standard|cutthroat. */
+export function newGame(seats, difficulty = "standard") {
   unlockAudio(); // the Start click is our user gesture — lets the browser make sound
   game = new Game(economy, seats.map((s) => ({ name: s.name, service: s.service })), {
     ...decks,
+    difficulty,
     seed: (Math.random() * 2 ** 32) >>> 0,
   });
   game.state.flavor = flavor;

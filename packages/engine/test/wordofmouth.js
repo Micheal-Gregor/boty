@@ -17,6 +17,7 @@ function game(trade) {
   resetIds();
   const g = new Game(economy, [{ name: "A", service: trade }], { seed: 1, fortune: decks.fortune });
   g.start();
+  g.state.die = () => 1; // force every word-of-mouth trigger to fire — these test the mechanic, not the tier odds
   const p = g.state.players[0];
   p.jobs = []; g.state.pendingPoach = []; g.state.pendingMayor = [];
   return { g, p };

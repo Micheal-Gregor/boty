@@ -3,6 +3,17 @@
 // them; the Mayor seeds favors; firing breeds union + poach cards; etc. Every reshape logs a line and
 // queues a `deckEvent` so the UI can show the cards moving and play the shuffle.
 
+/** A word-of-mouth trigger fires on a d6 ≤ the difficulty tier's threshold for that NPC (Stage 8).
+ *  Steady → Dot 6 (always helps) / Hettrick 2 (rarely bites); Cutthroat reverses it. Unconfigured
+ *  → always fires (back-compat with single-player tests that don't set a tier). */
+export function womFires(state, npc) {
+  const tiers = state.economy?.difficulty_tiers ?? {};
+  const tier = tiers[state.difficulty ?? state.economy?.difficulty ?? "standard"] ?? {};
+  const thr = tier[npc];
+  if (thr == null) return true;
+  return state.die() <= thr;
+}
+
 /** Fresh copies of a card def from the master pool, by id. */
 function poolCopies(state, id, n) {
   const def = (state.cardPool ?? []).find((c) => c.id === id);

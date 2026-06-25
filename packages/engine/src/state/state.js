@@ -203,9 +203,21 @@ export function createGame(economy, playerSeeds, options = {}) {
     p.deck = new Deck(fortuneCards, makeRng(seed === undefined ? undefined : seed + i));
   });
 
+  // Difficulty (Stage 8): the tier sets the word-of-mouth odds (read live off state.difficulty) and a
+  // starting-cash modifier — a touch more runway on Steady, less on Cutthroat. Keep the opening ledger balanced.
+  const difficulty = options.difficulty ?? economy.difficulty ?? "standard";
+  const cashMod = economy.difficulty_tiers?.[difficulty]?.cash_mod ?? 0;
+  if (cashMod) {
+    for (const p of players) {
+      p.cash += cashMod;
+      for (const ln of p.ledger[0].lines) { if (ln.acct === 1000) ln.amt += cashMod; if (ln.acct === 3000) ln.amt -= cashMod; }
+    }
+  }
+
   return {
     economy,
     players,
+    difficulty, // active tier name — womFires() reads this each trigger
     cardPool: fortuneCards, // the master Fortune composition — the source for living-deck injections
     deckEvents: [], // queued inject/remove descriptors for the UI shuffle reveal (drained each turn)
     progressDeck: new Deck(options.jobprogress ?? [], makeRng(seed === undefined ? undefined : seed + 1)),
