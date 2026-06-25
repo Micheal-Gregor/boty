@@ -1,177 +1,175 @@
-# Job-card redesign — plan (for approval before any engine change)
+# Job-card redesign + the living deck — plan v2 (for approval)
 
-**Goal:** every trade gets *equal access to work*. Today the job deck hard-codes a trade per card with uneven values (pipefitter's tower = 67W, mechanic's brake job = 11W), so your trade choice changes how much work you see. The fix is **tailored-on-draw**: a job card carries a *size/requirement*, and when you draw it the game skins it to **your** trade. The deck becomes trade-agnostic, so balance is structural, not hand-tuned.
+**Status: proposal only. No engine changes until you sign off.** v2 folds in your decisions and adds the big new idea — a **deck that changes as you play**.
 
-> **Status:** proposal only. Nothing in the engine changes until you approve. After approval we wire it and re-run the tuning harness.
->
-> **Unchanged (you said you like these):** crew events, the inspector/defects, bills & payables, shocks, windfalls, and special cards (BBB fair, networking, perf review, courthouse, tool theft, union). This plan only touches **jobs, incidents, civic, subcontract**, plus two tweaks (poached, re-election).
+**Unchanged (you like these):** crew events, inspector/defects, bills & payables, shocks, windfalls, specials (BBB, networking, perf review, courthouse, tool theft, union). This plan touches **jobs, incidents, civic, subcontract**, the **deck system**, and two tweaks (poached, re-election).
 
 ---
 
-## The five job families (overview)
+# Part A — The living deck (NEW)
 
-| # | Family | Cards in deck | How it's drawn | Art needed |
-|---|--------|--------------|----------------|-----------|
-| 1 | **Standard jobs** (6 sizes) | ~17 generic copies | tailors to your trade | 6 sizes × 6 trades = **36** |
-| 2 | **NPC jobs** (4 characters) | 4–8 copies | tailors to your trade, NPC twist | 4 × 6 = **24** |
-| 3 | **Misallocation / referral** | ~3 copies | wrong-trade → routed to a rival | reuse target's art (**0 new**) |
-| 4 | **Incidents** (1 per trade) | 6 | a building emergency; mismatch → referred | **6** |
-| 5 | **Civic** (town-wide) | 5 | a contract to *every* player | 4 + **seasonal storm ×4** |
+The deck's **composition is the difficulty knob**, and it's no longer fixed. Everyone starts from the same deck, and the **mini-games inject or remove cards** as you play — so your choices bend your own probabilities. Build a relationship with the Mayor and favors start showing up; cut corners and the Inspector starts hunting you; fire people and you breed poach + union cards.
 
-**New job animations to generate ≈ 36 + 24 + 6 + 4 + 4 = ~74.** (That's the honest number for full per-trade tailoring — see *Decisions to confirm* for a leaner option if that's too many.)
+### A1 · Per-player decks (key architecture call)
+"More poach cards in **your** deck" vs "a union card for **everyone**" only works if **each player owns their deck.** So the proposal:
+- **Every player starts with an identical 60-card deck** (built from the pool by difficulty).
+- You draw from **your own** deck; it diverges from everyone else's through play.
+- An injection targets **your deck** (poach, courthouse, inspector…) or **all decks** (union).
+- *(This is the one true architecture change — today there's a single shared deck. Flagged as Decision #1.)*
+
+### A2 · Starting deck by difficulty
+At game start, build the **60-card deck** by drawing from the **card pool** with a difficulty-weighted mix. Proposed tiers:
+
+| Tier | Feel | Mix bias |
+|------|------|----------|
+| **Steady** | smooth growth | more J1–J2 jobs, more windfalls, fewer shocks |
+| **Standard** | balanced | the default mix |
+| **Cutthroat** | forces investment | more big jobs (need crew + gear + shop), more shocks, fewer windfalls — you must build capacity and weather downtime waiting on revenue |
+
+Some pool cards aren't in the starting 60 at all — they only ever arrive via injection.
+
+### A3 · Deck triggers — what reshapes the deck
+Every one of these fires a **reshuffle** (with the animation in A4):
+
+| Mini-game / choice | Effect | Whose deck | Certainty |
+|---|---|---|---|
+| **Complete a Dot job** | **+** referral / windfall opportunity (her good word) | yours | on complete |
+| **Don't prioritize Lundgren** | **−** job cards (she pulls work off your plate) | yours | on ignore |
+| **Donate to the Mayor** (re-election) | **+** favor-opportunity cards (you're owed) | yours | on donate |
+| **Use a Favor to clear a fine** | **+** inspection cards (you made Grit's list) | yours | chance |
+| **Fire an employee** | **+** a union card (**everyone**) **and +** poach cards (yours) | all + yours | chance |
+| **Pay late** (dodge an AP) | **+** a courthouse_day card | yours | chance |
+| **Don't do jobs** (sell / drop / let expire) | **−** windfall cards (word gets around) | yours | chance |
+
+*(Amounts and the exact %s are Decision #4 — drafted in Part E.)*
+
+### A4 · The shuffle animation (NEW art/UX)
+Whenever composition changes, the player sees it happen:
+- **Injection:** flash the incoming card(s) face-up ("➕ a Poach card slips into your deck") → they fly into the deck → **shuffle animation** → resume.
+- **Removal:** flash the pulled card(s) ("➖ Lundgren pulls a job") → they leave the deck → **shuffle**.
+
+Needs: a deck-shuffle animation (can be CSS/sprite, or an `mp4` you provide — `card/deck/shuffle.*`), plus the small +/- reveal. This makes the living deck *legible* — players feel their choices changing the odds.
 
 ---
 
-## 1 · Standard jobs — the 6 sizes (the bread-and-butter)
+# Part B — Job families (updated)
 
-One card per size sits in the deck; on draw it becomes a job for **your** trade. This is the growth ladder — small fast calls up to marquee contracts that need a big crew, both gear types, and a bigger shop.
+## B1 · Standard jobs — the 6-size ladder
+One card per size; tailors to your trade on draw, so every trade sees the identical ladder.
 
-| Size | Crew | Requires | Pay band | Rule |
-|------|------|----------|----------|------|
-| **J1 — Service call** | 1 | — | small, fast | quick money, short deadline |
-| **J2 — Standard job** | 2 | — | low-mid | the everyday job |
-| **J3 — Tooled job** | 2 | basic equipment | mid | can't start bare-handed |
-| **J4 — Pro job** | 3 | pro gear | mid-high | needs the pro rig |
-| **J5 — Major job** | 4 | basic + pro + **Shop (tier 2)** | high, net-60 | needs room to work |
-| **J6 — Marquee job** | 4 | basic + pro + **Warehouse (tier 3)** | top, net-90 | the crown jewel |
+| Size | Crew | Requires | Art |
+|------|------|----------|-----|
+| **J1 — Service call** | 1 | — | **generic walk-in** |
+| **J2 — Standard job** | 2 | — | **generic walk-in** |
+| **J3 — Tooled job** | 2 | basic equipment | **generic walk-in** |
+| **J4 — Pro job** | 3 | pro gear | **per-trade** |
+| **J5 — Major job** | 4 | basic + pro + Shop (tier 2) | **per-trade** |
+| **J6 — Marquee job** | 4 | basic + pro + Warehouse (tier 3) | **per-trade** |
 
-**Per-trade skins** (the art + name shown when *that* trade draws the size):
+**Art decision (yours):** J1–J3 are **walk-in jobs → one generic set** (no per-trade art). J4–J6 are **per-trade**. Per-trade skins for J4–J6:
 
 | Size | Mechanic | Plumber | Electrician | Pipefitter | Welder | HVAC |
 |------|----------|---------|-------------|------------|--------|------|
-| J1 | Brake job | Clogged drain | Fixture swap | Fitting repair | Railing weld | A/C service |
-| J2 | Tune-up | Water heater | Panel upgrade | Steam-line patch | Gate & fence | Furnace swap |
-| J3 | Transmission | Section re-pipe | Room rewire | Process pipe | Structural repair | Ductwork run |
 | J4 | Engine rebuild | Main-line dig | Service upgrade | Boiler job | Custom fab | Rooftop unit |
 | J5 | Fleet contract | Building plumbing | Building wiring | Plant piping | Structural steel | Building HVAC |
 | J6 | Restoration shop | Commercial system | Commercial electrical | Industrial system | Industrial fab | Commercial system |
 
-**Art:** `card/job/<size>/<trade>` — e.g. `card/job/j1/mechanic`, `card/job/j6/welder`. **36 files.**
+## B2 · NPC jobs — four characters, four twists (per-trade art — you want each)
+Each is one card that tailors to your trade and carries the character's behavior:
 
-> Because the SAME card tailors to whoever draws it, every trade sees the exact same ladder of work at the same values. That's the equal-access fix.
+| NPC | Twist | Terms |
+|-----|-------|-------|
+| **Old Man Hettrick** | (no dispute roll — kept simple) | **net-90** (pays very late) |
+| **Mrs. Lundgren** | the **anti-Dot**: if not worked the round you draw her, she **pulls job cards from your deck** + reshuffle | late (net-60) |
+| **Chief Boon** | **mandatory** — **can't end your turn until it's assigned**; the job **stays 8 turns**, **3 work to complete** (won't expire) | prompt |
+| **Dot** | complete it → **injects a referral/windfall** into your deck (+reshuffle) | normal |
 
----
-
-## 2 · NPC jobs — the four characters with a twist
-
-Each of these four is **one card** that tailors to your trade (so 6 art skins each), and carries that character's signature behavior. They're how the cast tugs on you.
-
-| NPC | Twist (the rule) | Pay |
-|-----|------------------|-----|
-| **Old Man Hettrick** | Pays **late** (net-60) and **disputes the bill** — finishing may trigger a haggle (a getaway-style roll to collect full vs. discounted). | late |
-| **Mrs. Lundgren** | Pays **late**, and you must **prioritize her**: if she isn't worked **the round you draw her**, she pulls the job (and word gets around — a small reputation ding). | late |
-| **Chief Boon** | **Mandatory** — you *must* assign a tradesperson this round, even if it pulls someone off a bigger job. Refuse = penalty. | prompt |
-| **Dot** | A favor to her: **complete it and she refers you** — seeds a bonus job / windfall next round. Her good word compounds. | normal |
-
-**Per-trade skins** (what each NPC needs from *your* trade):
+Per-trade skins (what each needs from your trade):
 
 | NPC | Mechanic | Plumber | Electrician | Pipefitter | Welder | HVAC |
 |-----|----------|---------|-------------|------------|--------|------|
-| **Hettrick** | his rattling pickup | his "fine" dripping tap | his flickering porch light | his ancient radiator | his busted gate hinge | his wheezing window unit |
-| **Lundgren** | her car won't start | her cold water heater | her dead outlets | her knocking boiler | her wrought-iron fence | her dead furnace |
-| **Boon** | the fire truck's engine | the firehouse standpipe | the station alarm wiring | the sprinkler riser | the ladder-truck weld | the station exhaust |
-| **Dot** | the diner's delivery van | the grease trap | the neon sign | the steam table | the counter & stools | the walk-in cooler |
+| **Hettrick** | rattling pickup | "fine" dripping tap | flickering porch light | ancient radiator | busted gate hinge | wheezing window unit |
+| **Lundgren** | car won't start | cold water heater | dead outlets | knocking boiler | wrought-iron fence | dead furnace |
+| **Boon** | fire truck engine | firehouse standpipe | station alarm wiring | sprinkler riser | ladder-truck weld | station exhaust |
+| **Dot** | delivery van | grease trap | neon sign | steam table | counter & stools | walk-in cooler |
 
-**Art:** `card/job/<npc>/<trade>` — e.g. `card/job/hettrick/plumber`, `card/job/dot/hvac`. **24 files.** (Keep each visually consistent with that NPC's `townsfolk/` portrait.)
+## B3 · Misallocation / referral — the wild card
+A wrong-trade job walks in; you broker it. **Now it has size variants** (reuses the generic walk-in art): **1-person, 2-person, 3-person + basic**.
 
----
+**Logic (your rules):**
+1. Draw → route to a **random shop with the right trade**.
+2. **Finder's fee = the job's sell price** (matches the existing sell-a-job fee).
+3. Next round the target shop **accepts** (does the job; you collect the fee) or **refuses** (you collect **nothing**).
+4. **No shop has that trade?** → the **bank pays** your finder's fee automatically.
 
-## 3 · Misallocation / referral — the broker mechanic
+## B4 · Incidents — one per trade, at a building
+A building emergency needing a specific trade; mismatch → uses the B3 referral logic. **6 total, one per trade:**
 
-One card type: **a job that isn't your trade walks in the door.** You can't do it, so it routes to the right shop and you take a finder's fee.
+| Trade | Incident · Building | Status |
+|-------|---------------------|--------|
+| Plumber | Burst main · Grange Hall | exists |
+| Pipefitter | Steam line · Hollis Mill | exists |
+| HVAC | Refrigeration fails · Dot's Diner | exists |
+| Mechanic | Machinery seizes · **Rail Depot** | new |
+| Electrician | Blackout · **Bijou Theater** | new |
+| Welder | Structural crack · **Grain Elevator** | new |
 
-**Logic:**
-1. You draw it → game picks a **random one of the other 5 trades** as the correct shop, and that shop is the **referral target**.
-2. You (the referrer) are owed a **finder's fee F**.
-3. **Next round**, the target shop chooses on their turn: **Accept** (they do the job, collect its value, and pay you F) — or **Reject** (the job goes to the bank/NPC).
-4. **Either way, at the start of the round after, you (referrer) collect F.** Brokering pays regardless; rejecting just means the target passes on the work.
+## B5 · Civic — a contract to the whole town
+On draw, **every player** is offered a sub-contract sized **by their shop**; the **drawer is PM**.
 
-**Art:** reuse the **target trade's J-art** (it's their job now) — **0 new files**. Optional: one generic "not your trade — refer it out" framing card.
+- **Sub-contract pay by size:** 2-person → **8 W**, 3-person → **12 W**, 4-person → **16 W**.
+- **PM bonus (drawer):** **20% of the total W of all sub-contracts**, if **all** are completed.
+- **Failure:** the **existing global-card penalty** (town levy) — no new system.
+- **Storm:** `downtown_storm` **moves from incidents to civic**, and the storm **follows the season** (Spring squall / Summer thunderstorm / Fall windstorm / Winter ice storm) using your 4 storm animations.
 
-> This replaces the three current `sub_*` cards with one clean, trade-fair mechanic. (The existing GC/markup math can fold into F.)
-
----
-
-## 4 · Incidents — one per trade, at a town building
-
-A thing breaks somewhere in Maple Hollow and needs a specific trade. If it matches you, it's your job; if not, it uses the **§3 referral** logic (route → accept/reject → referrer paid). **6 incidents, one per trade**, so every trade has its emergency.
-
-| Trade | Incident | Building | Status |
-|-------|----------|----------|--------|
-| Plumber | Burst main | Grange Hall | exists (`grange_main`) |
-| Pipefitter | Steam line bursts | Hollis Mill | exists (`mill_breakdown`) |
-| HVAC | Refrigeration fails | Dot's Diner *(or Cold Storage)* | exists (`diner_trouble`) |
-| Mechanic | Machinery seizes | **Rail Depot** | **new** |
-| Electrician | The house goes dark | **Bijou Theater** | **new** |
-| Welder | Structural crack | **Grain Elevator** | **new** |
-
-**Art:** `card/incident/<id>` (rail_depot, grange_main, bijou, mill, grain_elevator, diner) — **6 files** (3 you may already have).
+Civic builds: Town Hall, Firehouse, Opera House, County Hospital, + seasonal Storm.
 
 ---
 
-## 5 · Civic — a contract to the whole town
+# Part C — Two card tweaks
 
-Civic jobs are different: when drawn they **offer a piece to every player**, the **drawer becomes project manager**, and the outcome is collective.
+**Poached** — pop-up to counter, then **you roll** (visible dice):
 
-**Logic:**
-- On draw, **each player** is offered a sub-contract slice of the build.
-- The **drawer (PM)** gets a **project-manager bonus + favors** if the project is **completed**.
-- If it **collapses** (deadline missed), a **group penalty** (town levy) hits **everyone**.
+| Counter | Stays on | ≈ |
+|---|---|---|
+| **1 W** | 1–3 | 50% |
+| **2 W** | 1–4 | 67% |
+| **3 W** | 1–5 | 83% |
+| Let go | — | leaves, free |
 
-| Civic job | Status |
-|-----------|--------|
-| Restore the Town Hall (`civic_townhall`) | exists |
-| Raise the firehouse (`civic_firehouse`) | exists |
-| The Opera House (`opera_house`) | exists |
-| County Hospital wing (`county_hospital`) | exists |
-| **Storm damage downtown** (`downtown_storm`) → **move here from incidents** | exists, re-home |
-
-**Seasonal storm:** `downtown_storm` becomes civic and the **storm type follows the season** — Spring squall, Summer thunderstorm, Fall windstorm, Winter ice storm — using your four storm animations.
-
-**Art:** `card/civic/<id>` (town_hall, firehouse, opera_house, county_hospital) = 4, **plus** `card/civic/storm/<season>` ×4 (you have these). 
+**Re-election drive** — pop-up: **buy a Favor from Mayor Crabtree for 10 W** *(bumped from 5)*. Donating **builds the relationship → injects favor-opportunity cards** into your deck (A3). Uses Crabtree's NPC face.
 
 ---
 
-## 6 · Two card tweaks (small, self-contained)
-
-**Poached** — when a rival dangles a paycheck at your worker, a **pop-up** lets you counter, then **you roll** (we already have the dice system):
-
-| Counter-offer | Stays on | ≈ |
-|---------------|----------|---|
-| Pay **1 W** | 1–3 | 50% |
-| Pay **2 W** | 1–4 | 67% |
-| Pay **3 W** | 1–5 | 83% |
-| Let them go | — | worker leaves, free |
-
-**Re-election drive** — a **pop-up**: **buy a Favor from Mayor Crabtree for 5 W?** (yes → pay 5W, gain a Favor card; no → pass). Uses the Folsom-style NPC confirm with Crabtree's face.
-
----
-
-## Graphics manifest — everything to generate
+# Part D — Graphics manifest (updated)
 
 | Slot | Path | Count |
-|------|------|------|
-| Standard jobs | `card/job/<j1..j6>/<trade>` | **36** |
-| NPC jobs | `card/job/<hettrick,lundgren,boon,dot>/<trade>` | **24** |
-| Incidents | `card/incident/<id>` | **6** (3 new) |
-| Civic builds | `card/civic/<id>` | **4** |
-| Seasonal storm | `card/civic/storm/<season>` | **4** (you have these) |
-| Referral | reuse target trade's J-art | **0** |
-| **Total new job art** | | **≈ 70** |
+|------|------|-------|
+| **Walk-in jobs** (J1–J3 **and** referral sizes) | `card/job/walkin/<1p,2p,2p_basic,3p_basic>` | ~**4** |
+| **Standard J4–J6** (per trade) | `card/job/<j4,j5,j6>/<trade>` | **18** |
+| **NPC jobs** (per trade) | `card/job/<hettrick,lundgren,boon,dot>/<trade>` | **24** |
+| **Incidents** | `card/incident/<id>` | **6** (3 new) |
+| **Civic builds** | `card/civic/<id>` | **4** |
+| **Seasonal storm** | `card/civic/storm/<season>` | **4** (you have) |
+| **Deck shuffle** | `card/deck/shuffle` (+ tiny +/- reveal) | **1** (or CSS) |
+| **Referral** | reuses walk-in art | 0 |
+| **Total new** | | **≈ 53** |
 
-All other card art (windfalls, shocks, payables, crew, specials, townsfolk) is unchanged from `CARD-ART-WORKSHEET.md`.
+Down from ~70 by making J1–J3 generic. Everything else (windfalls, shocks, payables, crew, specials, townsfolk) is unchanged from `CARD-ART-WORKSHEET.md`.
 
 ---
 
-## Decisions to confirm before we build
+# Part E — Decisions still open (drafted defaults to react to)
 
-1. **Art volume.** Full per-trade tailoring = ~70 job animations. **Leaner options** if that's a lot: (a) only J4–J6 + NPC jobs get per-trade art; J1–J3 share one generic per size (saves 18); (b) NPC jobs share art across trades with a trade icon overlay (saves ~18). Your call.
-2. **Finder's fee F** — flat (e.g. 3 W) or a % of job value? And does a *rejected* referral still pay the referrer from the bank, or only when accepted? (You said "either way" — confirming.)
-3. **Hettrick's dispute** — a getaway-style collection roll (full vs. discounted), or just always-late net-60?
-4. **Lundgren's penalty** for not prioritizing — pull the job only, or also a small rep/cash ding?
-5. **Boon mandatory** — hard requirement (can't end turn until assigned) or a stiff penalty if you don't?
-6. **Civic "slice to every player"** — does each player get an identical sub-job, or shares scaled to crew? And the **PM bonus** size + **group penalty** size.
-7. **Deck counts** — proposed ~17 standard + 6 NPC + 3 referral + 6 incident + 5 civic = ~37 job cards. Adjust the mix?
-8. **The storm as civic** — confirm `downtown_storm` leaves incidents for civic.
+1. **Per-player decks** (A1) — confirm we move from one shared deck to a deck per player. *(Recommended; it's what "your deck vs everyone" requires.)*
+2. **Difficulty tiers** (A2) — confirm Steady / Standard / Cutthroat, and where the player picks it (setup screen). Exact 60-card mixes I'll draft once the families are locked.
+3. **Starting deck = 60 cards**, drawn from the pool by tier — confirm 60.
+4. **Injection amounts & odds** (A3) — proposed defaults: Dot +1 (on complete), Lundgren −1 job (on ignore), Mayor +1 favor (on donate), Favor-clears-fine +1 inspection @ 50%, Fire +1 union-to-all @ 50% & +1 poach-to-you @ 50%, Pay-late +1 courthouse @ 33%, Skip-job −1 windfall @ 50%. Tune freely.
+5. **Lundgren** — pulls **how many** job cards (1?), and her terms (net-60?).
+6. **Walk-in art** — one generic image total, or one per size (~4)? (Doc assumes ~4.)
+7. **Shuffle animation** — you provide `card/deck/shuffle.mp4`, or I build a CSS/sprite shuffle?
+8. **Deck count balance** — with the living deck, the *starting* mix + injection rates are the new tuning surface; we'll set them in the harness after build.
 
-Once you mark these up, I'll build the engine changes and re-run the tuning harness for balance.
+---
+
+**Nothing proceeds until you're happy with this.** Mark it up or reply with changes, and I'll revise again before any engine work.
