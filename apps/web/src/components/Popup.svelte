@@ -55,7 +55,7 @@
 
       {:else if p.kind === "card"}
         {#if p.rival}<div class="pop-rival">🤖 {p.rival} drew:</div>{/if}
-        <div class="pop-art"><Art kind="card" id={p.cardId} label={p.name} autoplay={!p.rival && $settings.animateCards} /></div>
+        <div class="pop-art"><Art kind="card" id={p.art ?? p.cardId} label={p.name} autoplay={!p.rival && $settings.animateCards} /></div>
         <h2>{p.name}</h2>
         {#if p.flavor}<p class="pop-flavor">“{p.flavor}”</p>{/if}
         <p class="pop-effect">{p.text}</p>

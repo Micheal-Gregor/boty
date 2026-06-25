@@ -79,10 +79,44 @@ function pickContractor(state, hirer, trade) {
   ) ?? null;
 }
 
+// The tailored job ladder — per-trade names for each of the 6 sizes (j1…j6), and the art key.
+const JOB_LADDER = {
+  "mechanic":       ["Brake job", "Tune-up", "Transmission", "Engine rebuild", "Fleet contract", "Restoration shop"],
+  "plumber":        ["Clogged drain", "Water heater", "Section re-pipe", "Main-line dig", "Building plumbing", "Commercial system"],
+  "electrician":    ["Fixture swap", "Panel upgrade", "Room rewire", "Service upgrade", "Building wiring", "Commercial electrical"],
+  "pipefitter":     ["Fitting repair", "Steam-line patch", "Process pipe", "Boiler job", "Plant piping", "Industrial system"],
+  "welder":         ["Railing weld", "Gate & fence", "Structural repair", "Custom fab", "Structural steel", "Industrial fab"],
+  "HVAC technician":["A/C service", "Furnace swap", "Ductwork run", "Rooftop unit", "Building HVAC", "Commercial system"],
+};
+const SIZE_IDX = { j1: 0, j2: 1, j3: 2, j4: 3, j5: 4, j6: 5 };
+const tradeSlug = (s) => (s === "HVAC technician" ? "hvac" : (s ?? "").toLowerCase());
+const jobArt = (size, trade) =>
+  size === "j1" ? "job/walkin/1p" : size === "j2" ? "job/walkin/2p" : size === "j3" ? "job/walkin/2p_basic" : `job/${size}/${tradeSlug(trade)}`;
+
+/** Skin a generic j1–j6 card to the drawer's trade: per-trade name + the size's stats + art key. */
+function tailorJob(economy, card, trade) {
+  const sz = economy.job_sizes?.[card.size];
+  if (!sz) return card;
+  return {
+    ...card,
+    name: (JOB_LADDER[trade] ?? [])[SIZE_IDX[card.size]] ?? card.name ?? "Job",
+    value: sz.value, work_amount: sz.work, deadline: sz.deadline, terms: sz.terms ?? null,
+    min_tradesmen: 1, max_tradesmen: sz.crew,
+    required_equipment: sz.equip ?? null,
+    equipment_per_tradesman: sz.gear_all ?? false,
+    required_building_tier: sz.tier ?? 1,
+    required_trade: null, droppable: card.droppable ?? true,
+    art: jobArt(card.size, trade),
+  };
+}
+
 function resolveCard(state, player, card) {
   switch (card.type) {
     case "job": {
-      const job = createJob(card, state.turn);
+      // The tailored ladder: a generic j1–j6 card skins to the drawer's trade (always their own
+      // job — no routing), so every trade sees the identical work. JOB-CARDS-PLAN Part B1.
+      const drawn = card.size ? tailorJob(state.economy, card, player.service) : card;
+      const job = createJob(drawn, state.turn);
       // Subcontract job: you broker it. A rival running `sub_trade` does the work for `sub_cost`;
       // you (the GC) bill the customer `value` on delivery and pocket the markup — or factor the
       // invoice to break even. The sub holds the job; you hold the AP that pays them.
@@ -117,7 +151,7 @@ function resolveCard(state, player, card) {
       }
       // Otherwise it's the drawer's own job.
       player.jobs.push(job);
-      return { type: "job", name: card.name, job, text: `new job ${job.id} (${w(job.value)}, due turn ${job.deadline_turn})` };
+      return { type: "job", name: drawn.name, job, art: drawn.art ?? null, text: `new job ${job.id} (${w(job.value)}, due turn ${job.deadline_turn})` };
     }
     case "windfall":
     case "shock": {

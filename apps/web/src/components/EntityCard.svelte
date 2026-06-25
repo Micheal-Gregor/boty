@@ -97,7 +97,7 @@
 
       {:else if job}
         <span class="headline">{job.work_done}/{job.work_amount}</span>
-        <div class="ent-art"><Art kind="card" id={job.card} label={job.name} /></div>
+        <div class="ent-art"><Art kind="card" id={job.art ?? job.card} label={job.name} /></div>
         <h2>{job.name} <span class="muted">[{job.state}]</span></h2>
         <div class="bar"><div class="fill" style="width:{Math.min(100, (100 * job.work_done) / job.work_amount)}%"></div></div>
         <div class="stack">

@@ -19,6 +19,16 @@
   "mayor_favor_cost": 10,
   "mayor_favor_lunches": 3,
 
+  "_job_sizes_comment": "The tailored job ladder (JOB-CARDS-PLAN). A generic j1–j6 card skins to whoever draws it, so every trade sees the identical work — crew = max assignable, equip/tier are start gates, gear_all = every worker needs a tool. Values/work are starting points; tune in the harness.",
+  "job_sizes": {
+    "j1": { "crew": 1, "value": 8,  "work": 3,  "deadline": 4, "terms": 1 },
+    "j2": { "crew": 2, "value": 13, "work": 4,  "deadline": 4, "terms": 1 },
+    "j3": { "crew": 2, "value": 16, "work": 5,  "deadline": 5, "terms": 1, "equip": "basic" },
+    "j4": { "crew": 3, "value": 24, "work": 7,  "deadline": 5, "terms": 2, "equip": "pro" },
+    "j5": { "crew": 4, "value": 36, "work": 10, "deadline": 6, "terms": 3, "equip": "pro", "tier": 2, "gear_all": true },
+    "j6": { "crew": 4, "value": 58, "work": 13, "deadline": 6, "terms": 3, "equip": "pro", "tier": 3, "gear_all": true }
+  },
+
   "base_hand_speed": 1,
   "invoice_terms": 1,
   "sell_rate": 0.15,

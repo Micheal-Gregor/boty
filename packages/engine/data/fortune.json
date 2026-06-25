@@ -73,7 +73,12 @@
       "sub_cost": 20,
       "political": true,
       "favor_reward": 2,
-      "global_penalty": { "name": "Town austerity", "kind": "levy", "magnitude": 2, "turns": 3 },
+      "global_penalty": {
+        "name": "Town austerity",
+        "kind": "levy",
+        "magnitude": 2,
+        "turns": 3
+      },
       "flavor": "The Mayor wants the Town Hall restored before the centennial. Land it and the whole council owes you favours — let it collapse and the town raises everyone's levy to cover it."
     },
     {
@@ -94,7 +99,12 @@
       "sub_cost": 16,
       "political": true,
       "favor_reward": 2,
-      "global_penalty": { "name": "Insurance hike", "kind": "levy", "magnitude": 2, "turns": 3 },
+      "global_penalty": {
+        "name": "Insurance hike",
+        "kind": "levy",
+        "magnitude": 2,
+        "turns": 3
+      },
       "flavor": "The town's been promised a firehouse for years. Finish it and you're a hero with favours to spare — botch it and every shop's insurance jumps to cover the risk."
     },
     {
@@ -107,11 +117,31 @@
       "deadline": 7,
       "political": true,
       "favor_reward": 2,
-      "global_penalty": { "name": "Bond default", "kind": "levy", "magnitude": 2, "turns": 3 },
+      "global_penalty": {
+        "name": "Bond default",
+        "kind": "levy",
+        "magnitude": 2,
+        "turns": 3
+      },
       "phases": [
-        { "name": "Stage & frame", "trade": null, "work_amount": 6, "max_tradesmen": 2 },
-        { "name": "House wiring", "trade": "electrician", "sub_cost": 9, "work_amount": 5 },
-        { "name": "Orchestra-pit plumbing", "trade": "plumber", "sub_cost": 9, "work_amount": 5 }
+        {
+          "name": "Stage & frame",
+          "trade": null,
+          "work_amount": 6,
+          "max_tradesmen": 2
+        },
+        {
+          "name": "House wiring",
+          "trade": "electrician",
+          "sub_cost": 9,
+          "work_amount": 5
+        },
+        {
+          "name": "Orchestra-pit plumbing",
+          "trade": "plumber",
+          "sub_cost": 9,
+          "work_amount": 5
+        }
       ],
       "flavor": "The richest commission in years — the Mayor's pet project, half the council against it. Land the Opera House and you own the town's gratitude; let the bonds default and every shop pays for the scandal."
     },
@@ -125,11 +155,31 @@
       "deadline": 8,
       "political": true,
       "favor_reward": 3,
-      "global_penalty": { "name": "Emergency levy", "kind": "levy", "magnitude": 3, "turns": 3 },
+      "global_penalty": {
+        "name": "Emergency levy",
+        "kind": "levy",
+        "magnitude": 3,
+        "turns": 3
+      },
       "phases": [
-        { "name": "Pour the foundation", "trade": null, "work_amount": 7, "max_tradesmen": 2 },
-        { "name": "HVAC & ducting", "trade": "HVAC technician", "sub_cost": 10, "work_amount": 6 },
-        { "name": "Backup generators", "trade": "pipefitter", "sub_cost": 10, "work_amount": 6 }
+        {
+          "name": "Pour the foundation",
+          "trade": null,
+          "work_amount": 7,
+          "max_tradesmen": 2
+        },
+        {
+          "name": "HVAC & ducting",
+          "trade": "HVAC technician",
+          "sub_cost": 10,
+          "work_amount": 6
+        },
+        {
+          "name": "Backup generators",
+          "trade": "pipefitter",
+          "sub_cost": 10,
+          "work_amount": 6
+        }
       ],
       "flavor": "The county's been fighting over this wing for a decade. Deliver it and you're untouchable — miss the deadline and the county slaps an emergency levy on every business in town to cover the overrun."
     },
@@ -149,148 +199,57 @@
     },
     {
       "type": "job",
+      "size": "j1",
       "copies": 4,
-      "id": "brake_job",
-      "name": "Brake job",
-      "value": 11,
-      "work_amount": 4,
-      "deadline": 3,
-      "terms": 1,
-      "min_tradesmen": 1,
-      "max_tradesmen": 1,
-      "required_equipment": null,
+      "id": "j1",
+      "name": "Service call",
       "droppable": true,
-      "required_trade": "mechanic",
-      "flavor": "Old Man Hettrick's pickup is making that noise again — and he'll swear the bill's a swindle. Pure mechanic's work."
+      "flavor": "A quick call comes in — your trade, in and out."
     },
     {
       "type": "job",
+      "size": "j2",
       "copies": 4,
-      "id": "emergency_leak",
-      "name": "Emergency leak",
-      "value": 8,
-      "work_amount": 3,
-      "deadline": 2,
-      "terms": 1,
-      "min_tradesmen": 1,
-      "max_tradesmen": 1,
-      "required_equipment": null,
+      "id": "j2",
+      "name": "Standard job",
       "droppable": true,
-      "flavor": "A pipe lets go under Dot's Diner mid-breakfast — fix it fast, the whole town's chewing on it. Cash on the barrelhead."
+      "flavor": "A solid day’s work walks in the door."
     },
     {
       "type": "job",
-      "copies": 1,
-      "id": "plumbing_call",
-      "name": "Plumbing emergency",
-      "value": 14,
-      "work_amount": 6,
-      "deadline": 4,
-      "terms": 1,
-      "min_tradesmen": 1,
-      "max_tradesmen": 2,
-      "required_equipment": null,
-      "droppable": true,
-      "required_trade": "plumber",
-      "flavor": "A main backs up at the Grange hall — and you're no plumber. Better hire the one at the table."
-    },
-    {
-      "type": "job",
-      "copies": 1,
-      "id": "wiring_call",
-      "name": "Wiring job",
-      "value": 16,
-      "work_amount": 7,
-      "deadline": 4,
-      "terms": 1,
-      "min_tradesmen": 1,
-      "max_tradesmen": 2,
-      "required_equipment": null,
-      "droppable": true,
-      "required_trade": "electrician",
-      "flavor": "The church needs rewiring before the bazaar — and that's a job for a licensed electrician, not you."
-    },
-    {
-      "type": "job",
+      "size": "j3",
       "copies": 3,
-      "id": "water_heater",
-      "name": "Water heater swap",
-      "value": 14,
-      "work_amount": 6,
-      "deadline": 4,
-      "terms": 2,
-      "min_tradesmen": 1,
-      "max_tradesmen": 2,
-      "required_equipment": "basic",
+      "id": "j3",
+      "name": "Tooled job",
       "droppable": true,
-      "flavor": "The Lundgren place has gone cold again; Mrs. Lundgren tells everyone at church who's slow. Net-60, she always pays late."
+      "flavor": "Bigger than a hand-tool job — break out the basic gear."
     },
     {
       "type": "job",
+      "size": "j4",
       "copies": 3,
-      "id": "panel_upgrade",
-      "name": "Panel upgrade",
-      "value": 18,
-      "work_amount": 8,
-      "deadline": 4,
-      "terms": 2,
-      "min_tradesmen": 1,
-      "max_tradesmen": 2,
-      "required_equipment": "basic",
+      "id": "j4",
+      "name": "Pro job",
       "droppable": true,
-      "flavor": "The hardware store's wiring finally trips code — and the Pettigrew brothers wanted this one bad."
+      "flavor": "Serious work — youll want the pro rig and a real crew."
     },
     {
       "type": "job",
+      "size": "j5",
       "copies": 2,
-      "id": "warehouse_fit",
-      "name": "Warehouse retrofit",
-      "value": 34,
-      "work_amount": 12,
-      "deadline": 6,
-      "terms": 3,
-      "min_tradesmen": 2,
-      "max_tradesmen": 4,
-      "required_equipment": "basic",
-      "required_building_tier": 2,
+      "id": "j5",
+      "name": "Major job",
       "droppable": true,
-      "required_trade": "welder",
-      "flavor": "Retrofitting the old Hollis mill — structural steel, big money, and net-90 terms while the developer 'arranges financing'. Welder's job."
+      "flavor": "A major contract — full crew, both gear types, room to work."
     },
     {
       "type": "job",
+      "size": "j6",
       "copies": 1,
-      "id": "rooftop_hvac",
-      "name": "Rooftop HVAC install",
-      "value": 36,
-      "work_amount": 14,
-      "deadline": 5,
-      "terms": 3,
-      "min_tradesmen": 2,
-      "max_tradesmen": 3,
-      "required_equipment": "pro",
-      "required_building_tier": 2,
-      "droppable": false,
-      "required_trade": "HVAC technician",
-      "flavor": "Rooftop units for the new strip mall; Mayor Crabtree cut the ribbon — you do the sweating, and you wait for the city to cut the check."
-    },
-    {
-      "type": "job",
-      "copies": 1,
-      "id": "tower_fitout",
-      "name": "Office-tower fit-out",
-      "value": 67,
-      "work_amount": 24,
-      "deadline": 8,
-      "terms": 4,
-      "min_tradesmen": 3,
-      "max_tradesmen": 4,
-      "required_equipment": "pro",
-      "required_building_tier": 3,
-      "equipment_per_tradesman": true,
+      "id": "j6",
+      "name": "Marquee job",
       "droppable": true,
-      "required_trade": "pipefitter",
-      "flavor": "The Hollow's first 'tower' — three floors of offices and miles of mechanical pipe. The biggest payday in town, net-90+, and a pipefitter's crown jewel."
+      "flavor": "The crown jewel — the biggest payday in town, if youve built for it."
     },
     {
       "type": "windfall",
@@ -536,21 +495,6 @@
       "name": "Small-business grant",
       "cash": 7,
       "flavor": "Hal Ramsey at the Chamber comes through with a small-business grant — free money, for once."
-    },
-    {
-      "type": "job",
-      "copies": 1,
-      "id": "emergency_call",
-      "name": "Emergency call-out",
-      "value": 17,
-      "work_amount": 6,
-      "deadline": 3,
-      "terms": 1,
-      "min_tradesmen": 1,
-      "max_tradesmen": 2,
-      "required_equipment": null,
-      "droppable": false,
-      "flavor": "Chief Boon needs it fixed NOW — pays well, but the clock is brutal and you can't walk away."
     },
     {
       "type": "bbb_special",

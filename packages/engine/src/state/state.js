@@ -40,6 +40,7 @@ export function createJob(card, currentTurn) {
   return {
     id: genId("J"),
     card: card.id,
+    art: card.art ?? null, // per-trade art key for tailored jobs (else null → falls back to card id)
     name: card.name,
     value: card.value,
     work_amount: card.work_amount,
