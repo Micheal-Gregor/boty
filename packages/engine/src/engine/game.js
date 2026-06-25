@@ -2,7 +2,7 @@
 // phases in order, and routes action calls to shop.js for the *current* player only. The UI
 // never mutates state directly; it asks the Game, and the Game enforces the rules.
 
-import { createGame } from "../state/state.js";
+import { createGame, createPayable } from "../state/state.js";
 import { cashIn, cashOut, ACCT } from "../state/ledger.js";
 import { GameError } from "./economy.js";
 import * as shop from "./shop.js";
@@ -408,9 +408,12 @@ export class Game {
     const contractor = this.#playerById(r.contractor_id);
     let line;
     if (accept) {
+      // The contractor takes the job — and OWES the referrer the finder's fee as a player AP. They
+      // can pay it, or stiff it and get dragged to court (the existing player-payable litigation).
       contractor.jobs.push(r.job);
-      cashIn(this.state, referrer, ACCT.OTHER_INCOME, r.fee, `Referral finder's fee (${r.trade})`);
-      line = `🤝 ${contractor.name} takes the ${r.trade} referral — ${referrer.name} collects a ${w(r.fee)} finder's fee`;
+      const terms = this.state.economy.referral_fee_terms ?? 2;
+      contractor.payables.push(createPayable({ vendor: `${referrer.name} — referral fee`, amount: r.fee, dueTurn: this.state.turn + terms, isNpc: false, creditorId: referrer.id }));
+      line = `🤝 ${contractor.name} takes the ${r.trade} referral — owes ${referrer.name} a ${w(r.fee)} finder's fee (net-${terms * 30})`;
     } else {
       line = `🚫 ${contractor.name} passes on the ${r.trade} referral — ${referrer.name} gets nothing`;
     }

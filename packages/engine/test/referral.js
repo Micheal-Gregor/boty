@@ -36,8 +36,11 @@ const drawRef = (g, p, size = "j2") => { p.deck = new Deck([{ type: "referral", 
   const cash0 = m.cash;
   g.resolveReferral(r.id, { accept: true });
   assert.equal(p.jobs.length, 1, "contractor took the job");
-  assert.equal(m.cash, cash0 + r.fee, "referrer collected the finder's fee");
-  ok("referral: accept → contractor does it, referrer earns the fee");
+  assert.equal(m.cash, cash0, "referrer isn't paid up front");
+  const ap = p.payables.find((a) => a.creditor_id === m.id && !a.is_npc);
+  assert.ok(ap, "contractor owes the referrer the fee as a player AP");
+  assert.equal(ap.amount, r.fee, "the AP is the finder's fee (payable, or fight it in court)");
+  ok("referral: accept → contractor takes the job & OWES the referrer the fee (suable AP)");
 }
 // refuse → referrer gets nothing
 {
@@ -68,7 +71,8 @@ const drawRef = (g, p, size = "j2") => { p.deck = new Deck([{ type: "referral", 
   g.autoResolveReferral();
   assert.equal(g.state.pendingReferral.length, 0);
   assert.equal(p.jobs.length, 1, "contractor accepted (had room)");
-  ok("autoResolveReferral: contractor takes it with crew to spare");
+  assert.ok(p.payables.some((a) => a.creditor_id === m.id && !a.is_npc), "owes the referral fee as an AP");
+  ok("autoResolveReferral: contractor takes it with crew to spare (and owes the fee)");
 }
 
 console.log(`\nAll referral checks passed (${passed}).`);
