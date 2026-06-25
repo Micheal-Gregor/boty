@@ -202,6 +202,8 @@ export function createGame(economy, playerSeeds, options = {}) {
   return {
     economy,
     players,
+    cardPool: fortuneCards, // the master Fortune composition — the source for living-deck injections
+    deckEvents: [], // queued inject/remove descriptors for the UI shuffle reveal (drained each turn)
     progressDeck: new Deck(options.jobprogress ?? [], makeRng(seed === undefined ? undefined : seed + 1)),
     civilHandDeck: new Deck(civilHand, makeRng(seed === undefined ? undefined : seed + 2)),
     civilEventDeck: new Deck((options.civil ?? []).filter((c) => !c.hand), makeRng(seed === undefined ? undefined : seed + 4)),

@@ -48,4 +48,21 @@ export class Deck {
     }
     return out;
   }
+
+  /** Living deck: add cards to the composition and reshuffle (Dot's word, Mayor favors, union…). */
+  inject(cards) {
+    this.source.push(...cards);
+    this.reshuffle();
+  }
+
+  /** Living deck: pull up to n cards matching pred out of the composition, then reshuffle. Returns the count removed. */
+  remove(pred, n = Infinity) {
+    let removed = 0;
+    this.source = this.source.filter((c) => {
+      if (removed < n && pred(c)) { removed++; return false; }
+      return true;
+    });
+    this.reshuffle();
+    return removed;
+  }
 }
