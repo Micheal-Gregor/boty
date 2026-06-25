@@ -12,6 +12,8 @@
   import DamagesModal from "./components/DamagesModal.svelte";
   import SettleModal from "./components/SettleModal.svelte";
   import CardModal from "./components/CardModal.svelte";
+  import PoachModal from "./components/PoachModal.svelte";
+  import MayorModal from "./components/MayorModal.svelte";
 
   // One soft click for EVERY button press, app-wide (capture phase, so it still fires when a modal
   // stops propagation). Card opens / litigation / the Gala layer their own accent (flip/gavel/chime)
@@ -41,4 +43,6 @@
   <DamagesModal />
   <TargetPicker />
   <ResponseModal />
+  <PoachModal />
+  <MayorModal />
 </main>

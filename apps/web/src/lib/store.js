@@ -10,6 +10,7 @@ import { loadContent } from "./content.js";
 import { unlockAudio, playSfx } from "./sound.js";
 import { townlifeId } from "../components/Art.svelte";
 import { npcIntroFor } from "./townsfolk.js";
+import { crewIdentity } from "./crew.js";
 
 const { economy, decks, flavor } = loadContent();
 const AI_DELAY = 650; // ms between AI seats, so you can watch the table move
@@ -459,6 +460,8 @@ function afterAct() {
 
 export function endTurn() {
   if (game.state.pendingSettle.length) return fail("Answer the settlement offer first");
+  if (game.state.pendingPoach.length) return fail("Answer the poaching offer first");
+  if (game.state.pendingMayor.length) return fail("Answer the Mayor's drive first");
   if (game.state.pendingCourt.length) return fail("Resolve your court case first");
   if (game.state.pendingThreat) return fail("Resolve the response window first");
   const ctx = game.endTurn();
@@ -527,7 +530,7 @@ async function advanceUntilHuman(initialCtx) {
       await waitForPopups();
       if (game.state.over) return;
     } else {
-      push({ aiActing: { name: p.name, drew, lines: [] }, court: null, settle: null });
+      push({ aiActing: { name: p.name, drew, lines: [] }, court: null, settle: null, poach: null, mayor: null });
       if (!skipAI) await sleep(450);
     }
 
@@ -535,6 +538,8 @@ async function advanceUntilHuman(initialCtx) {
     if (game.settleCases.length) game.autoResolveSettle();
     if (game.courtCases.length) game.autoResolveCourt();
     if (game.damagesCases.length) game.autoResolveDamages();
+    if (game.poachCases.length) game.autoResolvePoach();
+    if (game.mayorCases.length) game.autoResolveMayor();
     const humanIds = new Set(game.state.players.filter((x) => !ai[x.id]).map((x) => x.id));
     try { botActions(game, ai[p.id], { humanIds }); } catch { /* best effort */ }
     const lines = game.state.log.slice(before).slice(-5); // this rival's moves this turn
@@ -554,7 +559,42 @@ async function advanceUntilHuman(initialCtx) {
     settle: game.settleCases.length ? [...game.settleCases] : null,
     court: game.courtCases.length ? [...game.courtCases] : null,
     damages: openDamages().length ? openDamages() : null,
+    poach: game.poachCases.length ? [...game.poachCases] : null,
+    mayor: game.mayorCases.length ? [...game.mayorCases] : null,
   });
+}
+
+// --- Poached: counter-offer (1/2/3 W + a loyalty roll) or let the worker walk ----------------
+export function resolvePoachUI(workerId, counter) {
+  if (counter <= 0) {
+    try { game.resolvePoach(workerId, { counter: 0 }); } catch (e) { return fail(e?.message ?? String(e)); }
+    surfaceNewOutcomes();
+    push({ poach: game.poachCases.length ? [...game.poachCases] : null });
+    return;
+  }
+  const thr = counter + 2;
+  const wname = crewIdentity(workerId).name;
+  push({ poach: null });
+  openDice({
+    title: `Keep ${wname}?`, noCancel: true,
+    sub: `Countered ${counter} W — they stay on ${thr}-or-under`,
+    steps: [{ prompt: `Roll: do they take your counter, or the rival's offer?`,
+      resolve: (v) => v <= thr
+        ? { text: `🤝 Rolled ${v} — ${wname} stays!`, stop: true, tone: "good" }
+        : { text: `💸 Rolled ${v} — over ${thr}. ${wname} walks anyway (you still paid ${counter} W).`, stop: true, tone: "bad" } }],
+    onDone: ([roll]) => {
+      try { game.resolvePoach(workerId, { counter, roll }); } catch (e) { return fail(e?.message ?? String(e)); }
+      surfaceNewOutcomes();
+      push({ poach: game.poachCases.length ? [...game.poachCases] : null });
+    },
+  });
+}
+
+// --- The Mayor's re-election drive: buy a Favor for 10 W (+seeds work) or pass ----------------
+export function resolveMayorUI(buy) {
+  try { game.resolveMayor({ buy }); } catch (e) { return fail(e?.message ?? String(e)); }
+  surfaceNewOutcomes();
+  push({ mayor: game.mayorCases.length ? [...game.mayorCases] : null });
 }
 
 /** Accept or decline a natural-6 settlement offer. */
