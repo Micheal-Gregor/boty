@@ -15,6 +15,7 @@ import { tickModifiers, chargeInterest, premiumsFor } from "./modifiers.js";
 import { tickExpansion } from "./expansion.js";
 import { chargeLevy, tickGlobals, levyDue } from "./globals.js";
 import { tickProjects } from "./projects.js";
+import { tickCivics } from "./civics.js";
 import { returnCrew } from "./crew.js";
 import { post, balances, ACCT } from "../state/ledger.js";
 
@@ -183,6 +184,7 @@ export function advance(state) {
       state.activePlayerIndex = 0;
       state.turn++;
       state.log.push(...tickGlobals(state)); // a new round — age out any town-wide effects
+      state.log.push(...tickCivics(state)); // a civic build past deadline penalises the whole town
       if (state.turn > state.economy.max_turns) {
         state.over = true;
         return null;

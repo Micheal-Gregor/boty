@@ -16,6 +16,7 @@ import { bearLoss, marketingInjection } from "./modifiers.js";
 import { applyCrewEvent } from "./crew.js";
 import { applyIncident } from "./incidents.js";
 import { startProject } from "./projects.js";
+import { startCivic } from "./civics.js";
 import { performanceReview } from "./employment.js";
 import { applyGlobal } from "./globals.js";
 import { resolveCivilEvent } from "./payables.js";
@@ -230,6 +231,8 @@ function resolveCard(state, player, card) {
       return applyIncident(state, player, card);
     case "project":
       return { type: "project", name: card.name, text: startProject(state, player, card) };
+    case "civic":
+      return { type: "civic", name: card.name, art: card.art ?? `civic/${card.id}`, text: startCivic(state, player, card) };
     case "crew":
       return applyCrewEvent(state, player, card);
     case "theft": {

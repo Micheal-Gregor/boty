@@ -31,12 +31,11 @@ function newGame(options) {
   assert.equal(count(decks.fortune, (c) => c.npc && c.type === "job"), 7, "NPC jobs (Hettrick×2 Lundgren×2 Dot×2 Boon×1)");
   assert.equal(count(decks.fortune, (c) => c.type === "review"), 1, "performance-review card");
   assert.equal(count(decks.fortune, (c) => c.type === "union"), 1, "union-drive card");
-  assert.equal(count(decks.fortune, (c) => c.type === "project"), 2, "phased story-projects");
-  assert.equal(count(decks.fortune, (c) => c.subcontract), 5, "subcontract jobs (the GC web; incl. the 2 civic)");
-  assert.equal(count(decks.fortune, (c) => c.political), 4, "political work (2 civic jobs + 2 story-projects)");
+  assert.equal(count(decks.fortune, (c) => c.type === "civic"), 4, "civic builds (one contract per player + PM)");
+  assert.equal(count(decks.fortune, (c) => c.subcontract), 3, "subcontract jobs (the GC web)");
   assert.equal(count(decks.fortune, (c) => c.type === "bbb_special"), 2, "BBB Special (services fair)");
   assert.equal(count(decks.fortune, (c) => c.type === "incident"), 4, "building incidents");
-  assert.equal(count(decks.fortune, (c) => c.type === "job"), 29, "jobs (17 ladder + 7 NPC + 3 subcontract + 2 civic)");
+  assert.equal(count(decks.fortune, (c) => c.type === "job"), 27, "jobs (17 ladder + 7 NPC + 3 subcontract)");
   assert.equal(count(decks.fortune, (c) => c.type === "defect"), 4, "code-violation / inspection defects");
   assert.equal(count(decks.fortune, (c) => c.type === "crew"), 6, "crew-life events");
   assert.equal(count(decks.fortune, (c) => c.type === "theft"), 1, "equipment theft");

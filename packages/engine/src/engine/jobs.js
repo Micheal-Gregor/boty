@@ -20,6 +20,7 @@ import { applyGlobal } from "./globals.js";
 import { onPhaseComplete, onPhaseFailed } from "./projects.js";
 import { accrue, cashIn, cashOut, ACCT } from "../state/ledger.js";
 import { injectById } from "./livingdeck.js";
+import { onCivicContractComplete } from "./civics.js";
 
 const PROGRESSING = new Set(["Queued", "Active", "OnHold"]);
 
@@ -321,6 +322,7 @@ function completeJob(state, player, job) {
   job.state = "Complete";
   // Dot's good word: finishing her job seeds fresh work into your deck (the anti-Hettrick).
   if (job.npc === "dot") injectById(state, player, "j2", state.economy.dot_referral_jobs ?? 3, `Dot's good word (${job.name})`);
+  if (job.civic_id) onCivicContractComplete(state, player, job); // mark the town contract; PM bonus when all land
   freeTradesmen(player, job);
   player.jobs = player.jobs.filter((j) => j.id !== job.id);
   const terms = job.terms ?? state.economy.invoice_terms; // payment terms (longer = paid later)

@@ -77,6 +77,7 @@ export function createJob(card, currentTurn) {
     favor_reward: card.favor_reward ?? 0,
     global_penalty: card.global_penalty ?? null,
     project_id: card.project_id ?? null, // a phase of a larger phased project (projects.js)
+    civic_id: card.civic_id ?? null, // a town-wide civic contract (civics.js) — pays you, PM bonus when all land
     state: "Queued", // Queued | Active | OnHold | Expired | Complete
     assigned_tradesmen: [],
     exposed: false, // set when a STARTED job expires late (matters in later stages)
@@ -219,6 +220,7 @@ export function createGame(economy, playerSeeds, options = {}) {
     pendingMayor: [], // the Mayor's re-election drive — buy a Favor (10W) or pass
     globalEffects: [], // town-wide conditions (levies/booms) from civic jobs — the global card layer
     projects: [], // phased story-projects in flight (deposit + phases + balance) — projects.js
+    civics: [], // town-wide civic contracts in flight (one sub-contract per player + PM) — civics.js
     turn: 1, // 1-based round counter; game ends after round === max_turns completes
     activePlayerIndex: 0,
     over: false,
