@@ -28,6 +28,8 @@ function runToEnd(game, strategyFor) {
     if (game.settleCases.length) game.autoResolveSettle(); // take affordable settlement offers
     if (game.courtCases.length) game.autoResolveCourt(); // resolve NPC court before acting
     if (game.damagesCases.length) game.autoResolveDamages(); // sue botched routed jobs
+    if (game.poachCases.length) game.autoResolvePoach(); // counter-offer or let a poached worker go
+    if (game.mayorCases.length) game.autoResolveMayor(); // chip in to the Mayor's drive if flush
     if (ctx.canAct) botActions(game, strategyFor(game.currentPlayer));
     ctx = game.endTurn();
   }

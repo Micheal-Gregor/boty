@@ -14,6 +14,7 @@ import * as modifiers from "./modifiers.js";
 import * as expansion from "./expansion.js";
 import * as employment from "./employment.js";
 import { drawFortune } from "./fortune.js";
+import { injectById } from "./livingdeck.js";
 import { getawayThreshold, rollGetaway, getawayOdds } from "./litigation.js";
 import { w } from "./economy.js";
 import { runUpkeep, advance, results } from "./turn.js";
@@ -50,6 +51,8 @@ export class Game {
   runProgress() {
     if (this.state.over) return [];
     if (this.state.pendingSettle.length) throw new GameError("Answer the settlement offer first");
+    if (this.state.pendingPoach.length) throw new GameError("Answer the poaching offer first");
+    if (this.state.pendingMayor.length) throw new GameError("Answer the Mayor's drive first");
     if (this.state.pendingCourt.length) throw new GameError("Resolve your court case first");
     if (this.state.pendingThreat) throw new GameError("Resolve the pending response window first");
     const player = this.currentPlayer;
@@ -144,6 +147,8 @@ export class Game {
   #act(fn, finalLegal = false) {
     if (this.state.over) throw new GameError("The game is over");
     if (this.state.pendingSettle.length) throw new GameError("Answer the settlement offer first");
+    if (this.state.pendingPoach.length) throw new GameError("Answer the poaching offer first");
+    if (this.state.pendingMayor.length) throw new GameError("Answer the Mayor's drive first");
     if (this.state.pendingCourt.length) throw new GameError("Resolve your court case first");
     if (this.state.pendingThreat) throw new GameError("Resolve the pending response window first");
     if (this.state.phase === "reckoning" && !finalLegal) {
@@ -306,6 +311,73 @@ export class Game {
       const c = this.state.pendingSettle[0];
       const player = this.state.players.find((p) => p.id === c.playerId);
       lines.push(this.resolveSettle(c.payableId, { accept: take && player.cash >= c.settle }));
+    }
+    return lines;
+  }
+
+  // --- Poached: a rival lures a worker; counter (pay + roll) or let them go ---------------------
+  get poachCases() { return this.state.pendingPoach; }
+  /** counter 0 = let them go; 1/2/3 = pay that & roll — they stay on d6 ≤ (counter+2). The firing
+   *  player rolls (the UI may supply `roll`); else the seeded die. */
+  resolvePoach(workerId, { counter = 0, roll = null } = {}) {
+    const i = this.state.pendingPoach.findIndex((x) => x.workerId === workerId);
+    if (i < 0) throw new GameError(`No poach offer for "${workerId}"`);
+    const [pp] = this.state.pendingPoach.splice(i, 1);
+    const player = this.#playerById(pp.playerId);
+    const t = player.tradesmen.find((x) => x.id === workerId);
+    const walk = () => { if (t.assignedJob != null) jobs.releaseTradesman(this.state, player, t.id); player.tradesmen = player.tradesmen.filter((x) => x.id !== t.id); };
+    let line;
+    if (!t) { line = `${workerId} was already gone before the offer landed`; }
+    else if (counter <= 0) { walk(); line = `🚪 ${player.name} let ${workerId} walk — the Pettigrews got their hire`; }
+    else {
+      const c = Math.max(1, Math.min(3, counter));
+      cashOut(this.state, player, ACCT.COGS_LABOUR, c, "Retention counter-offer");
+      const threshold = c + 2;
+      const r = roll != null ? roll : this.state.die();
+      if (r <= threshold) line = `🤝 ${player.name} countered ${w(c)} — ${workerId} stays (rolled ${r} ≤ ${threshold})`;
+      else { walk(); line = `💸 ${workerId} took the rival's offer anyway despite the ${w(c)} counter (rolled ${r} > ${threshold})`; }
+    }
+    this.state.log.push(line);
+    return line;
+  }
+  /** AI/CLI/harness: counter with 2 W if it can spare it, else let them go. */
+  autoResolvePoach() {
+    const lines = [];
+    while (this.state.pendingPoach.length) {
+      const pp = this.state.pendingPoach[0];
+      const player = this.#playerById(pp.playerId);
+      lines.push(this.resolvePoach(pp.workerId, { counter: player.cash >= 4 ? 2 : 0 }));
+    }
+    return lines;
+  }
+
+  // --- The Mayor's re-election drive: buy a Favor (and seed networking_lunch) or pass -----------
+  get mayorCases() { return this.state.pendingMayor; }
+  resolveMayor({ buy = false } = {}) {
+    const c = this.state.pendingMayor.shift();
+    if (!c) throw new GameError("No Mayor drive to answer");
+    const player = this.#playerById(c.playerId);
+    const cost = this.state.economy.mayor_favor_cost ?? 10;
+    let line;
+    if (buy && player.cash >= cost) {
+      cashOut(this.state, player, ACCT.MEALS, cost, "Mayor's re-election donation");
+      player.hand.push({ id: "favor", type: "favor", name: "Favor" });
+      injectById(this.state, player, "networking_lunch", this.state.economy.mayor_favor_lunches ?? 3, "the Mayor's good graces");
+      line = `🪙 ${player.name} chipped in ${w(cost)} — a Favor now, and the Mayor steers work your way`;
+    } else {
+      line = `${player.name} passed on the Mayor's drive`;
+    }
+    this.state.log.push(line);
+    return line;
+  }
+  /** AI/CLI/harness: chip in only with a healthy cash buffer. */
+  autoResolveMayor() {
+    const lines = [];
+    while (this.state.pendingMayor.length) {
+      const c = this.state.pendingMayor[0];
+      const player = this.#playerById(c.playerId);
+      const cost = this.state.economy.mayor_favor_cost ?? 10;
+      lines.push(this.resolveMayor({ buy: player.cash >= cost * 2 }));
     }
     return lines;
   }

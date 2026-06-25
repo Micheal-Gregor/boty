@@ -50,13 +50,18 @@ const economy = await loadEconomy();
   g.start();
   const ana = g.state.players[0];
   ana.tradesmen.push(createTradesman()); // a second hand to lose
+  g.state.pendingPoach = [];
   const n = ana.tradesmen.length;
-  applyCrewEvent(g.state, ana, { effect: "poached", raise: 3, name: "Poached!" });
-  assert.equal(ana.tradesmen.length, n, "kept the worker by matching the offer");
-  ana.cash = 0;
-  applyCrewEvent(g.state, ana, { effect: "poached", raise: 3, name: "Poached!" });
-  assert.equal(ana.tradesmen.length, n - 1, "lost a worker when the offer couldn't be matched");
-  ok("poached: pay to retain, or lose them");
+  // Poached now queues an interactive decision; the player counters (+roll) or lets them walk.
+  applyCrewEvent(g.state, ana, { effect: "poached", name: "Poached!" });
+  assert.equal(g.state.pendingPoach.length, 1, "poaching queues a decision");
+  const wid = g.state.pendingPoach[0].workerId;
+  g.resolvePoach(wid, { counter: 2, roll: 1 }); // 1 ≤ 4 → stays
+  assert.equal(ana.tradesmen.length, n, "kept the worker by countering");
+  applyCrewEvent(g.state, ana, { effect: "poached", name: "Poached!" });
+  g.resolvePoach(g.state.pendingPoach[0].workerId, { counter: 0 }); // let them go
+  assert.equal(ana.tradesmen.length, n - 1, "lost a worker when let go");
+  ok("poached: counter (+roll) to retain, or let them walk");
 }
 
 console.log(`\nAll crew checks passed (${passed}).`);

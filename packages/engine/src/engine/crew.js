@@ -33,14 +33,9 @@ export function applyCrewEvent(state, player, card) {
   }
 
   if (card.effect === "poached") {
-    const raise = card.raise ?? 3;
-    if (player.cash >= raise) {
-      cashOut(state, player, ACCT.COGS_LABOUR, raise, `${card.name} — retention raise`);
-      return { type: "crew", name: card.name, text: `${t.id} was poached — paid ${w(raise)} to keep them` };
-    }
-    if (t.assignedJob != null) releaseTradesman(state, player, t.id);
-    player.tradesmen = player.tradesmen.filter((x) => x.id !== t.id);
-    return { type: "crew", name: card.name, text: `${t.id} poached away — couldn't match the offer` };
+    // A rival dangles a paycheck — the player decides: counter-offer (+roll) or let them walk.
+    state.pendingPoach.push({ playerId: player.id, workerId: t.id });
+    return { type: "crew", name: card.name, text: `the Pettigrews are dangling a paycheck at ${t.id} — match it or lose them` };
   }
 
   return { type: "crew", name: card.name, text: "(no effect)" };

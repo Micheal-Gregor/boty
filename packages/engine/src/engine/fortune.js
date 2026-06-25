@@ -156,14 +156,10 @@ function resolveCard(state, player, card) {
     case "character": {
       // Most characters skin existing card types; this handles their bespoke effects.
       if (card.effect === "donation") {
-        // The Mayor's re-election drive: chip in and you're owed a favor.
-        const cost = card.cost ?? 2;
-        if (player.cash >= cost) {
-          cashOut(state, player, ACCT.MEALS, cost, `${card.name} — donation`);
-          player.hand.push({ id: "favor", type: "favor", name: "Favor" });
-          return { type: "character", name: card.name, text: `donated ${w(cost)} — the Mayor owes you a Favor` };
-        }
-        return { type: "character", name: card.name, text: "couldn't spare a donation this time" };
+        // The Mayor's re-election drive: the player decides whether to chip in (buy a Favor + seed
+        // networking_lunch into their deck). Deferred to a pending decision.
+        state.pendingMayor.push({ playerId: player.id });
+        return { type: "character", name: card.name, text: `Mayor Crabtree's passing the hat — chip in for a Favor, or pass` };
       }
       return { type: "character", name: card.name, text: card.text ?? "" };
     }

@@ -138,10 +138,13 @@ const economy = await loadEconomy();
   g.start();
   const ana = g.state.players[0];
   const cash0 = ana.cash;
+  g.state.pendingMayor = []; // clear the turn-1 draw
   drawFortune(g.state, ana, 1);
-  assert.equal(ana.cash, cash0 - 3, "donation paid");
+  assert.equal(g.state.pendingMayor.length, 1, "the drive queues a decision");
+  g.resolveMayor({ buy: true });
+  assert.equal(ana.cash, cash0 - (economy.mayor_favor_cost ?? 10), "donation paid (10 W)");
   assert.ok(ana.hand.some((c) => c.type === "favor"), "earned a Favor card");
-  ok("mayor's donation: pay to earn a Favor");
+  ok("mayor's drive: chip in → a Favor card");
 }
 
 // BBB Special gates services; a drawn BBB Special unlocks them; marketing is a few-turn timer.

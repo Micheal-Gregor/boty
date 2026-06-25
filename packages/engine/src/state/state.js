@@ -212,6 +212,8 @@ export function createGame(economy, playerSeeds, options = {}) {
     pendingCourt: [], // NPC court cases awaiting the defendant's lawyer decision
     pendingDamages: [], // botched routed jobs the hirer may sue over (damages → the bank)
     pendingSettle: [], // natural-6 settlement offers awaiting accept/decline
+    pendingPoach: [], // a rival is luring a worker — counter-offer (+roll) or let them go
+    pendingMayor: [], // the Mayor's re-election drive — buy a Favor (10W) or pass
     globalEffects: [], // town-wide conditions (levies/booms) from civic jobs — the global card layer
     projects: [], // phased story-projects in flight (deposit + phases + balance) — projects.js
     turn: 1, // 1-based round counter; game ends after round === max_turns completes

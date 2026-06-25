@@ -15,6 +15,10 @@
   "_termination_comment": "Firing risk mirrors real wrongful-termination: the FIRING PLAYER rolls a d6 (no NPC ever rolls). On a roll ≤ threshold the worker sues (you pay court_fee); a second roll ≤ threshold and they WIN (you also pay award). Threshold by case: cause (theft/poor review) safest, then a no-cause layoff while you still have unallocated work, then PUNITIVE (firing someone who's out sick/injured) the riskiest. A legit layoff (no work, no flag, healthy) draws no roll. A Slick Lawyer YOU play shifts the threshold down (worker never lawyers up); a Unionized town shifts it up — Favor busts the union.",
   "termination": { "court_fee": 1, "award": 4, "cause": 2, "nocause": 3, "punitive": 4, "union_shift": 2, "lawyer_shift": 2 },
 
+  "_poach_comment": "Poached: a rival lures a worker. You may counter — pay 1/2/3 W and roll; they stay on a d6 ≤ (counter+2), i.e. 1W→1-3, 2W→1-4, 3W→1-5 — else they walk (you still paid). Or let them go free.",
+  "mayor_favor_cost": 10,
+  "mayor_favor_lunches": 3,
+
   "base_hand_speed": 1,
   "invoice_terms": 1,
   "sell_rate": 0.15,
