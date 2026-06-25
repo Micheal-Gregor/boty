@@ -9,7 +9,7 @@
   <div class="ent-overlay">
     <div class="confirm" onclick={(e) => e.stopPropagation()}>
       <h2>🤝 A job comes your way</h2>
-      <p class="cbody"><strong>{referrer}</strong> can't do this one — it's your trade. Take <strong>{r.job?.name ?? "the job"}</strong> ({r.job?.value} W) and you'll <strong>owe them a {r.fee} W finder's fee</strong> (a payable you can settle… or stiff and fight in court). Or pass and it walks.</p>
+      <p class="cbody"><strong>{referrer}</strong> can't do this one — it's your trade. Take <strong>{r.job?.name ?? "the job"}</strong> ({r.job?.value} W) and you'll owe them a <strong>{r.fee} W</strong> finder's fee. Or pass and it walks.</p>
       <div class="cbtns">
         <button class="no" onclick={() => resolveReferralUI(r.id, false)}>Pass</button>
         <button class="yes" onclick={() => resolveReferralUI(r.id, true)}>Take it ▶</button>
