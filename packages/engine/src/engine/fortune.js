@@ -231,8 +231,27 @@ function resolveCard(state, player, card) {
       return applyIncident(state, player, card);
     case "project":
       return { type: "project", name: card.name, text: startProject(state, player, card) };
-    case "civic":
-      return { type: "civic", name: card.name, art: card.art ?? `civic/${card.id}`, text: startCivic(state, player, card) };
+    case "civic": {
+      // The storm civic follows the season; the rest are keyed by their id.
+      const art = card.seasonal_storm ? `civic/storm/${seasonName(state).toLowerCase()}` : (card.art ?? `civic/${card.id}`);
+      return { type: "civic", name: card.name, art, text: startCivic(state, player, { ...card, art }) };
+    }
+    case "referral": {
+      // The wild card: a job that isn't your trade. Broker it to a shop that can do it for a
+      // finder's fee (= the job's sell price); they accept next round or refuse. No shop with that
+      // trade at the table → the county handles it and you still pocket the fee.
+      const others = state.economy.services.filter((s) => s !== player.service);
+      const trade = others[(state.die() - 1) % others.length];
+      const job = createJob(tailorJob(state.economy, { ...card, droppable: true }, trade), state.turn);
+      const fee = Math.max(1, Math.floor(job.value * state.economy.sell_rate));
+      const contractor = pickContractor(state, player, trade);
+      if (!contractor) {
+        cashIn(state, player, ACCT.OTHER_INCOME, fee, `Referral fee — no ${trade} in town`);
+        return { type: "referral", name: `Referral: a ${trade} job`, art: "job/walkin/2p", text: `not your trade, and no ${trade} at the table — the county takes it; you pocket the ${w(fee)} finder's fee` };
+      }
+      state.pendingReferral.push({ id: `REF${state.refSeq = (state.refSeq || 0) + 1}`, referrer_id: player.id, contractor_id: contractor.id, fee, job, trade });
+      return { type: "referral", name: `Referral: a ${trade} job`, art: "job/walkin/2p", routedTo: contractor.id, text: `not your trade — offered to ${contractor.name}; a ${w(fee)} finder's fee if they take it` };
+    }
     case "crew":
       return applyCrewEvent(state, player, card);
     case "theft": {

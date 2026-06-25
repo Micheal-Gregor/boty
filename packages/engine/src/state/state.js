@@ -218,6 +218,7 @@ export function createGame(economy, playerSeeds, options = {}) {
     pendingSettle: [], // natural-6 settlement offers awaiting accept/decline
     pendingPoach: [], // a rival is luring a worker — counter-offer (+roll) or let them go
     pendingMayor: [], // the Mayor's re-election drive — buy a Favor (10W) or pass
+    pendingReferral: [], // a brokered job offered to a contractor — they accept (referrer gets a fee) or refuse
     globalEffects: [], // town-wide conditions (levies/booms) from civic jobs — the global card layer
     projects: [], // phased story-projects in flight (deposit + phases + balance) — projects.js
     civics: [], // town-wide civic contracts in flight (one sub-contract per player + PM) — civics.js

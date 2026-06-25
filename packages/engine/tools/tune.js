@@ -30,6 +30,7 @@ function runToEnd(game, strategyFor) {
     if (game.damagesCases.length) game.autoResolveDamages(); // sue botched routed jobs
     if (game.poachCases.length) game.autoResolvePoach(); // counter-offer or let a poached worker go
     if (game.mayorCases.length) game.autoResolveMayor(); // chip in to the Mayor's drive if flush
+    if (game.referralCases.length) game.autoResolveReferral(); // take a brokered job if there's crew to spare
     if (ctx.canAct) botActions(game, strategyFor(game.currentPlayer));
     ctx = game.endTurn();
   }

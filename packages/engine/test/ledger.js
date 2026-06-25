@@ -26,6 +26,7 @@ const S = economy.services;
     if (g.damagesCases.length) g.autoResolveDamages();
     if (g.poachCases.length) g.autoResolvePoach();
     if (g.mayorCases.length) g.autoResolveMayor();
+    if (g.referralCases.length) g.autoResolveReferral();
     if (ctx.canAct) botActions(g, "balanced");
     ctx = g.endTurn();
   }
@@ -57,6 +58,7 @@ const S = economy.services;
     if (g.damagesCases.length) g.autoResolveDamages();
     if (g.poachCases.length) g.autoResolvePoach();
     if (g.mayorCases.length) g.autoResolveMayor();
+    if (g.referralCases.length) g.autoResolveReferral();
     if (ctx.canAct) botActions(g, "balanced");
     ctx = g.endTurn();
   }

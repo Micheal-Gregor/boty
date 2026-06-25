@@ -463,6 +463,7 @@ export function endTurn() {
   if (game.state.pendingPoach.length) return fail("Answer the poaching offer first");
   if (game.state.pendingMayor.length) return fail("Answer the Mayor's drive first");
   if (game.unstaffedBoon.length) return fail(`Chief Boon's job must be assigned a worker first — drop everything`);
+  if (game.referralCases.some((r) => r.contractor_id === game.state.players[game.state.activePlayerIndex].id)) return fail("Answer the referral offer first");
   if (game.state.pendingCourt.length) return fail("Resolve your court case first");
   if (game.state.pendingThreat) return fail("Resolve the response window first");
   const ctx = game.endTurn();
@@ -531,7 +532,7 @@ async function advanceUntilHuman(initialCtx) {
       await waitForPopups();
       if (game.state.over) return;
     } else {
-      push({ aiActing: { name: p.name, drew, lines: [] }, court: null, settle: null, poach: null, mayor: null });
+      push({ aiActing: { name: p.name, drew, lines: [] }, court: null, settle: null, poach: null, mayor: null, referral: null });
       if (!skipAI) await sleep(450);
     }
 
@@ -541,6 +542,7 @@ async function advanceUntilHuman(initialCtx) {
     if (game.damagesCases.length) game.autoResolveDamages();
     if (game.poachCases.length) game.autoResolvePoach();
     if (game.mayorCases.length) game.autoResolveMayor();
+    if (game.referralCases.length) game.autoResolveReferral((cid) => !!ai[cid]); // only AI shops auto-answer
     const humanIds = new Set(game.state.players.filter((x) => !ai[x.id]).map((x) => x.id));
     try { botActions(game, ai[p.id], { humanIds }); } catch { /* best effort */ }
     const lines = game.state.log.slice(before).slice(-5); // this rival's moves this turn
@@ -562,7 +564,17 @@ async function advanceUntilHuman(initialCtx) {
     damages: openDamages().length ? openDamages() : null,
     poach: game.poachCases.length ? [...game.poachCases] : null,
     mayor: game.mayorCases.length ? [...game.mayorCases] : null,
+    referral: game.referralCases.filter((r) => r.contractor_id === meLive().id).length ? game.referralCases.filter((r) => r.contractor_id === meLive().id) : null,
   });
+}
+
+// --- Referral: a rival brokered a job your trade can do — accept it (they earn a fee) or refuse ---
+export function resolveReferralUI(id, accept) {
+  try { game.resolveReferral(id, { accept }); } catch (e) { return fail(e?.message ?? String(e)); }
+  surfaceNewOutcomes();
+  const me = game.state.players[game.state.activePlayerIndex];
+  const mine = game.referralCases.filter((r) => r.contractor_id === me.id);
+  push({ referral: mine.length ? mine : null });
 }
 
 // --- Poached: counter-offer (1/2/3 W + a loyalty roll) or let the worker walk ----------------

@@ -184,6 +184,30 @@
       "flavor": "The crown jewel — the biggest payday in town, if youve built for it."
     },
     {
+      "type": "referral",
+      "size": "j1",
+      "copies": 1,
+      "id": "referral_1p",
+      "name": "A job for another trade",
+      "flavor": "Walks in your door, but its not your trade — broker it and take a cut."
+    },
+    {
+      "type": "referral",
+      "size": "j2",
+      "copies": 1,
+      "id": "referral_2p",
+      "name": "A job for another trade",
+      "flavor": "Not your line of work — refer it to the shop that can, pocket the finders fee."
+    },
+    {
+      "type": "referral",
+      "size": "j3",
+      "copies": 1,
+      "id": "referral_3p",
+      "name": "A job for another trade",
+      "flavor": "Bigger than you can take — hand it off and skim the spread."
+    },
+    {
       "type": "job",
       "npc": "hettrick",
       "copies": 2,
@@ -490,23 +514,19 @@
       "flavor": "A water main lets go under the Grange hall — the town needs a plumber, today."
     },
     {
-      "type": "incident",
-      "copies": 1,
+      "type": "civic",
       "id": "downtown_storm",
+      "copies": 1,
       "name": "Storm damage downtown",
-      "trades": [
-        "electrician",
-        "HVAC technician",
-        "welder"
-      ],
-      "value": 8,
-      "work_amount": 4,
+      "seasonal_storm": true,
       "deadline": 3,
-      "terms": 1,
-      "min_tradesmen": 1,
-      "max_tradesmen": 1,
-      "required_equipment": null,
-      "droppable": true,
+      "favor_reward": 1,
+      "global_penalty": {
+        "name": "Storm cleanup levy",
+        "kind": "levy",
+        "magnitude": 1,
+        "turns": 2
+      },
       "flavor": "The storm tore up Main Street — downed lines, ruined units, twisted signage. Every trade's got a piece."
     },
     {
