@@ -248,6 +248,23 @@ function surfaceNewOutcomes() {
     for (const [re, title, body] of ALERTS) { const m = re.exec(log[i]); if (m) { enqueuePopup({ kind: "alert", title, body: body(m) }); break; } }
   }
   lastScanned = log.length;
+  surfaceDeckEvents();
+}
+
+// The living deck made visible (Stage 7): when YOUR deck reshapes (Dot adds, Hettrick pulls, the
+// Mayor seeds…), show the cards moving + a shuffle. Only drains while the human is active, so a
+// rival's reshapes (skipped) don't strand the human's.
+let lastDeckEvent = 0;
+function surfaceDeckEvents() {
+  if (!game) return;
+  const me = game.state.players[game.state.activePlayerIndex];
+  if (!me || isAI(me.id)) return;
+  const evs = game.state.deckEvents ?? [];
+  for (let i = lastDeckEvent; i < evs.length; i++) {
+    const e = evs[i];
+    if (e.who === me.id) enqueuePopup({ kind: "shuffle", reason: e.reason, add: e.add ?? null, count: e.count ?? e.remove ?? 0, removed: e.remove != null });
+  }
+  lastDeckEvent = evs.length;
 }
 
 // --- Rival card pop-ups (E5 §4) — what the rivals drew, per the Settings filter ----------------
@@ -330,7 +347,7 @@ export function newGame(seats) {
   game.state.flavor = flavor;
   ai = {};
   declinedDamages.clear();
-  lastScanned = 0; lastRoundShown = 0;
+  lastScanned = 0; lastRoundShown = 0; lastDeckEvent = 0;
   game.state.players.forEach((p, i) => { ai[p.id] = seats[i].strategy ?? null; });
   const ctx = game.start();
   push({ screen: "board", ctx, error: null, aiActing: null, threat: null, picking: null, reckoning: null, final: null, court: null });

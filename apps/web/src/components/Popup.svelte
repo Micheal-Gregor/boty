@@ -49,6 +49,14 @@
         <p class="pop-flavor">{p.role}</p>
         <p class="pop-effect">{p.line}</p>
 
+      {:else if p.kind === "shuffle"}
+        <div class="shuffle-deck" class:adding={!p.removed} class:pulling={p.removed}>
+          <span class="sc sc1"></span><span class="sc sc2"></span><span class="sc sc3"></span>
+          <span class="badge">{p.removed ? "−" : "+"}{p.count}</span>
+        </div>
+        <h2>🔀 Your deck reshuffles</h2>
+        <p class="pop-effect">{p.removed ? "➖" : "➕"} {p.count} {p.add === "networking_lunch" ? (p.count === 1 ? "networking lunch" : "networking lunches") : (p.count === 1 ? "job" : "jobs")} — {p.reason}</p>
+
       {:else if p.kind === "alert"}
         <h2>{p.title}</h2>
         <p class="pop-effect">{p.body}</p>
@@ -89,6 +97,17 @@
   .exp-row.total span:first-child { color: inherit; }
   .pop-effect { margin: 4px 0; }
   .pop-rival { font-size: 0.82em; color: var(--muted, #9aa0aa); font-weight: 600; margin-bottom: 4px; }
+  .shuffle-deck { position: relative; width: 110px; height: 84px; margin: 10px auto 14px; }
+  .shuffle-deck .sc { position: absolute; left: 50%; top: 50%; width: 46px; height: 64px; margin: -32px 0 0 -23px; border-radius: 6px; background: #f4f1e8; border: 1px solid #d8d2c0; box-shadow: 0 2px 6px rgba(0,0,0,0.45); }
+  .shuffle-deck.adding .sc { background: linear-gradient(#f6f2e6, #d6ead2); }
+  .shuffle-deck.pulling .sc { background: linear-gradient(#f6f2e6, #f2d6d2); }
+  .shuffle-deck .sc1 { animation: riffle 0.9s ease-in-out infinite; }
+  .shuffle-deck .sc2 { animation: riffle 0.9s ease-in-out infinite 0.15s; }
+  .shuffle-deck .sc3 { animation: riffle 0.9s ease-in-out infinite 0.3s; }
+  @keyframes riffle { 0%,100% { transform: translate(0,0) rotate(0); } 30% { transform: translateX(-30px) rotate(-13deg); } 65% { transform: translateX(30px) rotate(13deg); } }
+  .shuffle-deck .badge { position: absolute; top: -10px; right: 2px; min-width: 26px; padding: 2px 7px; border-radius: 11px; font-weight: 800; font-size: 0.9em; text-align: center; z-index: 2; }
+  .shuffle-deck.adding .badge { background: #5fb87a; color: #0f1a12; }
+  .shuffle-deck.pulling .badge { background: #e8746a; color: #1a1010; }
   .pop-rule { margin-top: 10px; padding: 8px 10px; background: var(--panel-2, #1b1f27); border-left: 3px solid var(--accent, #e0b341); border-radius: 6px; font-size: 0.86em; color: var(--ink, #e7e7ea); }
   .pop-foot { display: flex; gap: 8px; margin-top: 16px; }
   .pop-close { flex: 1; padding: 10px; font-weight: 700; }
