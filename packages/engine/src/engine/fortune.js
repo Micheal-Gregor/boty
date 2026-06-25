@@ -46,7 +46,7 @@ function cashLine(card, amount) {
 
 /** Phase 2 — draw `count` Fortune cards for the player and resolve each. Returns summaries. */
 export function drawFortune(state, player, count) {
-  const cards = state.deck.drawN(count);
+  const cards = (player.deck ?? state.deck).drawN(count); // per-player deck (Stage: living deck)
   const injected = marketingInjection(player); // marketing brings in extra work
   if (injected) cards.unshift(injected);
   const season = seasonName(state);

@@ -113,7 +113,7 @@ function newGame(options) {
   const g = newGame({});
   const p = g.currentPlayer;
   p.equipment.push({ id: "E1", defId: "basic", owned: true }, { id: "E2", defId: "pro", owned: true });
-  g.state.deck = new Deck([{ type: "windfall", id: "patent", name: "Patent", per_equipment: 2 }], makeRng(1));
+  p.deck = new Deck([{ type: "windfall", id: "patent", name: "Patent", per_equipment: 2 }], makeRng(1));
   const before = p.cash;
   drawFortune(g.state, p, 1);
   assert.equal(p.cash, before + 4, "patent pays per_equipment × equipment (2 × 2)");
@@ -123,7 +123,7 @@ function newGame(options) {
   const g = newGame({});
   const p = g.currentPlayer;
   p.tradesmen.push(createTradesman(), createTradesman()); // 3 total
-  g.state.deck = new Deck([{ type: "shock", id: "ps", name: "Profit share", per_tradesman: -2 }], makeRng(1));
+  p.deck = new Deck([{ type: "shock", id: "ps", name: "Profit share", per_tradesman: -2 }], makeRng(1));
   const before = p.cash;
   drawFortune(g.state, p, 1);
   assert.equal(p.cash, before - 6, "profit-share docks per_tradesman × headcount (−2 × 3)");
@@ -134,7 +134,7 @@ function newGame(options) {
   const p = g.currentPlayer;
   p.tradesmen.push(createTradesman()); // 2 total
   const n = p.tradesmen.length;
-  g.state.deck = new Deck([{ type: "retirement", id: "ret", name: "Retire" }], makeRng(1));
+  p.deck = new Deck([{ type: "retirement", id: "ret", name: "Retire" }], makeRng(1));
   const before = p.cash;
   drawFortune(g.state, p, 1);
   assert.equal(p.tradesmen.length, n, "headcount unchanged — replacement hired");
@@ -147,13 +147,13 @@ function newGame(options) {
   const weather = { type: "shock", id: "wx", name: "Bad weather", cash: -1, flavor: "generic squall", flavor_by_season: { Spring: "spring mud", Winter: "a blizzard buries Main Street" } };
   const g = newGame({});
   const p = g.currentPlayer;
-  g.state.deck = new Deck([weather], makeRng(1));
+  p.deck = new Deck([weather], makeRng(1));
   g.state.turn = 1; // Spring (max_turns 24 → 6 rounds/season)
   assert.equal(drawFortune(g.state, p, 1)[0].flavor, "spring mud", "Spring variant chosen");
-  g.state.deck = new Deck([weather], makeRng(1));
+  p.deck = new Deck([weather], makeRng(1));
   g.state.turn = 22; // Winter (turns 19–24)
   assert.equal(drawFortune(g.state, p, 1)[0].flavor, "a blizzard buries Main Street", "Winter variant chosen");
-  g.state.deck = new Deck([weather], makeRng(1));
+  p.deck = new Deck([weather], makeRng(1));
   g.state.turn = 8; // Summer (turns 7–12) — no variant defined → falls back to base flavor
   assert.equal(drawFortune(g.state, p, 1)[0].flavor, "generic squall", "falls back to base flavor when no seasonal variant");
   ok("seasonal flavor: the card reads differently by season, with a sane fallback");

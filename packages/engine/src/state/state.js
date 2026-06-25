@@ -190,10 +190,18 @@ export function createGame(economy, playerSeeds, options = {}) {
   const fortuneCards = options.fortune ?? (options.jobCards ?? []).map((c) => ({ type: "job", ...c }));
   const civilHand = (options.civil ?? []).filter((c) => c.hand);
 
+  // The living deck (Stage: per-player decks): everyone starts with a copy of the same Fortune
+  // composition but plays their OWN deck, so mini-game outcomes can inject/remove cards from one
+  // player's deck (poach, Hettrick) or all of them (union). Player 0 keeps seed `seed` so existing
+  // single-player tests/replays draw identically.
+  const players = playerSeeds.map((s) => createPlayer(economy, s));
+  players.forEach((p, i) => {
+    p.deck = new Deck(fortuneCards, makeRng(seed === undefined ? undefined : seed + i));
+  });
+
   return {
     economy,
-    players: playerSeeds.map((seed) => createPlayer(economy, seed)),
-    deck: new Deck(fortuneCards, makeRng(seed)),
+    players,
     progressDeck: new Deck(options.jobprogress ?? [], makeRng(seed === undefined ? undefined : seed + 1)),
     civilHandDeck: new Deck(civilHand, makeRng(seed === undefined ? undefined : seed + 2)),
     civilEventDeck: new Deck((options.civil ?? []).filter((c) => !c.hand), makeRng(seed === undefined ? undefined : seed + 4)),

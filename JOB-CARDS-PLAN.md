@@ -26,6 +26,8 @@ At setup you pick a tier. It sets **(a)** the **starting 60-card mix** and **(b)
 | **Dot adds jobs (+3)** | **100%** | ~75% | **50%** |
 | **Lundgren/Hettrick pull jobs (−2)** | **50%** | ~75% | **100%** |
 
+> **The %s above are illustrative, not fixed.** Every trigger ships at **100%** and gets tuned per-tier in the harness until each tier feels right — the Dot-down/Hettrick-up pattern is the *direction*, not hard numbers.
+>
 > The cutthroat irony you flagged: the cheapskate Hettrick won't pay (net-90) yet keeps showing up — more of his cards, firing more often, and pulling your work when you put him off.
 
 ### A3 · Deck triggers — calculated %, not dice

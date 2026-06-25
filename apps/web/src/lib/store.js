@@ -285,7 +285,7 @@ function viewOf() {
   return {
     turn: s.turn, activePlayerIndex: s.activePlayerIndex, over: s.over, phase: s.phase,
     log: s.log.slice(-8),
-    deckLeft: s.deck?.pile?.length ?? 0,
+    deckLeft: s.players[s.activePlayerIndex]?.deck?.pile?.length ?? 0, // the active player's own deck (living deck)
     globalEffects: (s.globalEffects ?? []).map((e) => ({ ...e })), // town-wide conditions (the global cards)
     projects: (s.projects ?? []).map((p) => ({ ...p, phases: p.phases.map((ph) => ({ ...ph })) })), // phased story-projects in flight
     pnl: profitAndLoss(s.players[s.activePlayerIndex]), // the active player's books so far
