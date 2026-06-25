@@ -41,6 +41,8 @@ export function createJob(card, currentTurn) {
     id: genId("J"),
     card: card.id,
     art: card.art ?? null, // per-trade art key for tailored jobs (else null → falls back to card id)
+    npc: card.npc ?? null, // word-of-mouth tag (dot/hettrick/lundgren/boon) — drives deck effects
+    drawn_turn: currentTurn, // the round this job came in (for Hettrick/Lundgren's same-round check)
     name: card.name,
     value: card.value,
     work_amount: card.work_amount,

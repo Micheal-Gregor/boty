@@ -462,6 +462,7 @@ export function endTurn() {
   if (game.state.pendingSettle.length) return fail("Answer the settlement offer first");
   if (game.state.pendingPoach.length) return fail("Answer the poaching offer first");
   if (game.state.pendingMayor.length) return fail("Answer the Mayor's drive first");
+  if (game.unstaffedBoon.length) return fail(`Chief Boon's job must be assigned a worker first — drop everything`);
   if (game.state.pendingCourt.length) return fail("Resolve your court case first");
   if (game.state.pendingThreat) return fail("Resolve the response window first");
   const ctx = game.endTurn();

@@ -14,7 +14,7 @@ import * as modifiers from "./modifiers.js";
 import * as expansion from "./expansion.js";
 import * as employment from "./employment.js";
 import { drawFortune } from "./fortune.js";
-import { injectById } from "./livingdeck.js";
+import { injectById, pullJobs } from "./livingdeck.js";
 import { getawayThreshold, rollGetaway, getawayOdds } from "./litigation.js";
 import { w } from "./economy.js";
 import { runUpkeep, advance, results } from "./turn.js";
@@ -116,7 +116,22 @@ export class Game {
   }
 
   /** Convenience: run job progress for the current player, then advance. */
+  /** Chief Boon's job(s) the current player must still staff (mandatory). The web blocks end-turn
+   *  on these; bots prioritise them. */
+  get unstaffedBoon() {
+    return this.currentPlayer.jobs.filter((j) => j.npc === "boon" && j.assigned_tradesmen.length === 0 && ["Queued", "OnHold"].includes(j.state));
+  }
+
   endTurn() {
+    const p = this.currentPlayer;
+    // Bad word of mouth: a Hettrick/Lundgren job drawn THIS round and left unworked pulls jobs from
+    // the deck. (Checked once, the round it's drawn.)
+    for (const j of p.jobs) {
+      if ((j.npc === "hettrick" || j.npc === "lundgren") && j.drawn_turn === this.state.turn && j.assigned_tradesmen.length === 0 && !j.wom_done) {
+        j.wom_done = true;
+        pullJobs(this.state, p, this.state.economy.bad_wom_pull ?? 2, `${j.name} left waiting — bad word gets around`);
+      }
+    }
     this.runProgress();
     return this.advanceTurn();
   }

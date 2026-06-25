@@ -252,6 +252,42 @@
       "flavor": "The crown jewel — the biggest payday in town, if youve built for it."
     },
     {
+      "type": "job",
+      "npc": "hettrick",
+      "copies": 2,
+      "id": "job_hettrick",
+      "name": "Old Man Hettrick",
+      "droppable": true,
+      "flavor": "He wont pay a nickel he cant dispute — and hell be back next week. Net-90."
+    },
+    {
+      "type": "job",
+      "npc": "lundgren",
+      "copies": 2,
+      "id": "job_lundgren",
+      "name": "Mrs. Lundgren",
+      "droppable": true,
+      "flavor": "Put her off and shell tell the whole church how slow you are. Net-90."
+    },
+    {
+      "type": "job",
+      "npc": "dot",
+      "copies": 2,
+      "id": "job_dot",
+      "name": "Dots diner",
+      "droppable": true,
+      "flavor": "Do right by Dot and the good word brings work to your door."
+    },
+    {
+      "type": "job",
+      "npc": "boon",
+      "copies": 1,
+      "id": "job_boon",
+      "name": "Chief Boon",
+      "droppable": false,
+      "flavor": "When the Chief calls, you go — drop everything and put someone on it."
+    },
+    {
       "type": "windfall",
       "copies": 2,
       "id": "insurance_payout",

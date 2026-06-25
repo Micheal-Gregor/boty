@@ -29,6 +29,16 @@
     "j6": { "crew": 4, "value": 58, "work": 13, "deadline": 6, "terms": 3, "equip": "pro", "tier": 3, "gear_all": true }
   },
 
+  "_npc_jobs_comment": "Word-of-mouth jobs (JOB-CARDS-PLAN B2). Dot pays normal and on COMPLETION seeds +3 jobs into your deck; Hettrick & Lundgren pay net-90 (terms 3) and if you DON'T work their job the round you draw it, their bad word pulls 2 jobs from your deck; Chief Boon's job is mandatory (8-turn deadline, 3 work, can't be dropped).",
+  "npc_jobs": {
+    "hettrick": { "crew": 2, "value": 16, "work": 5, "deadline": 5, "terms": 3 },
+    "lundgren": { "crew": 2, "value": 16, "work": 5, "deadline": 5, "terms": 3 },
+    "dot":      { "crew": 2, "value": 14, "work": 4, "deadline": 4, "terms": 1 },
+    "boon":     { "crew": 2, "value": 14, "work": 3, "deadline": 8, "terms": 1 }
+  },
+  "dot_referral_jobs": 3,
+  "bad_wom_pull": 2,
+
   "base_hand_speed": 1,
   "invoice_terms": 1,
   "sell_rate": 0.15,

@@ -19,6 +19,7 @@ import { trainingSpeedBonus } from "./modifiers.js";
 import { applyGlobal } from "./globals.js";
 import { onPhaseComplete, onPhaseFailed } from "./projects.js";
 import { accrue, cashIn, cashOut, ACCT } from "../state/ledger.js";
+import { injectById } from "./livingdeck.js";
 
 const PROGRESSING = new Set(["Queued", "Active", "OnHold"]);
 
@@ -318,6 +319,8 @@ function applyProgressCard(state, player, job, card) {
 
 function completeJob(state, player, job) {
   job.state = "Complete";
+  // Dot's good word: finishing her job seeds fresh work into your deck (the anti-Hettrick).
+  if (job.npc === "dot") injectById(state, player, "j2", state.economy.dot_referral_jobs ?? 3, `Dot's good word (${job.name})`);
   freeTradesmen(player, job);
   player.jobs = player.jobs.filter((j) => j.id !== job.id);
   const terms = job.terms ?? state.economy.invoice_terms; // payment terms (longer = paid later)

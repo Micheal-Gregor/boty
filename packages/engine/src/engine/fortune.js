@@ -93,6 +93,33 @@ const tradeSlug = (s) => (s === "HVAC technician" ? "hvac" : (s ?? "").toLowerCa
 const jobArt = (size, trade) =>
   size === "j1" ? "job/walkin/1p" : size === "j2" ? "job/walkin/2p" : size === "j3" ? "job/walkin/2p_basic" : `job/${size}/${tradeSlug(trade)}`;
 
+// NPC jobs — the word-of-mouth cast. Per-trade skin (the work) + a label.
+const NPC_LABEL = { hettrick: "Old Man Hettrick", lundgren: "Mrs. Lundgren", dot: "Dot", boon: "Chief Boon" };
+const NPC_JOB_SKINS = {
+  hettrick: { "mechanic": "his rattling pickup", "plumber": "his ‘fine’ dripping tap", "electrician": "his flickering porch light", "pipefitter": "his ancient radiator", "welder": "his busted gate hinge", "HVAC technician": "his wheezing window unit" },
+  lundgren: { "mechanic": "her car won’t start", "plumber": "her cold water heater", "electrician": "her dead outlets", "pipefitter": "her knocking boiler", "welder": "her wrought-iron fence", "HVAC technician": "her dead furnace" },
+  dot:      { "mechanic": "the diner’s delivery van", "plumber": "the grease trap", "electrician": "the neon sign", "pipefitter": "the steam table", "welder": "the counter & stools", "HVAC technician": "the walk-in cooler" },
+  boon:     { "mechanic": "the fire truck’s engine", "plumber": "the firehouse standpipe", "electrician": "the station alarm wiring", "pipefitter": "the sprinkler riser", "welder": "the ladder-truck weld", "HVAC technician": "the station exhaust" },
+};
+
+/** Skin an NPC job to the drawer's trade: their work + stats + the word-of-mouth tag + art key. */
+function tailorNpcJob(economy, card, trade) {
+  const cfg = economy.npc_jobs?.[card.npc];
+  if (!cfg) return card;
+  const skin = (NPC_JOB_SKINS[card.npc] ?? {})[trade] ?? "a job";
+  return {
+    ...card,
+    name: `${NPC_LABEL[card.npc] ?? card.npc} — ${skin}`,
+    value: cfg.value, work_amount: cfg.work, deadline: cfg.deadline, terms: cfg.terms,
+    min_tradesmen: 1, max_tradesmen: cfg.crew,
+    required_equipment: null, equipment_per_tradesman: false, required_building_tier: 1,
+    required_trade: null,
+    droppable: card.npc !== "boon", // Chief Boon's job is mandatory — can't be dropped
+    npc: card.npc,
+    art: `job/${card.npc}/${tradeSlug(trade)}`,
+  };
+}
+
 /** Skin a generic j1–j6 card to the drawer's trade: per-trade name + the size's stats + art key. */
 function tailorJob(economy, card, trade) {
   const sz = economy.job_sizes?.[card.size];
@@ -115,7 +142,9 @@ function resolveCard(state, player, card) {
     case "job": {
       // The tailored ladder: a generic j1–j6 card skins to the drawer's trade (always their own
       // job — no routing), so every trade sees the identical work. JOB-CARDS-PLAN Part B1.
-      const drawn = card.size ? tailorJob(state.economy, card, player.service) : card;
+      const drawn = card.npc ? tailorNpcJob(state.economy, card, player.service)
+        : card.size ? tailorJob(state.economy, card, player.service)
+        : card;
       const job = createJob(drawn, state.turn);
       // Subcontract job: you broker it. A rival running `sub_trade` does the work for `sub_cost`;
       // you (the GC) bill the customer `value` on delivery and pocket the markup — or factor the
