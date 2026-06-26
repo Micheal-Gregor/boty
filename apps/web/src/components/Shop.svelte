@@ -99,7 +99,7 @@
 
   <h3>Tradespeople ({player.tradesmen.length}/{bld.capacity + (player.capacityBonus ?? 0)}) <Flash section="crew" /></h3>
   <div class="slots">
-    {#each player.tradesmen as t}
+    {#each player.tradesmen as t (t.id)}
       <div class="slot person" class:busy={t.assignedJob} class:out={sidelined(t)}>
         <button class="thumb" onclick={() => openEntity("worker", t.id)}>
           <Art kind="crew" id={t.id} label="portrait" small />
@@ -115,7 +115,7 @@
 
   <h3>Equipment <Flash section="equip" /></h3>
   <div class="slots">
-    {#each player.equipment as e}
+    {#each player.equipment as e (e.id)}
       <div class="slot gear">
         <button class="thumb" onclick={() => openEntity("equipment", e.id)}>
           <Art kind="equipment" id={equipArtId(e)} seed={e.id} label={findEquipment(econ, e.defId).name} small />
@@ -151,7 +151,7 @@
 
   <h3>Jobs ({player.jobs.length}) <Flash section="jobs" /></h3>
   <div class="jobs">
-    {#each player.jobs as j}
+    {#each player.jobs as j (j.id)}
       <div class="card job">
         <button class="thumb" onclick={() => openEntity("job", j.id)}>
           <div class="card-name">{j.name} <span class="state">[{j.state}]</span>{#if j.readying} <span class="routed">🏗️ fit-out</span>{:else if j.project_id} <span class="routed">🏛️ project phase</span>{:else if j.political} <span class="routed">🏛️ civic</span>{:else if j.hirer_id} <span class="routed">⇄ contract</span>{/if}</div>
