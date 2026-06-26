@@ -44,9 +44,9 @@
   "_difficulty_comment": "Difficulty (JOB-CARDS-PLAN Part A). Word-of-mouth triggers roll a d6 and fire on ≤ the tier's threshold: Steady → Dot almost always helps (6) while Hettrick/Lundgren rarely bite (2); Cutthroat reverses it. cash_mod adjusts the starting runway. Tune in the harness.",
   "difficulty": "standard",
   "difficulty_tiers": {
-    "steady":    { "dot": 6, "hettrick": 2, "lundgren": 2, "cash_mod": 8 },
-    "standard":  { "dot": 4, "hettrick": 4, "lundgren": 4, "cash_mod": 0 },
-    "cutthroat": { "dot": 2, "hettrick": 6, "lundgren": 6, "cash_mod": -8 }
+    "steady":    { "dot": 6, "hettrick": 2, "lundgren": 2, "cash_mod": 26,  "shock_mult": 0.2 },
+    "standard":  { "dot": 4, "hettrick": 4, "lundgren": 4, "cash_mod": 0,   "shock_mult": 1.0 },
+    "cutthroat": { "dot": 2, "hettrick": 6, "lundgren": 6, "cash_mod": -12, "shock_mult": 1.2 }
   },
 
   "base_hand_speed": 1,

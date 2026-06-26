@@ -29,10 +29,17 @@ import { seasonName } from "./season.js";
  * (rewards/penalises headcount — the profit-share lever). These are the structural levers
  * that make the equipment-vs-hire opening a real choice (Dial 3).
  */
-function cashEffect(player, card) {
+function cashEffect(state, player, card) {
   let amount = card.cash ?? 0;
   if (card.per_equipment) amount += card.per_equipment * player.equipment.length;
   if (card.per_tradesman) amount += card.per_tradesman * player.tradesmen.length;
+  // Difficulty floor lever: scale HITS (negative cash) by the tier's shock multiplier — softer on
+  // Steady, sharper on Cutthroat. Gains are untouched.
+  if (amount < 0) {
+    const tiers = state.economy?.difficulty_tiers ?? {};
+    const mult = tiers[state.difficulty ?? state.economy?.difficulty ?? "standard"]?.shock_mult ?? 1;
+    amount = Math.round(amount * mult);
+  }
   return amount;
 }
 
@@ -227,7 +234,7 @@ function resolveCard(state, player, card) {
     }
     case "windfall":
     case "shock": {
-      const amount = cashEffect(player, card);
+      const amount = cashEffect(state, player, card);
       if (amount >= 0) {
         cashIn(state, player, ACCT.OTHER_INCOME, amount, card.name);
         return { type: card.type, name: card.name, cash: amount, text: cashLine(card, amount) };
