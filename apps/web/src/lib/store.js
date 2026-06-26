@@ -7,7 +7,7 @@ import { Game, profitAndLoss, balanceSheet, recurringExpenses, seasonFor, worker
 import { settings } from "./settings.js";
 import { botActions } from "@boty/engine/bots";
 import { loadContent } from "./content.js";
-import { unlockAudio, playSfx, playSting } from "./sound.js";
+import { unlockAudio, playSfx, playSting, playMusic } from "./sound.js";
 import { dealTownlife, townlifeForRound } from "./townlife.js";
 import { setMoneyRate } from "./money.js";
 import { npcIntroFor } from "./townsfolk.js";
@@ -22,7 +22,7 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
  * engine mutates its objects in place, so the UI must read a new-reference snapshot or Svelte
  * won't see the change. `rev` bumps on every change. */
 export const ui = writable({
-  screen: "setup", game: null, view: null, ctx: null, flavor, economy, error: null, rev: 0,
+  screen: "loading", game: null, view: null, ctx: null, flavor, economy, error: null, rev: 0,
   aiActing: null, threat: null, picking: null, reckoning: null, final: null, court: null, damages: null, settle: null,
   cardView: null, popups: [], settingsOpen: false, flash: null, entityCard: null, handView: false, rivalView: false,
   rulesOpen: false, confirm: null,
@@ -352,6 +352,14 @@ function fail(msg) { ui.update((v) => ({ ...v, rev: v.rev + 1, error: msg })); }
 
 export const services = economy.services;
 export const isAI = (playerId) => !!ai[playerId];
+
+// --- Shell navigation (front-of-house: loading → menu → play / history / faq / credits) --------
+export function goScreen(name) { push({ screen: name }); }
+/** The loading splash's Enter button — the user gesture that unlocks audio and starts the intro theme. */
+export function enterApp() { unlockAudio(); playMusic("intro", 0.3); push({ screen: "menu" }); }
+/** Back to the main menu (intro theme resumes). */
+export function backToMenu() { playMusic("intro", 0.3); push({ screen: "menu" }); }
+
 const player = (id) => game.state.players.find((p) => p.id === id);
 const handHas = (p, type) => p.hand.some((c) => c.type === type);
 
@@ -511,7 +519,7 @@ export function endTurn() {
   const proceed = () => {
     const ctx = game.endTurn();
     if (ctx.reckoning) return enterReckoning(ctx.order);
-    if (ctx.over) { playSfx("chime", 0.5); return push({ screen: "gala", ctx, final: finalReport() }); }
+    if (ctx.over) { playSfx("chime", 0.5); playMusic("gala", 0.3); return push({ screen: "gala", ctx, final: finalReport() }); }
     advanceUntilHuman(ctx);
   };
   if (!get(settings).confirmEndTurn) return proceed(); // quick-end mode
@@ -603,7 +611,7 @@ async function advanceUntilHuman(initialCtx) {
 
     const ctx = game.endTurn();
     if (ctx.reckoning) { push({ aiActing: null }); return enterReckoning(ctx.order); }
-    if (ctx.over) { playSfx("chime", 0.5); return push({ aiActing: null, screen: "gala", ctx, final: finalReport() }); }
+    if (ctx.over) { playSfx("chime", 0.5); playMusic("gala", 0.3); return push({ aiActing: null, screen: "gala", ctx, final: finalReport() }); }
     push({ aiActing: { name: p.name, drew, lines } }); // recap + the updated table snapshot
     if (!skipAI) await sleep(800);
     lastCtx = ctx;
@@ -691,7 +699,7 @@ function advanceSeat() {
     game.closeBooks();
     reckon = null;
     playSfx("chime", 0.5);
-    return push({ screen: "gala", final: finalReport(), reckoning: null });
+    playMusic("gala", 0.3); return push({ screen: "gala", final: finalReport(), reckoning: null });
   }
   const id = reckon.order[reckon.idx];
   game.seatReckoning(id);

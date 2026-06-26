@@ -1,5 +1,5 @@
 <script>
-  import { newGame, services } from "../lib/store.js";
+  import { newGame, services, backToMenu } from "../lib/store.js";
 
   const strategies = [
     { id: "balanced", label: "Balanced" },
@@ -46,6 +46,7 @@
 </script>
 
 <section class="setup">
+  <button class="back" onclick={backToMenu}>← Menu</button>
   <h1>BBB Business of the Year</h1>
   <p class="tagline">Run a trade in Maple Hollow. Be named <strong>Business of the Year</strong>.</p>
 
@@ -99,4 +100,6 @@
   .tier { flex: 1; padding: 9px; border-radius: 8px; background: var(--panel-2, #1b1f27); color: var(--ink, #e7e7ea); border: 1px solid var(--line, #2a2f3a); font-weight: 700; cursor: pointer; }
   .tier.on { background: var(--accent, #e0b341); color: #1a1a1a; border-color: var(--accent, #e0b341); }
   .blurb { color: var(--muted, #9aa0aa); font-size: 0.86em; min-height: 2.4em; margin: 4px 0 0; }
+  .back { background: none; border: 1px solid var(--line, #2a2f3a); color: var(--muted, #9aa0aa); border-radius: 8px; padding: 6px 12px; cursor: pointer; margin-bottom: 10px; }
+  .back:hover { color: var(--accent, #e0b341); border-color: var(--accent, #e0b341); }
 </style>

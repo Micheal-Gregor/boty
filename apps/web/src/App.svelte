@@ -2,6 +2,11 @@
   import { onMount } from "svelte";
   import { ui } from "./lib/store.js";
   import { playSfx } from "./lib/sound.js";
+  import Loading from "./screens/Loading.svelte";
+  import Menu from "./screens/Menu.svelte";
+  import History from "./screens/History.svelte";
+  import Faq from "./screens/Faq.svelte";
+  import Credits from "./screens/Credits.svelte";
   import Setup from "./screens/Setup.svelte";
   import Board from "./screens/Board.svelte";
   import Reckoning from "./screens/Reckoning.svelte";
@@ -27,7 +32,17 @@
 </script>
 
 <main>
-  {#if $ui.screen === "setup"}
+  {#if $ui.screen === "loading"}
+    <Loading />
+  {:else if $ui.screen === "menu"}
+    <Menu />
+  {:else if $ui.screen === "history"}
+    <History />
+  {:else if $ui.screen === "faq"}
+    <Faq />
+  {:else if $ui.screen === "credits"}
+    <Credits />
+  {:else if $ui.screen === "setup"}
     <Setup />
   {:else if $ui.screen === "board"}
     <Board />
