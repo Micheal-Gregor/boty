@@ -273,7 +273,10 @@ function rivalCardInteresting(d) {
   if (mode === "none") return false;
   if (mode === "all") return true;
   const def = cardById.get(d.cardId) ?? {};
-  return (def.subcontract && def.political) || def.type === "project" || def.type === "incident"; // "interesting"
+  // "interesting" = the dramatic / table-shaping draws, refreshed for the living deck:
+  // civic builds, referrals, the NPC cast's jobs, the union, theft, summons, defects, incidents.
+  return ["civic", "referral", "union", "theft", "summons", "defect", "incident", "character"].includes(def.type)
+    || !!def.npc || def.size === "j5" || def.size === "j6"; // big jobs + any word-of-mouth NPC job
 }
 
 const declinedDamages = new Set(); // jobIds the human chose not to sue over

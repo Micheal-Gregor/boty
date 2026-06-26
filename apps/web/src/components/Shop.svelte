@@ -103,7 +103,7 @@
       <div class="slot person" class:busy={t.assignedJob} class:out={sidelined(t)}>
         <button class="thumb" onclick={() => openEntity("worker", t.id)}>
           <Art kind="crew" id={t.id} label="portrait" small />
-          <div class="slot-id">{crewIdentity(t.id).name} <span class="prod">⚡{t.productivity}</span></div>
+          <div class="slot-id"><span class="nm">{crewIdentity(t.id).name}</span><span class="prod" title="work score / turn">⚡{t.productivity}</span></div>
           <div class="muted">{t.id} · {t.tool ?? "bare-handed"}</div>
           <div class="muted">{sidelined(t) ? "out until t" + t.out_until : t.assignedJob ? "on " + t.assignedJob : "idle"}</div>
         </button>
@@ -185,10 +185,10 @@
           <span class="who">{r.kind === "contract" ? "from " + r.who : r.who}</span>
           <span class="when">{r.age.txt}</span>
           <span class="row-actions">
-            {#if r.kind === "invoice"}<button class="mini" title="Sell for cash now, minus a {Math.round(econ.factoring_fee * 100)}% fee" onclick={() => act((g) => g.factorInvoice(r.id))}>Factor</button>
+            {#if r.kind === "invoice"}<button class="mini" title="Sell for cash now, minus the factoring fee" onclick={() => openConfirm({ title: "Factor this invoice?", body: `Sell this ${r.amount} W invoice for ${r.amount - Math.round(r.amount * econ.factoring_fee)} W cash now — the ${Math.round(econ.factoring_fee * 100)}% fee (${Math.round(r.amount * econ.factoring_fee)} W) is the price of getting paid today.`, yes: "Factor it" }, () => act((g) => g.factorInvoice(r.id)))}>Factor</button>
             {:else if r.age.cls !== "pending"}
               {#if r.suable}<button class="mini hostile" title="Take {r.who} to court to collect this debt" onclick={() => playSue(r.debtorId, r.id)}>⚖️ Sue</button>{/if}
-              <button class="mini" title="Sell this debt to collections for a {Math.round(econ.factoring_fee * 100)}% fee — they chase {r.who} with a guaranteed lawyer" onclick={() => act((g) => g.factorClaim(r.id))}>Factor</button>
+              <button class="mini" title="Sell this debt to collections" onclick={() => openConfirm({ title: "Sell this debt to collections?", body: `Sell ${r.who}'s ${r.amount} W debt for about ${r.amount - Math.round(r.amount * econ.factoring_fee)} W now (a ${Math.round(econ.factoring_fee * 100)}% fee — less if they're near broke). The agency then hounds ${r.who} with a guaranteed lawyer.`, yes: "Sell the debt" }, () => act((g) => g.factorClaim(r.id)))}>Factor</button>
             {/if}
           </span>
         </div>
@@ -281,5 +281,7 @@
   .phase { color: var(--muted, #9aa0aa); }
   .phase.done { color: #5fb87a; }
   .line.aged .row-actions { display: flex; gap: 4px; justify-content: flex-end; }
-  .prod { color: var(--accent, #e0b341); font-weight: 700; font-size: 0.85em; }
+  .slot-id { display: flex; justify-content: space-between; align-items: baseline; gap: 6px; }
+  .slot-id .nm { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .prod { color: var(--accent, #e0b341); font-weight: 700; font-size: 0.85em; white-space: nowrap; }
 </style>
