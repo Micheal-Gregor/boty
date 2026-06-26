@@ -16,6 +16,7 @@
   .shell { position: fixed; inset: 0; overflow: auto; display: flex; align-items: center; justify-content: center; }
   .shell-bg { position: fixed; inset: 0; z-index: 0; pointer-events: none; }
   /* cover the viewport whatever the aspect ratio; the placeholder becomes a clean dusk gradient */
+  .shell-bg :global(.art-anim) { position: absolute; inset: 0; } /* the video WRAPPER must fill, or it collapses to 0×0 */
   .shell-bg :global(img), .shell-bg :global(video) { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
   .shell-bg :global(.art-slot) { position: absolute; inset: 0; width: 100%; height: 100%; border: 0; color: transparent; background: radial-gradient(120% 100% at 50% 0%, #2a3550 0%, #161a22 55%, #0d0f14 100%); }
   .shell-scrim { position: fixed; inset: 0; z-index: 1; pointer-events: none; background: linear-gradient(180deg, rgba(0,0,0,0.35), rgba(0,0,0,0.65)); }
