@@ -18,7 +18,18 @@
   const defect = $derived(ec?.kind === "defect" && me ? me.defects?.find((d) => d.id === ec.id) : null);
   const glob = $derived(ec?.kind === "global" && view ? (view.globalEffects ?? []).find((g) => g.id === ec.id) : null);
   const ident = $derived(worker ? crewIdentity(worker.id) : null);
-  const entity = $derived(worker ?? gear ?? job ?? defect ?? glob ?? null);
+  const ap = $derived(ec?.kind === "ap" && me ? me.payables.find((a) => a.id === ec.id) : null);
+  const entity = $derived(worker ?? gear ?? job ?? defect ?? glob ?? ap ?? null);
+  const creditorName = (a) => (view?.players ?? []).find((p) => p.id === a.creditor_id)?.name ?? "a rival";
+  const apDesc = (a) =>
+    a.collections ? "This debt was sold to a collections agency — they're chasing it with a guaranteed lawyer in court."
+    : a.pending ? "A job you've routed to another shop. You'll owe this the moment they deliver the work — it isn't due yet."
+    : !a.is_npc ? `Money you owe ${creditorName(a)}. Pay it, or stiff it and risk being dragged to court.`
+    : "A vendor bill. Pay it, dodge it (and risk a court summons), or take a settlement on a natural 6.";
+  const apStatus = (a) =>
+    a.pending ? "in progress — due on delivery"
+    : a.due_turn == null ? "due now"
+    : a.due_turn <= (view?.turn ?? 0) ? "DUE NOW" : `due turn ${a.due_turn}`;
   const globalDesc = (g) =>
     g.kind === "levy" ? `Every shop in town pays a ${g.magnitude} W levy every turn — you included.`
     : g.kind === "boom" ? `Boom times: new jobs pay +${Math.round(g.magnitude * 100)}%.`
@@ -142,6 +153,17 @@
             {:else}<p class="flag">You need a Favor card in hand to bust the union.</p>{/if}
           </div>
         {/if}
+
+      {:else if ap}
+        <h2>🧾 {ap.vendor}</h2>
+        <p class="gdesc">{apDesc(ap)}</p>
+        <div class="stack">
+          <div class="stack-row"><span>Amount owed</span><span>{ap.amount} W</span></div>
+          {#if !ap.is_npc && !ap.collections}<div class="stack-row"><span>Owed to</span><span>{creditorName(ap)}</span></div>{/if}
+          <div class="stack-row"><span>Status</span><span>{apStatus(ap)}</span></div>
+          {#if ap.turns_dodged}<div class="stack-row"><span>Dodged</span><span>{ap.turns_dodged}×</span></div>{/if}
+        </div>
+        {#if !ap.pending}<div class="ent-actions"><button onclick={() => go((g) => g.payPayable(ap.id))}>Pay {ap.amount} W</button></div>{/if}
       {/if}
     </div>
   </div>

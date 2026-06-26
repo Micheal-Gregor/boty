@@ -199,7 +199,7 @@
       {#each apRows as r (r.ap.id)}
         <div class="line aged {r.age.cls}">
           <span class="amt">{r.ap.amount} W</span>
-          <span class="who">{r.who}</span>
+          <button class="who wholink" title="What's this expense?" onclick={() => openEntity("ap", r.ap.id)}>{r.who} 🔍</button>
           <span class="when">{r.age.txt}{#if r.ap.turns_dodged} · dodged {r.ap.turns_dodged}×{/if}</span>
           {#if !r.ap.pending}<button class="mini" onclick={() => act((g) => g.payPayable(r.ap.id))}>Pay</button>{/if}
         </div>
@@ -249,6 +249,8 @@
   .line.aged { display: grid; grid-template-columns: 3.5em 1fr auto auto; gap: 0.5em; align-items: center; padding: 0.15em 0; }
   .line.aged .amt { font-weight: 600; font-variant-numeric: tabular-nums; }
   .line.aged .who { color: var(--muted, #9aa0aa); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .line.aged button.wholink { text-align: left; background: none; border: none; padding: 0; cursor: pointer; font: inherit; }
+  .line.aged button.wholink:hover { color: var(--accent, #e0b341); text-decoration: underline; }
   .line.aged .when { font-size: 0.82em; white-space: nowrap; }
   .line.aged.ok .when { color: var(--muted, #9aa0aa); }
   .line.aged.soon .when { color: #d8b24a; }
