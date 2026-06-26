@@ -4,6 +4,7 @@
 // without reshaping the player object.
 
 import { Deck, makeRng } from "../engine/deck.js";
+import { buildGameDeck } from "../engine/deckbuild.js";
 import { makeDie } from "../engine/dice.js";
 
 let nextId = 1;
@@ -199,8 +200,13 @@ export function createGame(economy, playerSeeds, options = {}) {
   // player's deck (poach, Hettrick) or all of them (union). Player 0 keeps seed `seed` so existing
   // single-player tests/replays draw identically.
   const players = playerSeeds.map((s) => createPlayer(economy, s));
+  // Deal ONE unique deck for this game from the master pool — the same composition for everyone (fair),
+  // built once with the game seed. Then each player shuffles their OWN copy, so every seat starts from
+  // a unique order. The held-out reserve (+ a fresh spine) refills the rare 2nd pass (Model 2).
+  const built = buildGameDeck(fortuneCards, undefined, economy.deck_size ?? 60, makeRng(seed === undefined ? undefined : seed + 100));
+  const refill = built.reserve.length ? [...built.reserve, ...built.spine] : null;
   players.forEach((p, i) => {
-    p.deck = new Deck(fortuneCards, makeRng(seed === undefined ? undefined : seed + i));
+    p.deck = new Deck(built.deck, makeRng(seed === undefined ? undefined : seed + i), refill);
   });
 
   // Difficulty (Stage 8): the tier sets the word-of-mouth odds (read live off state.difficulty) and a
@@ -219,6 +225,7 @@ export function createGame(economy, playerSeeds, options = {}) {
     players,
     difficulty, // active tier name — womFires() reads this each trigger
     cardPool: fortuneCards, // the master Fortune composition — the source for living-deck injections
+    deckBuild: { size: built.deck.length, reserve: built.reserve.length, pool: fortuneCards.length }, // for the "unique deck dealt" intro
     deckEvents: [], // queued inject/remove descriptors for the UI shuffle reveal (drained each turn)
     discard: [], // the discard pile (stack rules): cards removed in a Cleanup phase — never return to play
     progressDeck: new Deck(options.jobprogress ?? [], makeRng(seed === undefined ? undefined : seed + 1)),

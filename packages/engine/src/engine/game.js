@@ -24,10 +24,11 @@ export class Game {
     this.state = createGame(economy, playerSeeds, options);
   }
 
-  /** Draw power = number of tradespeople, capped (Dial: draw_cap). */
+  /** Draw power ramps with crew: +1 card per 2 staff — 1 (1–2 staff), 2 (3–4), 3 (5–6), 4 (7+),
+   *  capped at draw_cap. The 4th card needs a maxed shop (warehouse + a BBB capacity upgrade). */
   drawPowerFor(player) {
-    const cap = this.state.economy.draw_cap ?? Infinity;
-    return Math.min(player.tradesmen.length, cap);
+    const cap = this.state.economy.draw_cap ?? 4;
+    return Math.max(1, Math.min(cap, Math.floor((player.tradesmen.length + 1) / 2)));
   }
 
   get currentPlayer() {

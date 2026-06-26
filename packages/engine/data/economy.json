@@ -7,6 +7,7 @@
 
   "max_turns": 24,
   "draw_cap": 4,
+  "deck_size": 60,
 
   "wage_per_turn": 1,
   "sign_on_fee": 2,

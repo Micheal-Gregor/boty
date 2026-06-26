@@ -49,6 +49,11 @@
         <p class="pop-flavor">{p.role}</p>
         <p class="pop-effect">{p.line}</p>
 
+      {:else if p.kind === "deckbuilt"}
+        <div class="shuffle-deck adding"><span class="sc sc1"></span><span class="sc sc2"></span><span class="sc sc3"></span></div>
+        <h2>🃏 A unique deck is dealt</h2>
+        <p class="pop-effect">A one-of-a-kind <strong>{p.size}-card</strong> deck has been built for this game from Maple Hollow's {p.pool} possible events — then shuffled fresh for every player. No two games, and no two seats, play alike. <span class="muted">({p.reserve} more wait in reserve.)</span></p>
+
       {:else if p.kind === "shuffle"}
         <div class="shuffle-deck" class:adding={!p.removed} class:pulling={p.removed}>
           <span class="sc sc1"></span><span class="sc sc2"></span><span class="sc sc3"></span>

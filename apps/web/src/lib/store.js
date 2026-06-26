@@ -368,6 +368,8 @@ export function newGame(seats, difficulty = "standard") {
   game.state.players.forEach((p, i) => { ai[p.id] = seats[i].strategy ?? null; });
   const ctx = game.start();
   push({ screen: "board", ctx, error: null, aiActing: null, threat: null, picking: null, reckoning: null, final: null, court: null });
+  const db = game.state.deckBuild;
+  if (db) enqueuePopup({ kind: "deckbuilt", size: db.size, reserve: db.reserve, pool: db.pool }); // "a unique deck dealt for this game"
   advanceUntilHuman(ctx);
 }
 

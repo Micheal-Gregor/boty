@@ -16,8 +16,11 @@ export function makeRng(seed = (Math.random() * 2 ** 32) >>> 0) {
 }
 
 export class Deck {
-  constructor(cards, rng = makeRng()) {
+  // `refill` (Model 2): the held-out reserve + a fresh spine, dealt as the SECOND deck the first time
+  // the starting deck runs dry — so the rare reshuffle brings in cards held out of the first pass.
+  constructor(cards, rng = makeRng(), refill = null) {
     this.source = [...cards];
+    this.refill = refill && refill.length ? [...refill] : null;
     this.rng = rng;
     this.pile = [];
     this.reshuffle();
@@ -34,8 +37,11 @@ export class Deck {
 
   /** Draw one card, reshuffling if the pile has run dry. Returns null only if no source. */
   draw() {
-    if (this.source.length === 0) return null;
-    if (this.pile.length === 0) this.reshuffle();
+    if (this.source.length === 0 && !this.pile.length) return null;
+    if (this.pile.length === 0) {
+      if (this.refill) { this.source = this.refill; this.refill = null; } // Model 2: 2nd pass = reserve + spine
+      this.reshuffle();
+    }
     return this.pile.pop();
   }
 
