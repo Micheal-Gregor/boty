@@ -49,30 +49,40 @@ export class Deck {
     return out;
   }
 
-  /** Living deck: add cards to the composition and reshuffle (Dot's word, Mayor favors, union…). */
+  /** Slip a card into a RANDOM spot in the current pile without disturbing the order of the rest —
+   *  so a living-deck change doesn't reshuffle (and thereby reset) the feast/famine draw sequence. */
+  #slipIn(card) {
+    const i = Math.floor(this.rng() * (this.pile.length + 1));
+    this.pile.splice(i, 0, card);
+  }
+
+  /** Living deck: add cards to the composition (Dot's word, Mayor favors, union…). They join the
+   *  source (so future reshuffles include them) AND get sprinkled into the remaining pile so they're
+   *  drawable now — WITHOUT reshuffling, so the existing draw-down/order survives. */
   inject(cards) {
     this.source.push(...cards);
-    this.reshuffle();
+    for (const c of cards) this.#slipIn(c);
   }
 
   /** Put already-drawn cards back into the draw PILE only (NOT source) — e.g. an out-of-season card
-   *  benched until its season. Shuffles them into the remaining pile. Does not grow the deck. */
+   *  benched until its season. Slipped in at random, preserving the rest of the order. */
   returnToPile(cards) {
-    this.pile.push(...cards);
-    for (let i = this.pile.length - 1; i > 0; i--) {
-      const j = Math.floor(this.rng() * (i + 1));
-      [this.pile[i], this.pile[j]] = [this.pile[j], this.pile[i]];
-    }
+    for (const c of cards) this.#slipIn(c);
   }
 
-  /** Living deck: pull up to n cards matching pred out of the composition, then reshuffle. Returns the count removed. */
+  /** Living deck: pull up to n cards matching pred out of the composition AND the current pile (no
+   *  reshuffle — the remaining order is kept). Returns the count removed from the source. */
   remove(pred, n = Infinity) {
     let removed = 0;
     this.source = this.source.filter((c) => {
       if (removed < n && pred(c)) { removed++; return false; }
       return true;
     });
-    this.reshuffle();
+    let p = 0;
+    this.pile = this.pile.filter((c) => {
+      if (p < removed && pred(c)) { p++; return false; }
+      return true;
+    });
     return removed;
   }
 }
