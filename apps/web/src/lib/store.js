@@ -8,7 +8,7 @@ import { settings } from "./settings.js";
 import { botActions } from "@boty/engine/bots";
 import { loadContent } from "./content.js";
 import { unlockAudio, playSfx, playSting } from "./sound.js";
-import { townlifeId } from "../components/Art.svelte";
+import { dealTownlife, townlifeForRound } from "./townlife.js";
 import { npcIntroFor } from "./townsfolk.js";
 import { crewIdentity } from "./crew.js";
 
@@ -190,8 +190,8 @@ function enqueueTurnStart(ctx) {
   if (isAI(me.id)) return; // rivals' turn-start summaries arrive with the watchable-AI work (Phase 4)
   if (ctx.turn > lastRoundShown) {
     lastRoundShown = ctx.turn;
-    const seasonSlug = (view.season?.name ?? "spring").toLowerCase();
-    enqueuePopup({ kind: "round", turn: ctx.turn, season: view.season, town: flavor?.town, townlife: townlifeId(seasonSlug) });
+    const tl = townlifeForRound(view.season?.name, view.season?.roundInSeason); // this round's Maple Hollow story beat
+    enqueuePopup({ kind: "round", turn: ctx.turn, season: view.season, town: flavor?.town, townlife: tl?.id ?? null, townlifeFlavor: tl?.flavor ?? null });
   }
   surfaceNewOutcomes(); // alert windows for what resolved during the rivals' round / your upkeep
   enqueuePopup({ kind: "summary", name: me.name, recurring: view.recurring, cash: me.cash, upkeepNet: ctx.upkeepNet ?? 0, drew: (ctx.drawn ?? []).length });
@@ -364,6 +364,7 @@ export function newGame(seats, difficulty = "standard") {
   game.state.flavor = flavor;
   ai = {};
   declinedDamages.clear();
+  dealTownlife(); // secretly deal this game's 6-of-12-per-season story of Maple Hollow
   lastScanned = 0; lastRoundShown = 0; lastDeckEvent = 0;
   game.state.players.forEach((p, i) => { ai[p.id] = seats[i].strategy ?? null; });
   const ctx = game.start();

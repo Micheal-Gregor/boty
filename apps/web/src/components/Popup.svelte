@@ -25,7 +25,7 @@
           <div class="pop-art"><Art kind="season" id={p.season?.name?.toLowerCase() ?? "spring"} label={p.season?.name} autoplay /></div>
         {/if}
         <h2>Round {p.turn} · {p.season?.name ?? ""}</h2>
-        <p class="pop-flavor">{p.season?.flavor ?? `A new round dawns over ${p.town ?? "Maple Hollow"}.`}</p>
+        <p class="pop-flavor">{p.townlifeFlavor ?? p.season?.flavor ?? `A new round dawns over ${p.town ?? "Maple Hollow"}.`}</p>
 
       {:else if p.kind === "summary"}
         <h2>{p.rival ? "🤖" : "📋"} {p.name} — turn start</h2>
