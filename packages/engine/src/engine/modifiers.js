@@ -12,7 +12,7 @@ import { post, cashOut, balances, ACCT } from "../state/ledger.js";
 /** Buyable persistent services. `premium` is charged each upkeep (overhead account). */
 export const SERVICES = {
   insurance: { name: "Insurance policy", account: ACCT.INSURANCE, premium: 1, deductible: 0.5, positive: true },
-  marketing: { name: "Marketing campaign", account: ACCT.MARKETING, premium: 2, inject: "referral_job", duration: 3, positive: true },
+  marketing: { name: "Marketing campaign", account: ACCT.MARKETING, premium: 2, inject: "marketing_lead", duration: 3, positive: true },
   accountant: { name: "Accountant on retainer", account: ACCT.PROF_FEES, premium: 1, positive: true },
   training: { name: "Training program", account: ACCT.TRAINING, premium: 1, speed: 1, positive: true },
 };
@@ -130,13 +130,14 @@ export function chargeInterest(state, player, rate) {
   return [`${player.name}: ${w(interest)} interest on ${w(owed)} of debt`];
 }
 
-/** The job card a marketing campaign injects into a player's draws each turn (or null). */
+/** The job a marketing campaign injects into a player's draws each turn (or null). A generic ladder
+ *  walk-in (size j1) — resolveCard tailors it to the drawer's trade, so it gets the right name, stats
+ *  and art like any other job, instead of the old hardcoded "Referral job" that predated the ladder. */
 export function marketingInjection(player) {
   if (!hasModifier(player, "marketing")) return null;
   return {
-    type: "job", id: "referral_job", name: "Referral job", value: 8, work_amount: 4, deadline: 3, terms: 1,
-    min_tradesmen: 1, max_tradesmen: 1, required_equipment: null, droppable: true,
-    flavor: "Your ad in the Gazette pays off — a call comes in.",
+    type: "job", size: "j1", id: "marketing_lead",
+    flavor: "Your ad in the Gazette pays off — a walk-in call comes in.",
   };
 }
 
