@@ -57,7 +57,9 @@
   // `autoplay` — start the animation on open (round intro & your cards when "Animate cards" is on).
   // `animatable` — allow click-to-play (off for, e.g., tiny shop thumbnails). Still-only assets and
   // placeholders never animate.
-  let { kind = "cards", id = "", label = "", small = false, autoplay = false, animatable = true, seed = "" } = $props();
+  // `loopFrom` (seconds) — play the clip through ONCE start-to-end, then loop only the tail from that
+  // mark (e.g. loopFrom={6} skips a 6s Grok intro on every repeat). 0 = ordinary full loop.
+  let { kind = "cards", id = "", label = "", small = false, autoplay = false, animatable = true, seed = "", loopFrom = 0 } = $props();
   const akey = $derived(kind === "crew" ? crewKey(id) : kind === "equipment" ? equipKey(id, seed) : `${kind}/${id}`);
   const still = $derived(stills[akey]);
   const anim = $derived(anims[akey]);
@@ -74,11 +76,14 @@
     if (playing) { vid.pause(); playing = false; } else { play(); }
   }
   function toggleSound(e) { e.stopPropagation(); soundOn = !soundOn; if (vid) vid.muted = !soundOn; }
+  // Custom tail-loop: when loopFrom is set the video isn't natively looped, so it fires `ended` after
+  // the full first pass — we then seek to loopFrom and replay, repeating only the tail thereafter.
+  function onEnded() { if (loopFrom && vid) { vid.currentTime = loopFrom; vid.play().catch(() => {}); } }
 </script>
 
 {#if anim}
   <div class="art-anim" class:sm={small} class:playable={animatable} onclick={toggle} role="button" tabindex="0">
-    <video bind:this={vid} class="art-vid" class:sm={small} poster={still} loop playsinline preload="metadata" muted>
+    <video bind:this={vid} class="art-vid" class:sm={small} poster={still} loop={!loopFrom} onended={onEnded} playsinline preload="metadata" muted>
       <source src={anim} />
     </video>
     {#if animatable}

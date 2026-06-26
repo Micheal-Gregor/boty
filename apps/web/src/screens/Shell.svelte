@@ -3,11 +3,11 @@
   // dark scrim, with the page content centered on top. Until you drop a background, a Maple-Hollow
   // dusk gradient stands in.
   import Art from "../components/Art.svelte";
-  let { bg = "menu", label = "Maple Hollow", children } = $props();
+  let { bg = "menu", label = "Maple Hollow", loopFrom = 0, children } = $props();
 </script>
 
 <section class="shell">
-  <div class="shell-bg"><Art kind="screen" id={bg} {label} autoplay animatable={false} /></div>
+  <div class="shell-bg"><Art kind="screen" id={bg} {label} autoplay animatable={false} {loopFrom} /></div>
   <div class="shell-scrim"></div>
   <div class="shell-body">{@render children()}</div>
 </section>

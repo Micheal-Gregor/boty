@@ -1,6 +1,7 @@
 <script>
   import { ui, restart } from "../lib/store.js";
   import { money } from "../lib/money.js";
+  import Shell from "./Shell.svelte";
   const final = $derived($ui.final ?? {});
   const results = $derived(final.results ?? []);
   const awards = $derived(final.awards ?? []);
@@ -11,7 +12,8 @@
   let tab = $state("winner");
 </script>
 
-<section class="gala">
+<Shell bg="gala" label="Award night" loopFrom={6}>
+  <section class="gala">
   <h1>🏆 The {award} Gala</h1>
   <p class="muted">{final.bureau ?? "The Better Business Bureau"} reviews the year's open books…</p>
 
@@ -32,7 +34,7 @@
         <li class:winner={r === winner} class:bankrupt={r.bankrupt}>
           <span class="place">{r.place}</span>
           <span class="who">{r.name} <span class="muted">· {r.service}</span></span>
-          <span class="cash">{r.bankrupt ? "shuttered" : r.cash + " W"}</span>
+          <span class="cash">{r.bankrupt ? "shuttered" : $money(r.cash)}</span>
         </li>
       {/each}
     </ol>
@@ -56,7 +58,7 @@
             <div class="fin-row"><span>Gross margin</span><span>{$money(r.pnl.grossMargin)}</span></div>
             <div class="fin-row sub"><span>− Overhead</span><span>{$money(r.pnl.overhead)}</span></div>
             <div class="fin-row tot"><span>Net income</span><span>{$money(r.pnl.netIncome)}</span></div>
-            <div class="fin-row split"><span>Assets {r.bs.assets} · Liab {r.bs.liabilities} · Equity {r.bs.equity}</span><span></span></div>
+            <div class="fin-row split"><span>Assets {$money(r.bs.assets)} · Liab {$money(r.bs.liabilities)} · Equity {$money(r.bs.equity)}</span><span></span></div>
             <div class="fin-row"><span>Cash</span><span>{$money(r.cash)}</span></div>
           </div>
         </div>
@@ -65,7 +67,8 @@
   {/if}
 
   <button class="start" onclick={restart}>New game</button>
-</section>
+  </section>
+</Shell>
 
 <style>
   .gala-tabs { display: flex; gap: 6px; justify-content: center; margin: 12px 0; }
