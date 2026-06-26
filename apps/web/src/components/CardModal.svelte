@@ -1,5 +1,6 @@
 <script>
   import { ui, closeCard } from "../lib/store.js";
+  import { money } from "../lib/money.js";
   import Art from "./Art.svelte";
 
   const c = $derived($ui.cardView);
@@ -9,12 +10,12 @@
   // static read from the card's own fields (a card opened from the log).
   function describe(card) {
     if (card.text) return card.text;
-    if (card.type === "job") return `Job · ${card.value} W${card.required_trade ? ` · needs a ${card.required_trade}` : ""}`;
-    if (card.cash != null) return `${card.cash >= 0 ? "+" : ""}${card.cash} W`;
-    if (card.per_equipment != null) return `${card.per_equipment >= 0 ? "+" : ""}${card.per_equipment} W per equipment`;
-    if (card.per_tradesman != null) return `${card.per_tradesman >= 0 ? "+" : ""}${card.per_tradesman} W per tradesperson`;
-    if (card.amount != null) return `Vendor bill · ${card.amount} W`;
-    if (card.fine != null) return `Code violation · ${card.fine} W/turn until fixed (fix ${card.fix_cost} W)`;
+    if (card.type === "job") return `Job · ${$money(card.value)}${card.required_trade ? ` · needs a ${card.required_trade}` : ""}`;
+    if (card.cash != null) return `${card.cash >= 0 ? "+" : ""}${$money(card.cash)}`;
+    if (card.per_equipment != null) return `${card.per_equipment >= 0 ? "+" : ""}${$money(card.per_equipment)} per equipment`;
+    if (card.per_tradesman != null) return `${card.per_tradesman >= 0 ? "+" : ""}${$money(card.per_tradesman)} per tradesperson`;
+    if (card.amount != null) return `Vendor bill · ${$money(card.amount)}`;
+    if (card.fine != null) return `Code violation · ${$money(card.fine)}/turn until fixed (fix ${$money(card.fix_cost)})`;
     return card.type ?? "";
   }
   const typeLabel = (t) => ({ job: "Job", windfall: "Windfall", shock: "Shock", payable: "Vendor bill", defect: "Code issue", gift: "Civil card", summons: "Summons", retirement: "Churn" })[t] ?? t;

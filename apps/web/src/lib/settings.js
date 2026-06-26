@@ -12,6 +12,7 @@ const DEFAULTS = {
   autoClose: false, // auto-dismiss your own card pop-ups after a beat
   animateCards: false, // auto-play your card animations on open (else open as a still; click to play)
   confirmEndTurn: true, // a safety-check confirm before ending your turn (off = quick end)
+  currency: "usd", // "usd" shows players dollars (W × rate); "w" shows raw work-units for balance analysis
 };
 
 function load() {

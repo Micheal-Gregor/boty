@@ -1,5 +1,6 @@
 <script>
   import { ui, dismissPopup, skipAITurns } from "../lib/store.js";
+  import { money } from "../lib/money.js";
   import { settings } from "../lib/settings.js";
   import Art from "./Art.svelte";
 
@@ -31,16 +32,16 @@
         <h2>{p.rival ? "🤖" : "📋"} {p.name} — turn start</h2>
         <div class="summary-grid">
           <div class="summ-stat"><span class="lbl">Crew / capacity</span><span class="val">{p.recurring.crew} / {p.recurring.capacity}</span></div>
-          <div class="summ-stat"><span class="lbl">Cash on hand</span><span class="val">{p.cash} W</span></div>
-          <div class="summ-stat"><span class="lbl">This round's upkeep</span><span class="val" class:neg={p.upkeepNet < 0} class:pos={p.upkeepNet > 0}>{p.upkeepNet >= 0 ? "+" : ""}{p.upkeepNet} W</span></div>
+          <div class="summ-stat"><span class="lbl">Cash on hand</span><span class="val">{$money(p.cash)}</span></div>
+          <div class="summ-stat"><span class="lbl">This round's upkeep</span><span class="val" class:neg={p.upkeepNet < 0} class:pos={p.upkeepNet > 0}>{p.upkeepNet >= 0 ? "+" : ""}{$money(p.upkeepNet)}</span></div>
           <div class="summ-stat"><span class="lbl">Cards drawn</span><span class="val">{p.drew}</span></div>
         </div>
         <h3>Recurring expenses <span class="muted">/ turn</span></h3>
         <div class="exp-list">
           {#each expenseLines(p.recurring) as [name, val]}
-            <div class="exp-row"><span>{name}</span><span>{val} W</span></div>
+            <div class="exp-row"><span>{name}</span><span>{$money(val)}</span></div>
           {/each}
-          <div class="exp-row total"><span>Total per turn</span><span>{p.recurring.total} W</span></div>
+          <div class="exp-row total"><span>Total per turn</span><span>{$money(p.recurring.total)}</span></div>
         </div>
       {:else if p.kind === "character"}
         {#if p.rival}<div class="pop-rival">🤖 {p.rival}'s turn:</div>{/if}

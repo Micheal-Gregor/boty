@@ -3,6 +3,7 @@
   // centred and larger, neighbours faded. Filter the groups with the checkboxes. Click a card to
   // open its action card. (E5 — "it's a game with cards".)
   import { ui, openEntity, closeHand } from "../lib/store.js";
+  import { money } from "../lib/money.js";
   import { findEquipment } from "@boty/engine";
   import Art from "./Art.svelte";
 
@@ -24,7 +25,7 @@
     const out = [];
     if (show.crew) for (const t of me.tradesmen) out.push({ kind: "worker", id: t.id, type: "Tradesperson", title: t.id, sub: `⚡${t.productivity} · ${t.tool ?? "bare-handed"}`, art: ["portraits", t.id] });
     if (show.equip) for (const e of me.equipment) out.push({ kind: "equipment", id: e.id, type: "Equipment", title: gearName(e), sub: e.assigned_to ? `→ ${e.assigned_to}` : "💤 idle", art: ["equipment", e.defId] });
-    if (show.jobs) for (const j of me.jobs) out.push({ kind: "job", id: j.id, type: "Job", title: j.name, sub: `${j.work_done}/${j.work_amount} · ${j.value} W`, art: ["card", j.card] });
+    if (show.jobs) for (const j of me.jobs) out.push({ kind: "job", id: j.id, type: "Job", title: j.name, sub: `${j.work_done}/${j.work_amount} · ${$money(j.value)}`, art: ["card", j.card] });
     if (show.persistent) for (const m of me.modifiers ?? []) out.push({ kind: "mod", type: "Persistent", title: m.name, sub: m.positive ? "🛡️ standing" : "⚠️ standing", icon: m.positive ? "🛡️" : "⚠️" });
     if (show.playable) for (const c of me.hand ?? []) out.push({ kind: "play", type: "Playable", title: c.name, sub: "🃏 hand card", icon: "🃏" });
     if (show.global) for (const g of view.globalEffects ?? []) out.push({ kind: "global", id: g.id, type: "Global", title: g.name, sub: g.kind === "union" ? "until busted" : `${g.turnsLeft} round(s) left`, icon: "🌐" });

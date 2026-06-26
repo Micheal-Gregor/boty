@@ -1,5 +1,6 @@
 <script>
   import { ui, playSabotage, playSue, playFavor, cancelPick } from "../lib/store.js";
+  import { money } from "../lib/money.js";
 
   const s = $derived($ui.view);
   const me = $derived(s ? s.players[s.activePlayerIndex] : null);
@@ -26,7 +27,7 @@
           // The town union — a favor busts it, and firing gets cheap again.
           ...(s.globalEffects ?? []).filter((g) => g.kind === "union").map((g) => ({ ownerId: meId, id: "union", label: `🪙 ${g.name}`, note: "bust the union" })),
           // Your own code violations — call in a favor and the inspector waives it.
-          ...(me?.defects ?? []).map((d) => ({ ownerId: me.id, id: d.id, label: `Your shop: ${d.name}`, note: `waive the ${d.fine} W/turn fine` })),
+          ...(me?.defects ?? []).map((d) => ({ ownerId: me.id, id: d.id, label: `Your shop: ${d.name}`, note: `waive the ${$money(d.fine)}/turn fine` })),
           // A rival's standing card — cut a good one short, or drag a bad one out.
           ...s.players.filter((p) => p.id !== meId).flatMap((p) =>
             (p.modifiers ?? []).map((m) => ({ ownerId: p.id, id: m.id, label: `${p.name}: ${m.name}`, note: m.positive ? "cancel it" : "drag it out" })),
@@ -62,7 +63,7 @@
         <h2>⚖️ Sue — collect a debt owed to you</h2>
         {#each sueTargets as t}
           <button class="target" onclick={() => playSue(t.debtor.id, t.ap.id)}>
-            {t.debtor.name} owes you {t.ap.amount} W <span class="muted">({t.ap.id})</span>
+            {t.debtor.name} owes you {$money(t.ap.amount)} <span class="muted">({t.ap.id})</span>
           </button>
         {:else}
           <p class="muted">Nobody owes you a suable debt right now.</p>

@@ -1,5 +1,6 @@
 <script>
   import { ui, act, closeEntity, confirmFire, confirmDispose, confirmSell, playFavor } from "../lib/store.js";
+  import { money } from "../lib/money.js";
   import { findEquipment } from "@boty/engine";
   import { crewIdentity } from "../lib/crew.js";
   import Art from "./Art.svelte";
@@ -31,7 +32,7 @@
     : a.due_turn == null ? "due now"
     : a.due_turn <= (view?.turn ?? 0) ? "DUE NOW" : `due turn ${a.due_turn}`;
   const globalDesc = (g) =>
-    g.kind === "levy" ? `Every shop in town pays a ${g.magnitude} W levy every turn — you included.`
+    g.kind === "levy" ? `Every shop in town pays a ${$money(g.magnitude)} levy every turn — you included.`
     : g.kind === "boom" ? `Boom times: new jobs pay +${Math.round(g.magnitude * 100)}%.`
     : g.kind === "recession" ? `Lean times: new jobs pay −${Math.round(g.magnitude * 100)}%.`
     : g.kind === "union" ? `The trades are organised. Firing anyone is far riskier (+2 to their odds) — even a thief is hard to shake. A Favor busts it.`
@@ -114,7 +115,7 @@
         <div class="stack">
           <div class="stack-row"><span>Work score / turn</span><span>⚡{workScore(job)}</span></div>
           <div class="stack-row"><span>Crew</span><span>{job.assigned_tradesmen.length} / {job.max_tradesmen}</span></div>
-          <div class="stack-row"><span>Value · due</span><span>{job.value} W · turn {job.deadline_turn}</span></div>
+          <div class="stack-row"><span>Value · due</span><span>{$money(job.value)} · turn {job.deadline_turn}</span></div>
         </div>
         <div class="ent-actions">
           {#if canAssignJob(job)}<button onclick={() => go((g) => g.assignJob(job.id))}>👷 Assign worker</button>
@@ -132,11 +133,11 @@
         <h2>🚧 {defect.name}</h2>
         <div class="stack">
           <div class="stack-row"><span>Output drag</span><span>−{defect.productivity_hit}/turn</span></div>
-          <div class="stack-row"><span>Fine</span><span>{defect.fine} W/turn</span></div>
-          <div class="stack-row"><span>Fix cost</span><span>{defect.fix_cost} W{#if defect.fix_trade} · needs {defect.fix_trade}{/if}</span></div>
+          <div class="stack-row"><span>Fine</span><span>{$money(defect.fine)}/turn</span></div>
+          <div class="stack-row"><span>Fix cost</span><span>{$money(defect.fix_cost)}{#if defect.fix_trade} · needs {defect.fix_trade}{/if}</span></div>
         </div>
         <div class="ent-actions">
-          <button onclick={() => go((g) => g.fixDefect(defect.id))}>🔧 Fix · {defect.fix_cost} W</button>
+          <button onclick={() => go((g) => g.fixDefect(defect.id))}>🔧 Fix · {$money(defect.fix_cost)}</button>
         </div>
 
       {:else if glob}
@@ -158,12 +159,12 @@
         <h2>🧾 {ap.vendor}</h2>
         <p class="gdesc">{apDesc(ap)}</p>
         <div class="stack">
-          <div class="stack-row"><span>Amount owed</span><span>{ap.amount} W</span></div>
+          <div class="stack-row"><span>Amount owed</span><span>{$money(ap.amount)}</span></div>
           {#if !ap.is_npc && !ap.collections}<div class="stack-row"><span>Owed to</span><span>{creditorName(ap)}</span></div>{/if}
           <div class="stack-row"><span>Status</span><span>{apStatus(ap)}</span></div>
           {#if ap.turns_dodged}<div class="stack-row"><span>Dodged</span><span>{ap.turns_dodged}×</span></div>{/if}
         </div>
-        {#if !ap.pending}<div class="ent-actions"><button onclick={() => go((g) => g.payPayable(ap.id))}>Pay {ap.amount} W</button></div>{/if}
+        {#if !ap.pending}<div class="ent-actions"><button onclick={() => go((g) => g.payPayable(ap.id))}>Pay {$money(ap.amount)}</button></div>{/if}
       {/if}
     </div>
   </div>

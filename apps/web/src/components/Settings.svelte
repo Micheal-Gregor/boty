@@ -43,6 +43,13 @@
         <input type="checkbox" checked={$settings.confirmEndTurn} onchange={(e) => setSetting("confirmEndTurn", e.currentTarget.checked)} />
       </label>
 
+      <h3>Show amounts in</h3>
+      <div class="seg">
+        {#each [["usd", "Dollars ($)"], ["w", "Work-units (W)"]] as [val, label]}
+          <button class="seg-btn" class:on={($settings.currency ?? "usd") === val} onclick={() => setSetting("currency", val)}>{label}</button>
+        {/each}
+      </div>
+
       <h3>Rivals' cards I want to see pop up</h3>
       <div class="seg">
         {#each rivalOptions as [val, label]}

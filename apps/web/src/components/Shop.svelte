@@ -1,5 +1,6 @@
 <script>
   import { ui, act, startPick, playSue, openEntity, openConfirm, confirmSell, confirmFire, confirmDispose } from "../lib/store.js";
+  import { money } from "../lib/money.js";
   import { findBuilding, findEquipment } from "@boty/engine";
   import { crewIdentity } from "../lib/crew.js";
   import Art from "./Art.svelte";
@@ -70,8 +71,8 @@
 <div class="shop">
   <h2>{player.name} <span class="trade">· {player.service}</span></h2>
   <div class="stats">
-    <span class="cash">{player.cash} W</span>
-    <span class="muted">overhead {overhead} W/turn</span>
+    <span class="cash">{$money(player.cash)}</span>
+    <span class="muted">overhead {$money(overhead)}/turn</span>
   </div>
 
   <div class="warehouse">
@@ -88,7 +89,7 @@
 
   {#each myProjects as proj (proj.id)}
     <div class="project-card">
-      <div class="proj-head">🏛️ <strong>{proj.name}</strong> <span class="muted">· {proj.balance} W balance on delivery</span></div>
+      <div class="proj-head">🏛️ <strong>{proj.name}</strong> <span class="muted">· {$money(proj.balance)} balance on delivery</span></div>
       <div class="proj-phases">
         {#each proj.phases as ph}
           <span class="phase" class:done={ph.done}>{ph.done ? "✓" : "○"} {ph.name}{#if ph.trade} <span class="muted">({ph.trade})</span>{/if}</span>
@@ -141,9 +142,9 @@
         <div class="card defect-card">
           <button class="thumb" onclick={() => openEntity("defect", d.id)}>
             <div class="card-name">🚧 {d.name}</div>
-            <div class="muted">−{d.productivity_hit} output · {d.fine} W/turn fine · fix for {d.fix_cost} W{#if d.fix_trade} ⟨needs {d.fix_trade}⟩{/if}</div>
+            <div class="muted">−{d.productivity_hit} output · {$money(d.fine)}/turn fine · fix for {$money(d.fix_cost)}{#if d.fix_trade} ⟨needs {d.fix_trade}⟩{/if}</div>
           </button>
-          <button class="mini" title="Clear it now; the {d.fix_cost} W repair is booked as a payable due later" onclick={() => act((g) => g.fixDefect(d.id))}>Fix · {d.fix_cost} W</button>
+          <button class="mini" title="Clear it now; the {$money(d.fix_cost)} repair is booked as a payable due later" onclick={() => act((g) => g.fixDefect(d.id))}>Fix · {$money(d.fix_cost)}</button>
         </div>
       {/each}
     </div>
@@ -157,7 +158,7 @@
           <div class="card-name">{j.name} <span class="state">[{j.state}]</span>{#if j.readying} <span class="routed">🏗️ fit-out</span>{:else if j.project_id} <span class="routed">🏛️ project phase</span>{:else if j.political} <span class="routed">🏛️ civic</span>{:else if j.hirer_id} <span class="routed">⇄ contract</span>{/if}</div>
           <div class="bar"><div class="fill" style="width:{Math.min(100, (100 * j.work_done) / j.work_amount)}%"></div></div>
           <div class="muted">
-            {j.work_done}/{j.work_amount} · {j.value} W · {termsLabel(j)} · due in {j.deadline_turn - turn} · crew {j.assigned_tradesmen.length}/{j.max_tradesmen}
+            {j.work_done}/{j.work_amount} · {$money(j.value)} · {termsLabel(j)} · due in {j.deadline_turn - turn} · crew {j.assigned_tradesmen.length}/{j.max_tradesmen}
             {#if reqs(j)} · ⟨{reqs(j)}⟩{/if}{#if !j.droppable} · ⚲sticky{/if}
           </div>
         </button>
@@ -165,7 +166,7 @@
           {#if canAssign(j)}<button class="mini" onclick={() => act((g) => g.assignJob(j.id))}>Assign</button>{/if}
           {#if j.state === "Active"}<button class="mini" onclick={() => act((g) => g.holdJob(j.id))}>Hold</button>{/if}
           {#if j.state === "OnHold"}<button class="mini" onclick={() => act((g) => g.resumeJob(j.id))}>▶ Resume</button>{/if}
-          {#if canSell(j)}<button class="mini" onclick={() => confirmSell(j.id, sellPrice(j))}>Sell {sellPrice(j)} W</button>{/if}
+          {#if canSell(j)}<button class="mini" onclick={() => confirmSell(j.id, sellPrice(j))}>Sell {$money(sellPrice(j))}</button>{/if}
           {#if j.droppable}<button class="mini" onclick={() => act((g) => g.dropJob(j.id))}>Drop</button>{/if}
           {#if handHas("rush")}<button class="mini" onclick={() => act((g) => g.playRush(j.id))}>Rush</button>{/if}
           {#if handHas("buy_time")}<button class="mini" onclick={() => act((g) => g.playBuyTime(j.id))}>Buy Time</button>{/if}
@@ -181,14 +182,14 @@
       <h3>Receivables (AR) — owed to you</h3>
       {#each arRows as r (r.kind + r.id)}
         <div class="line aged {r.age.cls}">
-          <span class="amt">{r.amount} W</span>
+          <span class="amt">{$money(r.amount)}</span>
           <span class="who">{r.kind === "contract" ? "from " + r.who : r.who}</span>
           <span class="when">{r.age.txt}</span>
           <span class="row-actions">
-            {#if r.kind === "invoice"}<button class="mini" title="Sell for cash now, minus the factoring fee" onclick={() => openConfirm({ title: "Factor this invoice?", body: `Sell this ${r.amount} W invoice for ${r.amount - Math.round(r.amount * econ.factoring_fee)} W cash now — the ${Math.round(econ.factoring_fee * 100)}% fee (${Math.round(r.amount * econ.factoring_fee)} W) is the price of getting paid today.`, yes: "Factor it" }, () => act((g) => g.factorInvoice(r.id)))}>Factor</button>
+            {#if r.kind === "invoice"}<button class="mini" title="Sell for cash now, minus the factoring fee" onclick={() => openConfirm({ title: "Factor this invoice?", body: `Sell this ${$money(r.amount)} invoice for ${$money(r.amount - Math.round(r.amount * econ.factoring_fee))} cash now — the ${Math.round(econ.factoring_fee * 100)}% fee (${$money(Math.round(r.amount * econ.factoring_fee))}) is the price of getting paid today.`, yes: "Factor it" }, () => act((g) => g.factorInvoice(r.id)))}>Factor</button>
             {:else if r.age.cls !== "pending"}
               {#if r.suable}<button class="mini hostile" title="Take {r.who} to court to collect this debt" onclick={() => playSue(r.debtorId, r.id)}>⚖️ Sue</button>{/if}
-              <button class="mini" title="Sell this debt to collections" onclick={() => openConfirm({ title: "Sell this debt to collections?", body: `Sell ${r.who}'s ${r.amount} W debt for about ${r.amount - Math.round(r.amount * econ.factoring_fee)} W now (a ${Math.round(econ.factoring_fee * 100)}% fee — less if they're near broke). The agency then hounds ${r.who} with a guaranteed lawyer.`, yes: "Sell the debt" }, () => act((g) => g.factorClaim(r.id)))}>Factor</button>
+              <button class="mini" title="Sell this debt to collections" onclick={() => openConfirm({ title: "Sell this debt to collections?", body: `Sell ${r.who}'s ${$money(r.amount)} debt for about ${$money(r.amount - Math.round(r.amount * econ.factoring_fee))} now (a ${Math.round(econ.factoring_fee * 100)}% fee — less if they're near broke). The agency then hounds ${r.who} with a guaranteed lawyer.`, yes: "Sell the debt" }, () => act((g) => g.factorClaim(r.id)))}>Factor</button>
             {/if}
           </span>
         </div>
@@ -198,7 +199,7 @@
       <h3>Payables (AP) — you owe</h3>
       {#each apRows as r (r.ap.id)}
         <div class="line aged {r.age.cls}">
-          <span class="amt">{r.ap.amount} W</span>
+          <span class="amt">{$money(r.ap.amount)}</span>
           <button class="who wholink" title="What's this expense?" onclick={() => openEntity("ap", r.ap.id)}>{r.who} 🔍</button>
           <span class="when">{r.age.txt}{#if r.ap.turns_dodged} · dodged {r.ap.turns_dodged}×{/if}</span>
           {#if !r.ap.pending}<button class="mini" onclick={() => act((g) => g.payPayable(r.ap.id))}>Pay</button>{/if}

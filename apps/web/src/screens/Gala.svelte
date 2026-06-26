@@ -1,5 +1,6 @@
 <script>
   import { ui, restart } from "../lib/store.js";
+  import { money } from "../lib/money.js";
   const final = $derived($ui.final ?? {});
   const results = $derived(final.results ?? []);
   const awards = $derived(final.awards ?? []);
@@ -22,7 +23,7 @@
 
   {#if tab === "winner"}
     {#if winner}
-      <p class="crown">🏆 <strong>{winner.name}</strong> is named {town}'s {award} with <strong>{winner.cash} W</strong>!</p>
+      <p class="crown">🏆 <strong>{winner.name}</strong> is named {town}'s {award} with <strong>{$money(winner.cash)}</strong>!</p>
     {:else}
       <p class="crown">Every shop went under. The {award} goes unawarded this year.</p>
     {/if}
@@ -50,13 +51,13 @@
           <div class="pbook-head"><strong>#{r.place} {r.name}</strong> <span class="muted">· {r.service}</span></div>
           {#if r.bankrupt}<div class="stamp">BANKRUPT</div>{/if}
           <div class="fin">
-            <div class="fin-row"><span>Revenue</span><span>{r.pnl.revenue} W</span></div>
-            <div class="fin-row sub"><span>− COGS</span><span>{r.pnl.cogs} W</span></div>
-            <div class="fin-row"><span>Gross margin</span><span>{r.pnl.grossMargin} W</span></div>
-            <div class="fin-row sub"><span>− Overhead</span><span>{r.pnl.overhead} W</span></div>
-            <div class="fin-row tot"><span>Net income</span><span>{r.pnl.netIncome} W</span></div>
+            <div class="fin-row"><span>Revenue</span><span>{$money(r.pnl.revenue)}</span></div>
+            <div class="fin-row sub"><span>− COGS</span><span>{$money(r.pnl.cogs)}</span></div>
+            <div class="fin-row"><span>Gross margin</span><span>{$money(r.pnl.grossMargin)}</span></div>
+            <div class="fin-row sub"><span>− Overhead</span><span>{$money(r.pnl.overhead)}</span></div>
+            <div class="fin-row tot"><span>Net income</span><span>{$money(r.pnl.netIncome)}</span></div>
             <div class="fin-row split"><span>Assets {r.bs.assets} · Liab {r.bs.liabilities} · Equity {r.bs.equity}</span><span></span></div>
-            <div class="fin-row"><span>Cash</span><span>{r.cash} W</span></div>
+            <div class="fin-row"><span>Cash</span><span>{$money(r.cash)}</span></div>
           </div>
         </div>
       {/each}

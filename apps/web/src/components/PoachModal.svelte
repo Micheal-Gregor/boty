@@ -1,5 +1,6 @@
 <script>
   import { ui, resolvePoachUI } from "../lib/store.js";
+  import { money } from "../lib/money.js";
   import { crewIdentity } from "../lib/crew.js";
   const c = $derived(($ui.poach ?? [])[0] ?? null);
   const who = $derived(c ? crewIdentity(c.workerId) : null);
@@ -17,7 +18,7 @@
       <p class="cbody">The Pettigrews are dangling a paycheck at <strong>{who.name}</strong> ({c.workerId}). Counter-offer to keep them — you pay it and roll their loyalty — or let them walk.</p>
       <div class="offers">
         {#each offers as o}
-          <button class="offer" onclick={() => resolvePoachUI(c.workerId, o.w)}><span class="ow">{o.w} W</span><span class="oo">stays {o.odds}</span></button>
+          <button class="offer" onclick={() => resolvePoachUI(c.workerId, o.w)}><span class="ow">{$money(o.w)}</span><span class="oo">stays {o.odds}</span></button>
         {/each}
       </div>
       <button class="walk" onclick={() => resolvePoachUI(c.workerId, 0)}>🚪 Let them go</button>

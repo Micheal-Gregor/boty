@@ -9,10 +9,12 @@ import { botActions } from "@boty/engine/bots";
 import { loadContent } from "./content.js";
 import { unlockAudio, playSfx, playSting } from "./sound.js";
 import { dealTownlife, townlifeForRound } from "./townlife.js";
+import { setMoneyRate } from "./money.js";
 import { npcIntroFor } from "./townsfolk.js";
 import { crewIdentity } from "./crew.js";
 
 const { economy, decks, flavor } = loadContent();
+setMoneyRate(economy.w_to_usd); // wire the W→$ display rate from the economy data
 const AI_DELAY = 650; // ms between AI seats, so you can watch the table move
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 

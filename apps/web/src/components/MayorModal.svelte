@@ -1,5 +1,6 @@
 <script>
   import { ui, resolveMayorUI } from "../lib/store.js";
+  import { money } from "../lib/money.js";
   import Art from "./Art.svelte";
   const c = $derived(($ui.mayor ?? [])[0] ?? null);
   const cost = $derived($ui.economy?.mayor_favor_cost ?? 10);
@@ -10,10 +11,10 @@
     <div class="confirm" onclick={(e) => e.stopPropagation()}>
       <div class="conf-art"><Art kind="townsfolk" id="crabtree" label="Mayor Crabtree" autoplay /></div>
       <h2>Mayor Crabtree's re-election drive</h2>
-      <p class="cbody">Chip in <strong>{cost} W</strong> and the Mayor remembers it — a <strong>Favor</strong> in your hand now, and he steers more work your way (seeds networking lunches into your deck). Or pass.</p>
+      <p class="cbody">Chip in <strong>{$money(cost)}</strong> and the Mayor remembers it — a <strong>Favor</strong> in your hand now, and he steers more work your way (seeds networking lunches into your deck). Or pass.</p>
       <div class="cbtns">
         <button class="no" onclick={() => resolveMayorUI(false)}>Pass</button>
-        <button class="yes" onclick={() => resolveMayorUI(true)}>Chip in {cost} W ▶</button>
+        <button class="yes" onclick={() => resolveMayorUI(true)}>Chip in {$money(cost)} ▶</button>
       </div>
     </div>
   </div>

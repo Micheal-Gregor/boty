@@ -1,5 +1,6 @@
 <script>
   import { ui, act, endTurn, isAI, viewCard, cardInLine, skipAITurns, openSettings, openHand, openRivals, openRules, openEntity, borrowCredit } from "../lib/store.js";
+  import { money } from "../lib/money.js";
   import { muted, toggleMute, playSfx, playMusic } from "../lib/sound.js";
   import { seasonFor, findBuilding } from "@boty/engine";
   import Shop from "../components/Shop.svelte";
@@ -81,7 +82,7 @@
   {#if s.globalEffects?.length}
     <div class="town-banner">
       {#each s.globalEffects as g}
-        <button class="town-effect" onclick={() => openEntity("global", g.id)} title="View this town effect">🌐 {g.name}{#if g.kind === "levy"} — {g.magnitude} W/turn levy{/if} · {g.kind === "union" ? "until busted" : `${g.turnsLeft} round${g.turnsLeft === 1 ? "" : "s"} left`}</button>
+        <button class="town-effect" onclick={() => openEntity("global", g.id)} title="View this town effect">🌐 {g.name}{#if g.kind === "levy"} — {$money(g.magnitude)}/turn levy{/if} · {g.kind === "union" ? "until busted" : `${g.turnsLeft} round${g.turnsLeft === 1 ? "" : "s"} left`}</button>
       {/each}
     </div>
   {/if}
@@ -108,7 +109,7 @@
         {#each rivals as r}
           <div class="rival" class:bankrupt={r.bankrupt}>
             <strong>{r.name}</strong> {isAI(r.id) ? "🤖" : "🧑"}
-            <span class="cash">{r.cash} W</span>
+            <span class="cash">{$money(r.cash)}</span>
             <span class="muted">{findBuilding(econ, r.building).name} · {r.tradesmen.length} crew · {r.jobs.length} jobs</span>
             {#if r.bankrupt}<span class="tag">bankrupt</span>{/if}
           </div>
@@ -164,7 +165,7 @@
       <fieldset class="actions" disabled={!!aiTurn}>
         <Flash section="general" />
         <button title="Borrow cash now — a liability with interest, force-settled at year-end" onclick={borrowCredit}>🏦 Bank Credit</button>
-        {#if locOwed > 0}<button title="Repay the line of credit" onclick={() => act((g) => g.repayCredit())}>Repay ({locOwed} W)</button>{/if}
+        {#if locOwed > 0}<button title="Repay the line of credit" onclick={() => act((g) => g.repayCredit())}>Repay ({$money(locOwed)})</button>{/if}
         {#if $ui.view?.mustStaffBoon}<span class="boon-hint" title="Chief Boon's job is mandatory">⛑ Staff Chief Boon's job to end your turn</span>{/if}
         <button class="end" class:blocked={$ui.view?.mustStaffBoon} onclick={endTurn}>End turn ▶</button>
       </fieldset>
@@ -179,31 +180,31 @@
       </div>
       {#if booksView === "bs" && bs}
         <div class="pl">
-          <div class="pl-row total"><span>Assets</span><span>{bs.assets} W</span></div>
+          <div class="pl-row total"><span>Assets</span><span>{$money(bs.assets)}</span></div>
           {#each bs.assetLines as l}<div class="pl-row sub"><span>{l.name}</span><span>{l.amount}</span></div>{/each}
-          <div class="pl-row total"><span>Liabilities</span><span>{bs.liabilities} W</span></div>
+          <div class="pl-row total"><span>Liabilities</span><span>{$money(bs.liabilities)}</span></div>
           {#each bs.liabilityLines as l}<div class="pl-row sub"><span>{l.name}</span><span>{l.amount}</span></div>{/each}
           {#if !bs.liabilityLines.length}<div class="pl-row sub"><span>none</span><span>0</span></div>{/if}
-          <div class="pl-row total"><span>Equity</span><span>{bs.equity} W</span></div>
+          <div class="pl-row total"><span>Equity</span><span>{$money(bs.equity)}</span></div>
           <div class="pl-row sub"><span>Owner's capital</span><span>{bs.capital}</span></div>
           <div class="pl-row sub"><span>Retained earnings (net income)</span><span>{bs.retained}</span></div>
-          <div class="pl-row net"><span>Liabilities + equity</span><span>{bs.liabilities + bs.equity} W</span></div>
+          <div class="pl-row net"><span>Liabilities + equity</span><span>{$money(bs.liabilities + bs.equity)}</span></div>
           <p class="muted" style="margin-top:8px">Assets {bs.assets} = Liabilities {bs.liabilities} + Equity {bs.equity}. The books always balance.</p>
         </div>
       {:else if pnl}
         <div class="pl">
-          <div class="pl-row total"><span>Revenue</span><span>{pnl.revenue} W</span></div>
+          <div class="pl-row total"><span>Revenue</span><span>{$money(pnl.revenue)}</span></div>
           {#each pnl.revenueLines as l}<div class="pl-row sub"><span>{l.name}</span><span>{l.amount}</span></div>{/each}
-          <div class="pl-row total"><span>− Cost of jobs (COGS)</span><span>{pnl.cogs} W</span></div>
+          <div class="pl-row total"><span>− Cost of jobs (COGS)</span><span>{$money(pnl.cogs)}</span></div>
           {#each pnl.cogsLines as l}<div class="pl-row sub"><span>{l.name}</span><span>({l.amount})</span></div>{/each}
-          <div class="pl-row margin"><span>Gross margin</span><span>{pnl.grossMargin} W</span></div>
-          <div class="pl-row total"><span>− Overhead</span><span>{pnl.overhead} W</span></div>
+          <div class="pl-row margin"><span>Gross margin</span><span>{$money(pnl.grossMargin)}</span></div>
+          <div class="pl-row total"><span>− Overhead</span><span>{$money(pnl.overhead)}</span></div>
           {#each pnl.overheadLines as l}<div class="pl-row sub"><span>{l.name}</span><span>({l.amount})</span></div>{/each}
-          <div class="pl-row net" class:bad={pnl.netIncome < 0}><span>Net income</span><span>{pnl.netIncome} W</span></div>
+          <div class="pl-row net" class:bad={pnl.netIncome < 0}><span>Net income</span><span>{$money(pnl.netIncome)}</span></div>
         </div>
         <div class="cash-vs-profit">
-          <div class="cvp"><span class="muted">Net income (on paper)</span><strong class:bad={pnl.netIncome < 0}>{pnl.netIncome} W</strong></div>
-          <div class="cvp"><span class="muted">Cash in the bank</span><strong>{me.cash} W</strong></div>
+          <div class="cvp"><span class="muted">Net income (on paper)</span><strong class:bad={pnl.netIncome < 0}>{$money(pnl.netIncome)}</strong></div>
+          <div class="cvp"><span class="muted">Cash in the bank</span><strong>{$money(me.cash)}</strong></div>
           <p class="muted">Profit isn't cash: you book revenue the moment a job's done, but the money lands later — that gap is the whole game.</p>
         </div>
       {/if}

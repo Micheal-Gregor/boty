@@ -8,6 +8,8 @@
   "max_turns": 24,
   "draw_cap": 4,
   "deck_size": 60,
+  "_currency_comment": "Display only — the engine reasons entirely in W (work-units) so balance stays unit-clean. The UI multiplies by w_to_usd to show players dollars; tune this rate freely from play feedback without touching any balance.",
+  "w_to_usd": 50,
 
   "wage_per_turn": 1,
   "sign_on_fee": 2,
