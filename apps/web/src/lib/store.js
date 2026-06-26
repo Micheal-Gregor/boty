@@ -7,7 +7,7 @@ import { Game, profitAndLoss, balanceSheet, recurringExpenses, seasonFor, worker
 import { settings } from "./settings.js";
 import { botActions } from "@boty/engine/bots";
 import { loadContent } from "./content.js";
-import { unlockAudio, playSfx } from "./sound.js";
+import { unlockAudio, playSfx, playSting } from "./sound.js";
 import { townlifeId } from "../components/Art.svelte";
 import { npcIntroFor } from "./townsfolk.js";
 import { crewIdentity } from "./crew.js";
@@ -241,11 +241,23 @@ const ALERTS = [
   [/🏗️ (.+?) moved into (.+?) \(from/, "🏗️ Moved in", (m) => `${m[1]} finished readying and moved into ${m[2]}.`],
   [/⚠ (.+?) couldn't cover the .* balance on (.+?) —/, "⚠ Move forfeited", (m) => `${m[1]} couldn't close out ${m[2]} — the deposit is lost.`],
 ];
+// Audio cues fired off the log: stings (duck the music for a beat) on the dramatic events the user
+// flagged, plus a couple of satisfying one-shots. Files are drop-in (silent until they exist).
+const SOUND_CUES = [
+  [/💀 .* cannot cover|BANKRUPT/, "sting_bankrupt", true],
+  [/bank CALLED the loan/, "sting_loan", true],
+  [/🌐 .* grips Maple Hollow|levy now hits|town levy/i, "sting_levy", true],
+  [/code violation|safety write-up|inspection .* fine|🚧/i, "sting_fine", true],
+  [/✔ .* completed/, "job_done", false],
+  [/collects .* in receivables|settles up|paid in full/i, "cash_register", false],
+  [/walks anyway|poached|🚪|let .* go|fired/i, "worker_leaves", false],
+];
 function surfaceNewOutcomes() {
   if (!game) return;
   const log = game.state.log;
   for (let i = lastScanned; i < log.length; i++) {
     for (const [re, title, body] of ALERTS) { const m = re.exec(log[i]); if (m) { enqueuePopup({ kind: "alert", title, body: body(m) }); break; } }
+    for (const [re, id, sting] of SOUND_CUES) { if (re.test(log[i])) { sting ? playSting(id) : playSfx(id, 0.5); break; } }
   }
   lastScanned = log.length;
   surfaceDeckEvents();
@@ -262,7 +274,7 @@ function surfaceDeckEvents() {
   const evs = game.state.deckEvents ?? [];
   for (let i = lastDeckEvent; i < evs.length; i++) {
     const e = evs[i];
-    if (e.who === me.id) enqueuePopup({ kind: "shuffle", reason: e.reason, add: e.add ?? null, count: e.count ?? e.remove ?? 0, removed: e.remove != null });
+    if (e.who === me.id) { enqueuePopup({ kind: "shuffle", reason: e.reason, add: e.add ?? null, count: e.count ?? e.remove ?? 0, removed: e.remove != null }); playSfx("riffle", 0.5); }
   }
   lastDeckEvent = evs.length;
 }
@@ -387,7 +399,7 @@ export function playSue(debtorId, payableId, slick = false) {
 export function playFavor(targetId, modId) {
   push({ picking: null });
   let line;
-  try { line = game.playFavor(targetId, modId); playSfx("gavel", 0.4); } catch (e) { return fail(e?.message ?? String(e)); }
+  try { line = game.playFavor(targetId, modId); playSfx("coin", 0.5); } catch (e) { return fail(e?.message ?? String(e)); }
   if (line) enqueuePopup({ kind: "alert", title: "🪙 Favor played", body: line }); // confirm the fine/union actually cleared
   surfaceNewOutcomes();
   push({ error: null });

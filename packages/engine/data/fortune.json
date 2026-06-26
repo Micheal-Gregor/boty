@@ -40,9 +40,10 @@
       "favor_reward": 2,
       "global_penalty": {
         "name": "Opera bond scandal",
-        "kind": "levy",
-        "magnitude": 2,
-        "turns": 3
+        "kind": "recession",
+        "magnitude": 0.2,
+        "turns": 3,
+        "art": "civic/opera_scandal"
       },
       "flavor": "The richest commission in years — the Mayor's pet project, half the council against it. Land the Opera House and you own the town's gratitude; let the bonds default and every shop pays for the scandal."
     },
@@ -56,8 +57,9 @@
       "global_penalty": {
         "name": "Hospital overrun levy",
         "kind": "levy",
-        "magnitude": 2,
-        "turns": 3
+        "magnitude": 1,
+        "turns": 3,
+        "art": "civic/hospital_overrun"
       },
       "flavor": "The county's been fighting over this wing for a decade. Deliver it and you're untouchable — miss the deadline and the county slaps an emergency levy on every business in town to cover the overrun."
     },

@@ -60,6 +60,19 @@ export function playSfx(id, vol = 0.5) {
   try { const a = new Audio(url); a.volume = Math.max(0, Math.min(1, vol * masterVol)); a.play().catch(() => {}); } catch { /* ignore */ }
 }
 
+/** A "sting" — a short dramatic clip that DUCKS the music for ~1.6s so it cuts through, then the
+ *  loop swells back. Punctuates big beats (a levy, a fine, a called loan, a bankruptcy). No-op (and
+ *  no duck) until the clip exists, so it's safe to wire before the audio lands. */
+export function playSting(id, vol = 0.7) {
+  if (isMuted || !sfxOn || !unlocked) return;
+  if (!lookup[`sfx/${id}`]) return; // no clip yet → don't duck the music for silence
+  if (musicEl) {
+    try { musicEl.volume = musicBaseVol * masterVol * 0.2; } catch { /* ignore */ }
+    setTimeout(() => { try { if (musicEl) musicEl.volume = musicBaseVol * masterVol; } catch { /* ignore */ } }, 1600);
+  }
+  playSfx(id, vol);
+}
+
 /** Loop a music track by id (e.g. a season). Switches smoothly when the id changes. */
 export function playMusic(id, vol = 0.28) {
   if (!unlocked || !id || !musicOn) return;

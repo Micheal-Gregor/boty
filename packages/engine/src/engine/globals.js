@@ -22,7 +22,7 @@ function describe(e) {
 
 /** Drop a global effect on the whole town. Returns the announcement line. */
 export function applyGlobal(state, spec, sourceName) {
-  const effect = { id: `G${++counter}`, name: spec.name, kind: spec.kind, magnitude: spec.magnitude, turnsLeft: spec.turns, source: sourceName ?? null };
+  const effect = { id: `G${++counter}`, name: spec.name, kind: spec.kind, magnitude: spec.magnitude, turnsLeft: spec.turns, source: sourceName ?? null, art: spec.art ?? null };
   state.globalEffects.push(effect);
   return `🌐 ${spec.name} grips Maple Hollow${sourceName ? ` — ${sourceName} fell through` : ""}: ${describe(effect)} for ${spec.turns} round(s)`;
 }

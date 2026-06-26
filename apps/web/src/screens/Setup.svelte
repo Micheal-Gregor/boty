@@ -26,6 +26,15 @@
     })),
   );
 
+  // Every trade is taken at most once. Pick a trade another seat holds and they SWAP onto the one
+  // you just vacated (so it's an unused trade). Humans get priority simply by being the one who picks.
+  function pickService(i, svc) {
+    const old = seats[i].service;
+    for (let j = 0; j < count; j++) if (j !== i && seats[j].service === svc) seats[j].service = old;
+    seats[i].service = svc;
+    seats = seats; // nudge reactivity
+  }
+
   function start() {
     const chosen = seats.slice(0, count).map((s) => ({
       name: s.name.trim() || "Player",
@@ -37,7 +46,7 @@
 </script>
 
 <section class="setup">
-  <h1>Order to Cash</h1>
+  <h1>BBB Business of the Year</h1>
   <p class="tagline">Run a trade in Maple Hollow. Be named <strong>Business of the Year</strong>.</p>
 
   <label class="count">
@@ -56,7 +65,7 @@
           <option value="human">Human</option>
           <option value="ai">AI</option>
         </select>
-        <select bind:value={seat.service}>
+        <select value={seat.service} onchange={(e) => pickService(i, e.currentTarget.value)}>
           {#each services as svc}<option value={svc}>{svc}</option>{/each}
         </select>
         {#if seat.kind === "ai"}

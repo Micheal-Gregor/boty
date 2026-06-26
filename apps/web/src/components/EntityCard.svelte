@@ -140,7 +140,7 @@
         </div>
 
       {:else if glob}
-        <div class="ent-art"><Art kind="card" id={glob.kind === "union" ? "union_drive" : "county_fair"} label={glob.name} /></div>
+        <div class="ent-art"><Art kind="card" id={glob.art ?? (glob.kind === "union" ? "union_drive" : "county_fair")} label={glob.name} /></div>
         <h2>🌐 {glob.name}</h2>
         <p class="gdesc">{globalDesc(glob)}</p>
         <div class="stack">
