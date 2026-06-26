@@ -477,7 +477,13 @@
         "magnitude": 1,
         "turns": 2
       },
-      "flavor": "The storm tore up Main Street — downed lines, ruined units, twisted signage. Every trade's got a piece."
+      "flavor": "The storm tore up Main Street — downed lines, ruined units, twisted signage. Every trade's got a piece.",
+      "flavor_by_season": {
+        "Spring": "A hailstorm tore through Maple Hollow, stripping the leaves and blossoms off Main Street. The whole town needs the mess cleaned up.",
+        "Summer": "A summer thunderstorm hit downtown hard — lightning strikes and flash flooding. The town needs crews on it now.",
+        "Fall": "A storm knocked branches down across Main Street and left light damage everywhere. Time to clear it and patch things up.",
+        "Winter": "A winter storm buried downtown — snow to clear and frozen lines to thaw before the town grinds to a halt."
+      }
     },
     {
       "type": "incident",

@@ -488,10 +488,22 @@ export function endTurn() {
   if (game.referralCases.some((r) => r.contractor_id === game.state.players[game.state.activePlayerIndex].id)) return fail("Answer the referral offer first");
   if (game.state.pendingCourt.length) return fail("Resolve your court case first");
   if (game.state.pendingThreat) return fail("Resolve the response window first");
-  const ctx = game.endTurn();
-  if (ctx.reckoning) return enterReckoning(ctx.order);
-  if (ctx.over) { playSfx("chime", 0.5); return push({ screen: "gala", ctx, final: finalReport() }); }
-  advanceUntilHuman(ctx);
+  const proceed = () => {
+    const ctx = game.endTurn();
+    if (ctx.reckoning) return enterReckoning(ctx.order);
+    if (ctx.over) { playSfx("chime", 0.5); return push({ screen: "gala", ctx, final: finalReport() }); }
+    advanceUntilHuman(ctx);
+  };
+  if (!get(settings).confirmEndTurn) return proceed(); // quick-end mode
+  // Safety check: flag anything you might want to handle before passing the turn.
+  const me = game.state.players[game.state.activePlayerIndex];
+  const idle = me.tradesmen.filter((t) => t.assignedJob == null && (t.out_until == null || t.out_until <= game.state.turn)).length;
+  const expiring = me.jobs.filter((j) => j.deadline_turn === game.state.turn && j.state !== "Complete").length;
+  const warns = [];
+  if (idle) warns.push(`${idle} idle ${idle === 1 ? "worker" : "workers"} (not on a job)`);
+  if (expiring) warns.push(`${expiring} ${expiring === 1 ? "job" : "jobs"} will EXPIRE this turn if left unfinished`);
+  const body = warns.length ? `⚠ ${warns.join("; ")}. End your turn anyway?` : "End your turn and pass to the next player?";
+  openConfirm({ title: "End turn?", body, yes: "End turn" }, proceed);
 }
 
 /** A failed Demand Roll summons you to court. AI seats auto-defend; a human rolls the getaway die. */

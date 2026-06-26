@@ -38,6 +38,10 @@
         <span>Animate my cards on open</span>
         <input type="checkbox" checked={$settings.animateCards} onchange={(e) => setSetting("animateCards", e.currentTarget.checked)} />
       </label>
+      <label class="set-row">
+        <span>Confirm before ending my turn</span>
+        <input type="checkbox" checked={$settings.confirmEndTurn} onchange={(e) => setSetting("confirmEndTurn", e.currentTarget.checked)} />
+      </label>
 
       <h3>Rivals' cards I want to see pop up</h3>
       <div class="seg">
