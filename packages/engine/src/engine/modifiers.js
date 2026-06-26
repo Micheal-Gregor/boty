@@ -71,14 +71,28 @@ export function trainingSpeedBonus(player) {
 
 // --- Line of credit (financing — debt on the balance sheet, interest on the P&L) -----------
 
-/** Draw cash on the line of credit: Dr cash / Cr line of credit (a liability). */
+/** Draw cash on the line of credit: Dr cash / Cr line of credit (a liability). The deeper you lean
+ *  on the bank, the likelier it CALLS the loan — ~5% per 20 W outstanding. A called loan must be
+ *  repaid in full on the spot; a player surviving on credit can't, and the shortfall sinks them at
+ *  the next upkeep. Closes the "borrow forever to outlast the clock" exploit. */
 export function drawCredit(state, player, amount) {
   if (amount <= 0) throw new GameError("Nothing to draw");
   post(state, player, "Line of credit — draw", [
     { acct: ACCT.CASH, amt: amount },
     { acct: ACCT.LOC, amt: -amount },
   ]);
-  return `${player.name} drew ${w(amount)} on the line of credit`;
+  let line = `${player.name} drew ${w(amount)} on the line of credit`;
+  const owed = -(balances(player)[ACCT.LOC] || 0);
+  const risk = 0.05 * Math.floor(owed / 20);
+  if (risk > 0 && (state.rng?.() ?? 1) < risk) {
+    // The bank calls the loan: repay it ALL now, even into the red (→ bankruptcy at upkeep if uncovered).
+    post(state, player, "Line of credit — CALLED", [
+      { acct: ACCT.LOC, amt: owed },
+      { acct: ACCT.CASH, amt: -owed },
+    ]);
+    line += ` — 🏦 the bank CALLED the loan and demanded all ${w(owed)} back${player.cash < 0 ? " (you can't cover it — bankruptcy looms)" : ""}`;
+  }
+  return line;
 }
 
 /** Repay (some of) the line of credit: Dr line of credit / Cr cash. */

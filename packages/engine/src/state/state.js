@@ -225,6 +225,7 @@ export function createGame(economy, playerSeeds, options = {}) {
     civilHandDeck: new Deck(civilHand, makeRng(seed === undefined ? undefined : seed + 2)),
     civilEventDeck: new Deck((options.civil ?? []).filter((c) => !c.hand), makeRng(seed === undefined ? undefined : seed + 4)),
     die: makeDie(makeRng(seed === undefined ? undefined : seed + 3)),
+    rng: makeRng(seed === undefined ? undefined : seed + 5), // a 0–1 generator for fine probability rolls (e.g. the loan-demand check)
     pendingThreat: null, // active response window, if any
     pendingCourt: [], // NPC court cases awaiting the defendant's lawyer decision
     pendingDamages: [], // botched routed jobs the hirer may sue over (damages → the bank)

@@ -59,7 +59,7 @@ export function drawFortune(state, player, count) {
     if (c.season && c.season !== season) { benched.push(c); continue; }
     cards.push(c);
   }
-  if (benched.length) deck.inject(benched); // back into the deck for their season (reshuffles)
+  if (benched.length) deck.returnToPile(benched); // back into the PILE for their season — NOT inject (which would duplicate into source and inflate the deck)
   const injected = marketingInjection(player); // marketing brings in extra work
   if (injected) cards.unshift(injected);
   // Carry each card's cosmetic flavor onto its summary — a season-specific variant if the card

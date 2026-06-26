@@ -147,6 +147,13 @@ const cashOf = (p) => p.cash;
   performanceReview(st, p);
   assert.equal(p.tradesmen[0].flag, null);
   ok("review: a recovered worker sheds the poor-review flag");
+
+  // reviews COMPOUND: a standout (already +1) climbs to +2, capped
+  st.die = () => 6;
+  performanceReview(st, p); // worker2: +1 → +2
+  performanceReview(st, p); // worker2: +2 → capped at +2
+  assert.equal(p.tradesmen[2].prod_mod, 2, "great reviews stack to a +2 star, capped");
+  ok("review: standout reviews compound (capped at +2), steady holds the line");
 }
 
 console.log(`\nAll employment checks passed (${passed}).`);

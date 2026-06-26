@@ -172,12 +172,28 @@ const economy = await loadEconomy();
   g.start();
   const ana = g.state.players[0];
   ana.bbbThisTurn = false;
+  g.state.rng = () => 1; // don't let the loan-demand fire in THIS test
   g.drawCredit();
   const withLoan = ana.cash;
   forceSettleCredit(g.state, ana);
   assert.equal(balances(ana)[ACCT.LOC] || 0, 0, "the line of credit is cleared at year-end");
   assert.equal(ana.cash, withLoan - economy.line_of_credit.draw, "borrowed cash is repaid, not counted as winnings");
   ok("year-end settles the line of credit (can't borrow to win)");
+}
+
+// The bank can CALL the loan — the deeper you lean on credit, the likelier, closing the
+// "borrow forever to outlast the clock" exploit. A called loan is repaid on the spot.
+{
+  resetIds();
+  const g = new Game(economy, [{ name: "Ana", service: "mechanic" }], { seed: 1 });
+  g.start();
+  const ana = g.state.players[0]; ana.bbbThisTurn = false;
+  g.state.rng = () => 0; // force the demand to fire
+  const cash0 = ana.cash;
+  g.drawCredit(); // draw 20 → owed 20 → 5% risk → CALLED → repaid in full
+  assert.equal(balances(ana)[ACCT.LOC] || 0, 0, "a called loan is repaid in full immediately");
+  assert.equal(ana.cash, cash0, "the drawn cash is clawed straight back — no free runway");
+  ok("loan demand: leaning on the bank risks the loan being CALLED");
 }
 
 console.log(`\nAll modifier checks passed (${passed}).`);

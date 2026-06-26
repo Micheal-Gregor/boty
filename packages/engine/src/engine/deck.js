@@ -55,6 +55,16 @@ export class Deck {
     this.reshuffle();
   }
 
+  /** Put already-drawn cards back into the draw PILE only (NOT source) — e.g. an out-of-season card
+   *  benched until its season. Shuffles them into the remaining pile. Does not grow the deck. */
+  returnToPile(cards) {
+    this.pile.push(...cards);
+    for (let i = this.pile.length - 1; i > 0; i--) {
+      const j = Math.floor(this.rng() * (i + 1));
+      [this.pile[i], this.pile[j]] = [this.pile[j], this.pile[i]];
+    }
+  }
+
   /** Living deck: pull up to n cards matching pred out of the composition, then reshuffle. Returns the count removed. */
   remove(pred, n = Infinity) {
     let removed = 0;
