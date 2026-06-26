@@ -2,60 +2,6 @@
   "_comment": "The Fortune deck (Dial 1 — the feast/famine master dial). A FIXED composition of 54 cards (incl. 3 code-violation defects) drawn WITHOUT reshuffle until exhausted, so a run of shocks becomes a real 'season' players can roughly card-count. Mix: jobs 20 — half (10) require equipment to START (so early rounds favour the small ungated jobs until you tool up); big jobs also need a bigger shop (required_building_tier 2 = Shop+, 3 = Warehouse); the Office-tower fit-out is the endgame combo (tier-3 shop + a tool per worker + 3-crew, long deadline, big payout). About HALF of the 20 job copies are trade-specific (required_trade, covering all six services) so in a full table they route player-to-player — the AR/AP web; the rest are general bread-and-butter anyone can do for early cash. windfalls 14 and shocks 6 — of which a count-scaling set tilts the equipment-vs-hire choice (Dial 3): equipment is rewarded net-positive (patent ×2 + efficiency award ×2 give per_equipment cash; depreciation audit ×1 penalises it) while headcount is penalised net (birthday gives a small per_tradesman bonus; profit-share penalises per_tradesman and a retirement churns a worker); payables 4 (NPC vendor bills → the AP float game); gifts 4 (deal a Civil hand card); summons 2 (draw a Civil event); retirement 1. Shocks + payables keep shops desperate; windfalls bolster cash flow. `per_equipment`/`per_tradesman` scale a card's cash by your build. A `forced` job routes a deposit from a client player to the contractor; abandoning it lets the client sue. The `flavor` field is pure immersion (Maple Hollow rivalries) and has no mechanical effect. `copies` is expanded by the loader.",
   "cards": [
     {
-      "type": "job",
-      "copies": 1,
-      "id": "sub_repipe",
-      "name": "Re-pipe the old creamery",
-      "value": 15,
-      "work_amount": 7,
-      "deadline": 5,
-      "terms": 2,
-      "min_tradesmen": 1,
-      "max_tradesmen": 2,
-      "required_equipment": null,
-      "droppable": true,
-      "subcontract": true,
-      "sub_trade": "plumber",
-      "sub_cost": 12,
-      "flavor": "You land the creamery contract — but it's all pipe. Sub it to the plumber, bill the owner your markup, and pray they don't botch it."
-    },
-    {
-      "type": "job",
-      "copies": 1,
-      "id": "sub_hvac",
-      "name": "Strip-mall HVAC retrofit",
-      "value": 20,
-      "work_amount": 8,
-      "deadline": 5,
-      "terms": 2,
-      "min_tradesmen": 1,
-      "max_tradesmen": 2,
-      "required_equipment": null,
-      "droppable": true,
-      "subcontract": true,
-      "sub_trade": "HVAC technician",
-      "sub_cost": 16,
-      "flavor": "The strip-mall owner signs with you. The rooftop units are an HVAC job — sub it out, mark it up, carry the receivable till they pay."
-    },
-    {
-      "type": "job",
-      "copies": 1,
-      "id": "sub_rewire",
-      "name": "Rewire the Odd Fellows hall",
-      "value": 10,
-      "work_amount": 5,
-      "deadline": 4,
-      "terms": 2,
-      "min_tradesmen": 1,
-      "max_tradesmen": 1,
-      "required_equipment": null,
-      "droppable": true,
-      "subcontract": true,
-      "sub_trade": "electrician",
-      "sub_cost": 8,
-      "flavor": "The lodge wants its hall rewired. You're no sparky — broker it to the electrician and take the spread."
-    },
-    {
       "type": "civic",
       "id": "civic_townhall",
       "copies": 1,
@@ -400,7 +346,8 @@
       "flavor_by_season": {
         "Fall": "The Harvest Festival packs Main Street — your booth does a brisk trade.",
         "Winter": "The winter market is quieter, but the booth still turns a tidy profit."
-      }
+      },
+      "season": "Fall"
     },
     {
       "type": "shock",
@@ -411,7 +358,8 @@
       "flavor_by_season": {
         "Summer": "A brutal heat wave bakes the Hollow — crews slow down and the AC bills pile up.",
         "Spring": "An early hot spell catches everyone off guard."
-      }
+      },
+      "season": "Summer"
     },
     {
       "type": "shock",
@@ -422,7 +370,8 @@
       "flavor_by_season": {
         "Winter": "An ice storm glazes the county — downed lines, cancelled days, a cold snap of costs.",
         "Fall": "A freak early freeze coats everything in ice overnight."
-      }
+      },
+      "season": "Winter"
     },
     {
       "type": "shock",
@@ -441,7 +390,8 @@
       "duration": 1,
       "flavor_by_season": {
         "Winter": "The whole town slows for the holidays — a hand takes the week to be with family."
-      }
+      },
+      "season": "Winter"
     },
     {
       "type": "theft",

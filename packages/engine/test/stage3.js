@@ -26,17 +26,17 @@ function newGame(options) {
 
 // --- Deck composition (copies expanded; Dial-1 / Dial-4 shares) ---------------------------
 {
-  assert.equal(decks.fortune.length, 91, "fortune deck is 91 cards");
+  assert.equal(decks.fortune.length, 88, "fortune deck is 88 cards");
   assert.equal(count(decks.fortune, (c) => c.size && c.type === "job"), 17, "the tailored job ladder (j1×4 j2×4 j3×3 j4×3 j5×2 j6×1)");
   assert.equal(count(decks.fortune, (c) => c.npc && c.type === "job"), 7, "NPC jobs (Hettrick×2 Lundgren×2 Dot×2 Boon×1)");
   assert.equal(count(decks.fortune, (c) => c.type === "review"), 1, "performance-review card");
   assert.equal(count(decks.fortune, (c) => c.type === "union"), 1, "union-drive card");
   assert.equal(count(decks.fortune, (c) => c.type === "civic"), 5, "civic builds (incl. the seasonal storm)");
   assert.equal(count(decks.fortune, (c) => c.type === "referral"), 3, "referral wild cards (1p/2p/3p)");
-  assert.equal(count(decks.fortune, (c) => c.subcontract), 3, "subcontract jobs (the GC web)");
+  assert.equal(count(decks.fortune, (c) => c.subcontract), 0, "named subcontract jobs removed (the j1–j6 ladder replaces them)");
   assert.equal(count(decks.fortune, (c) => c.type === "bbb_special"), 2, "BBB Special (services fair)");
   assert.equal(count(decks.fortune, (c) => c.type === "incident"), 3, "building incidents (storm → civic)");
-  assert.equal(count(decks.fortune, (c) => c.type === "job"), 27, "jobs (17 ladder + 7 NPC + 3 subcontract)");
+  assert.equal(count(decks.fortune, (c) => c.type === "job"), 24, "jobs (17 ladder + 7 NPC)");
   assert.equal(count(decks.fortune, (c) => c.type === "defect"), 4, "code-violation / inspection defects");
   assert.equal(count(decks.fortune, (c) => c.type === "crew"), 6, "crew-life events");
   assert.equal(count(decks.fortune, (c) => c.type === "theft"), 1, "equipment theft");

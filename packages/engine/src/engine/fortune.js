@@ -47,10 +47,21 @@ function cashLine(card, amount) {
 
 /** Phase 2 — draw `count` Fortune cards for the player and resolve each. Returns summaries. */
 export function drawFortune(state, player, count) {
-  const cards = (player.deck ?? state.deck).drawN(count); // per-player deck (Stage: living deck)
+  const deck = player.deck ?? state.deck; // per-player deck (Stage: living deck)
+  const season = seasonName(state);
+  // Season-gated cards (heat wave → Summer, ice storm → Winter, …) only surface in their season.
+  // Bench any that come up out of season and put them back, so they wait for the right time of year.
+  const cards = [], benched = [];
+  let guard = 0;
+  while (cards.length < count && guard++ < 300) {
+    const c = deck.drawN(1)[0];
+    if (!c) break;
+    if (c.season && c.season !== season) { benched.push(c); continue; }
+    cards.push(c);
+  }
+  if (benched.length) deck.inject(benched); // back into the deck for their season (reshuffles)
   const injected = marketingInjection(player); // marketing brings in extra work
   if (injected) cards.unshift(injected);
-  const season = seasonName(state);
   // Carry each card's cosmetic flavor onto its summary — a season-specific variant if the card
   // has one (flavor_by_season), else its plain flavor.
   return cards.map((card) => ({
@@ -96,21 +107,52 @@ const jobArt = (size, trade) =>
 
 // NPC jobs — the word-of-mouth cast. Per-trade skin (the work) + a label.
 const NPC_LABEL = { hettrick: "Old Man Hettrick", lundgren: "Mrs. Lundgren", dot: "Dot", boon: "Chief Boon" };
+// Each trade gets its own work (the job name) AND its own flavor line — so a plumber and a welder
+// drawing "Dot" see entirely different jobs, not the same quote with a swapped noun.
 const NPC_JOB_SKINS = {
-  hettrick: { "mechanic": "his rattling pickup", "plumber": "his ‘fine’ dripping tap", "electrician": "his flickering porch light", "pipefitter": "his ancient radiator", "welder": "his busted gate hinge", "HVAC technician": "his wheezing window unit" },
-  lundgren: { "mechanic": "her car won’t start", "plumber": "her cold water heater", "electrician": "her dead outlets", "pipefitter": "her knocking boiler", "welder": "her wrought-iron fence", "HVAC technician": "her dead furnace" },
-  dot:      { "mechanic": "the diner’s delivery van", "plumber": "the grease trap", "electrician": "the neon sign", "pipefitter": "the steam table", "welder": "the counter & stools", "HVAC technician": "the walk-in cooler" },
-  boon:     { "mechanic": "the fire truck’s engine", "plumber": "the firehouse standpipe", "electrician": "the station alarm wiring", "pipefitter": "the sprinkler riser", "welder": "the ladder-truck weld", "HVAC technician": "the station exhaust" },
+  hettrick: {
+    "mechanic":        { job: "his rattling pickup",       flavor: "“Runs fine,” he says, knuckles white on the wheel. It does not run fine. He’ll pay you when the year’s out — net 90, his terms." },
+    "plumber":         { job: "his ‘fine’ dripping tap",   flavor: "“Barely a drip.” The bucket under it is full. He wants it done for parts and pays slow — net 90." },
+    "electrician":     { job: "his flickering porch light",flavor: "“It’s mood lighting.” It is a fire hazard. Fix it cheap; he settles up eventually." },
+    "pipefitter":      { job: "his ancient radiator",      flavor: "“The clanking’s company.” The radiator’s older than he is and twice as stubborn. Net 90, naturally." },
+    "welder":          { job: "his busted gate hinge",     flavor: "“A little weld, that’s all.” He’s haggling before you’ve even looked at it." },
+    "HVAC technician": { job: "his wheezing window unit",   flavor: "“Keeps the flies out.” It keeps nothing out. He’ll get to paying you — eventually." },
+  },
+  lundgren: {
+    "mechanic":        { job: "her car that won’t start",  flavor: "“So sorry to be a bother, dear.” She’s baked you cookies; the starter’s shot. She pays when she can — net 90." },
+    "plumber":         { job: "her cold water heater",     flavor: "“I’ve been doing dishes in the kettle.” Bless her — fix the heater before the frost. Slow to pay, sweet about it." },
+    "electrician":     { job: "her dead outlets",          flavor: "“The lamp just stopped one day.” Half her kitchen’s gone dark. She apologizes for the trouble." },
+    "pipefitter":      { job: "her knocking boiler",       flavor: "“It sings to me at night.” The boiler’s knocking like it wants out. Quiet it down — she’ll square up by and by." },
+    "welder":          { job: "her wrought-iron fence",    flavor: "“My late husband built it.” A weld or two and her garden fence stands another fifty years." },
+    "HVAC technician": { job: "her dead furnace",          flavor: "“Three sweaters on, I’m fine.” She is not fine. The furnace quit and winter’s coming." },
+  },
+  dot: {
+    "mechanic":        { job: "the diner’s delivery van",  flavor: "The lunch run’s stranded in the lot and the whole town knows it. Get the van rolling and Dot spreads the word." },
+    "plumber":         { job: "her flooded back room",     flavor: "The back room’s ankle-deep — a line let go behind the dish pit. Pump it out and re-pipe it before the health board hears." },
+    "electrician":     { job: "the neon sign",             flavor: "Half the “DINER” is dark, so it reads “DINE” at night. Dot’s losing the supper crowd — light it back up." },
+    "pipefitter":      { job: "the steam table",           flavor: "No steam, no hot plates, no blue-plate special. Dot needs the steam table breathing by lunch." },
+    "welder":          { job: "the counter & stools",      flavor: "Three stools wobble and a regular nearly went over. Tack them solid before someone sues over their coffee." },
+    "HVAC technician": { job: "the walk-in cooler",        flavor: "The walk-in’s creeping warm and a week of pie is at stake. Save the cooler, save the dessert case." },
+  },
+  boon: {
+    "mechanic":        { job: "the fire truck’s engine",   flavor: "Engine 1 won’t turn over and the chief’s pacing. This one can’t wait — the town’s counting on that truck." },
+    "plumber":         { job: "the firehouse standpipe",   flavor: "The standpipe’s dry and that’s a code red. Chief Boon needs water to the hose tower TODAY." },
+    "electrician":     { job: "the station alarm wiring",  flavor: "The alarm’s gone silent — a dead run in the wall. The chief won’t sleep till the bells work again." },
+    "pipefitter":      { job: "the sprinkler riser",       flavor: "The sprinkler riser failed inspection and the hall can’t open without it. Boon needs it fit now." },
+    "welder":          { job: "the ladder-truck weld",     flavor: "A cracked weld grounds the whole ladder rig. The chief needs it certified and back in service." },
+    "HVAC technician": { job: "the station exhaust",       flavor: "Diesel fumes are filling the bay — the exhaust extraction’s dead. Get the crew breathing clean air immediately." },
+  },
 };
 
 /** Skin an NPC job to the drawer's trade: their work + stats + the word-of-mouth tag + art key. */
 function tailorNpcJob(economy, card, trade) {
   const cfg = economy.npc_jobs?.[card.npc];
   if (!cfg) return card;
-  const skin = (NPC_JOB_SKINS[card.npc] ?? {})[trade] ?? "a job";
+  const skin = (NPC_JOB_SKINS[card.npc] ?? {})[trade] ?? { job: "a job", flavor: card.flavor };
   return {
     ...card,
-    name: `${NPC_LABEL[card.npc] ?? card.npc} — ${skin}`,
+    name: `${NPC_LABEL[card.npc] ?? card.npc} — ${skin.job}`,
+    flavor: skin.flavor ?? card.flavor,
     value: cfg.value, work_amount: cfg.work, deadline: cfg.deadline, terms: cfg.terms,
     min_tradesmen: 1, max_tradesmen: cfg.crew,
     required_equipment: null, equipment_per_tradesman: false, required_building_tier: 1,
@@ -181,7 +223,7 @@ function resolveCard(state, player, card) {
       }
       // Otherwise it's the drawer's own job.
       player.jobs.push(job);
-      return { type: "job", name: drawn.name, job, art: drawn.art ?? null, text: `new job ${job.id} (${w(job.value)}, due turn ${job.deadline_turn})` };
+      return { type: "job", name: drawn.name, job, art: drawn.art ?? null, flavor: drawn.flavor ?? null, text: `new job ${job.id} (${w(job.value)}, due turn ${job.deadline_turn})` };
     }
     case "windfall":
     case "shock": {
