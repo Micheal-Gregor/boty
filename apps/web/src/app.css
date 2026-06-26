@@ -72,6 +72,8 @@ main { max-width: 1200px; margin: 0 auto; padding: 16px; }
 .panel { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 12px; }
 .actions { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 12px; margin-bottom: 10px; border: 0; padding: 0; min-width: 0; }
 .actions[disabled] { opacity: 0.45; }
+.end.blocked { opacity: 0.4; filter: grayscale(0.5); }
+.boon-hint { align-self: center; color: #e0b341; font-size: 0.8rem; font-weight: 600; }
 .bbb-tag { align-self: center; color: var(--accent); font-size: 0.78rem; font-weight: 600; }
 
 @media (min-width: 900px) {

@@ -302,6 +302,7 @@ function viewOf() {
   const s = game.state;
   return {
     turn: s.turn, activePlayerIndex: s.activePlayerIndex, over: s.over, phase: s.phase,
+    mustStaffBoon: game.unstaffedBoon.length > 0, // Chief Boon's mandatory job blocks end-turn until staffed
     log: s.log.slice(-8),
     deckLeft: s.players[s.activePlayerIndex]?.deck?.pile?.length ?? 0, // the active player's own deck (living deck)
     globalEffects: (s.globalEffects ?? []).map((e) => ({ ...e })), // town-wide conditions (the global cards)
@@ -382,7 +383,10 @@ export function playSue(debtorId, payableId, slick = false) {
 /** Play a Favor on a rival's standing modifier. */
 export function playFavor(targetId, modId) {
   push({ picking: null });
-  try { game.playFavor(targetId, modId); playSfx("gavel", 0.4); } catch (e) { return fail(e?.message ?? String(e)); }
+  let line;
+  try { line = game.playFavor(targetId, modId); playSfx("gavel", 0.4); } catch (e) { return fail(e?.message ?? String(e)); }
+  if (line) enqueuePopup({ kind: "alert", title: "🪙 Favor played", body: line }); // confirm the fine/union actually cleared
+  surfaceNewOutcomes();
   push({ error: null });
 }
 
@@ -574,9 +578,14 @@ async function advanceUntilHuman(initialCtx) {
   }
   if (game.state.over) return;
   if (game.settleCases.length || game.courtCases.length || openDamages().length) playSfx("gavel", 0.5);
-  enqueueTurnStart(lastCtx); // the human is up — round intro + their executive summary
+  enqueueTurnStart(lastCtx); // the human is up — round intro + their executive summary + card reveals
+  push({ aiActing: null, ctx: lastCtx, error: null });
+  // STACK RULES: read every card you drew FIRST (the Resolve reveals), THEN the response windows
+  // surface in order — so a decision never pops over a card you haven't seen, and play doesn't
+  // continue until each is answered. (Decisions raised mid-turn by your own actions surface live.)
+  await waitForPopups();
+  if (game.state.over) return;
   push({
-    aiActing: null, ctx: lastCtx, error: null,
     settle: game.settleCases.length ? [...game.settleCases] : null,
     court: game.courtCases.length ? [...game.courtCases] : null,
     damages: openDamages().length ? openDamages() : null,

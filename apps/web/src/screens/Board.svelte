@@ -165,7 +165,8 @@
         <Flash section="general" />
         <button title="Borrow cash now — a liability with interest, force-settled at year-end" onclick={borrowCredit}>🏦 Bank Credit</button>
         {#if locOwed > 0}<button title="Repay the line of credit" onclick={() => act((g) => g.repayCredit())}>Repay ({locOwed} W)</button>{/if}
-        <button class="end" onclick={endTurn}>End turn ▶</button>
+        {#if $ui.view?.mustStaffBoon}<span class="boon-hint" title="Chief Boon's job is mandatory">⛑ Staff Chief Boon's job to end your turn</span>{/if}
+        <button class="end" class:blocked={$ui.view?.mustStaffBoon} onclick={endTurn}>End turn ▶</button>
       </fieldset>
     </section>
 
