@@ -220,6 +220,7 @@ export function createGame(economy, playerSeeds, options = {}) {
     difficulty, // active tier name — womFires() reads this each trigger
     cardPool: fortuneCards, // the master Fortune composition — the source for living-deck injections
     deckEvents: [], // queued inject/remove descriptors for the UI shuffle reveal (drained each turn)
+    discard: [], // the discard pile (stack rules): cards removed in a Cleanup phase — never return to play
     progressDeck: new Deck(options.jobprogress ?? [], makeRng(seed === undefined ? undefined : seed + 1)),
     civilHandDeck: new Deck(civilHand, makeRng(seed === undefined ? undefined : seed + 2)),
     civilEventDeck: new Deck((options.civil ?? []).filter((c) => !c.hand), makeRng(seed === undefined ? undefined : seed + 4)),

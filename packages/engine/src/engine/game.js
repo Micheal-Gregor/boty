@@ -134,6 +134,8 @@ export class Game {
       }
     }
     this.runProgress();
+    // CLEANUP phase: this player's in-play cards that hit their hard deadline leave play → discard.
+    this.state.log.push(...jobs.expireOverdue(this.state, p));
     return this.advanceTurn();
   }
 

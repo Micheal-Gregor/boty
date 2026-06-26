@@ -191,12 +191,16 @@ function botchRoutedJob(state, contractor, job) {
  * Expire any of the player's not-complete jobs whose deadline has passed. Queue-expiry is
  * silent (no penalty); a started job expiring late is flagged exposed. Returns log lines.
  */
+// The per-player CLEANUP phase (Stage: stack rules). Runs at END of a player's turn, AFTER Progress
+// — so a job has its whole deadline turn to finish. HARD deadline: due turn N, gone if not Complete
+// by the end of turn N (state.turn >= deadline_turn). Effect-driven removal (a Favor) is separate and
+// resolves in the stack mid-turn; this only sweeps cards that aged out. Expired cards → the discard pile.
 export function expireOverdue(state, player) {
   const lines = [];
   for (const job of player.jobs) {
     if (job.state === "Expired" || job.state === "Complete") continue;
     if (job.project_id) continue; // project phases live or die by the PROJECT deadline (tickProjects)
-    if (state.turn > job.deadline_turn) {
+    if (state.turn >= job.deadline_turn) {
       const started = job.assigned_tradesmen.length > 0 || job.work_done > 0;
       freeTradesmen(player, job);
       job.state = "Expired";
@@ -212,7 +216,9 @@ export function expireOverdue(state, player) {
       if (town) lines.push(town);
     }
   }
-  // Expired jobs leave the queue once reported.
+  // Expired jobs leave the queue once reported — into the discard pile (they never return to play).
+  const gone = player.jobs.filter((j) => j.state === "Expired");
+  if (gone.length && state.discard) state.discard.push(...gone);
   player.jobs = player.jobs.filter((j) => j.state !== "Expired");
   return lines;
 }

@@ -56,5 +56,6 @@ export function tickGlobals(state) {
   for (const e of state.globalEffects) if (e.kind !== "union") e.turnsLeft -= 1; // a union persists until busted
   const expired = state.globalEffects.filter((e) => e.turnsLeft <= 0);
   state.globalEffects = state.globalEffects.filter((e) => e.turnsLeft > 0);
+  if (expired.length && state.discard) state.discard.push(...expired); // Global Cleanup → discard pile
   return expired.map((e) => `🌐 ${e.name} lifts — Maple Hollow gets back to business`);
 }

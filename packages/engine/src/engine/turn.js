@@ -8,7 +8,7 @@
 // that is the "run a shop into the ground" failure state.
 
 import { findBuilding, findEquipment, w } from "./economy.js";
-import { collectInvoices, expireOverdue } from "./jobs.js";
+import { collectInvoices } from "./jobs.js";
 import { processDuePayables } from "./payables.js";
 import { tickDefects } from "./defects.js";
 import { tickModifiers, chargeInterest, premiumsFor } from "./modifiers.js";
@@ -63,7 +63,8 @@ export function runUpkeep(state, player) {
   const lines = [];
   lines.push(...returnCrew(state, player)); // bring back anyone whose time out has elapsed
   lines.push(...tickProjects(state, player)); // collapse any of this lead's projects past deadline
-  lines.push(...expireOverdue(state, player));
+  // NOTE: overdue jobs no longer expire here — that moved to the end-of-turn CLEANUP phase
+  // (game.endTurn → expireOverdue, hard deadline) so a job has its whole deadline turn to finish.
   lines.push(...collectInvoices(state, player));
   lines.push(...processDuePayables(state, player));
   lines.push(...tickDamagesClaims(state, player));
