@@ -373,6 +373,7 @@ function completeJob(state, player, job) {
 export function sellJob(state, player, jobId) {
   const job = findJob(player, jobId);
   if (job.hirer_id) throw new GameError(`${job.name} is a routed job — you can't sell it`);
+  if (!job.droppable) throw new GameError(`${job.name} is a sticky job — you can't sell your way out of it`); // mandatory jobs (Chief Boon) can't be dropped OR sold
   if (job.state === "Complete" || job.state === "Expired") throw new GameError(`${job.name} is ${job.state}`);
   const payout = Math.max(1, Math.floor(job.value * state.economy.sell_rate));
   freeTradesmen(player, job);

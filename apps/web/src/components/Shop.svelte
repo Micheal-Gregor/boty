@@ -20,7 +20,7 @@
   );
 
   const canAssign = (j) => ["Queued", "OnHold", "Active"].includes(j.state) && j.assigned_tradesmen.length < j.max_tradesmen && idle > 0;
-  const canSell = (j) => !j.hirer_id && (j.state === "Queued" || j.state === "OnHold");
+  const canSell = (j) => !j.hirer_id && j.droppable && (j.state === "Queued" || j.state === "OnHold"); // sticky jobs (Boon) can't be sold
   const reqs = (j) => [
     j.required_equipment ? `needs ${j.required_equipment}` : null,
     j.required_building_tier > 1 ? `tier-${j.required_building_tier} shop` : null,

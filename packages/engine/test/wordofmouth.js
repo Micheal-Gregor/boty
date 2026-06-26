@@ -39,6 +39,7 @@ const countId = (p, id) => p.deck.source.filter((c) => c.id === id).length;
 {
   const { g, p } = game("welder"); drawNpc(g, p, "boon"); const j = p.jobs[0];
   assert.equal(j.droppable, false, "Boon's job can't be dropped");
+  assert.throws(() => g.sellJob(j.id), /sticky/, "…and can't be sold to dodge it either");
   assert.equal(g.unstaffedBoon.length, 1, "unstaffed Boon job flagged for the must-assign guard");
   j.assigned_tradesmen.push(p.tradesmen[0].id);
   assert.equal(g.unstaffedBoon.length, 0, "once staffed, no longer blocks");

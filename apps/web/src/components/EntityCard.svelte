@@ -111,7 +111,7 @@
           {#if job.state === "Active"}<button onclick={() => go((g) => g.holdJob(job.id))}>Hold</button>{/if}
           {#if handHas("rush")}<button onclick={() => go((g) => g.playRush(job.id))}>⏩ Rush</button>{/if}
           {#if handHas("buy_time")}<button onclick={() => go((g) => g.playBuyTime(job.id))}>⏳ Buy Time</button>{/if}
-          {#if !job.hirer_id && (job.state === "Queued" || job.state === "OnHold")}<button onclick={() => confirmSell(job.id, sellPrice(job))}>Sell</button>{/if}
+          {#if !job.hirer_id && job.droppable && (job.state === "Queued" || job.state === "OnHold")}<button onclick={() => confirmSell(job.id, sellPrice(job))}>Sell</button>{/if}
           {#if job.droppable}<button class="hostile" onclick={() => go((g) => g.dropJob(job.id))}>Drop</button>{/if}
         </div>
 
