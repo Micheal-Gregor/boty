@@ -109,6 +109,7 @@
           {#if canAssignJob(job)}<button onclick={() => go((g) => g.assignJob(job.id))}>👷 Assign worker</button>
           {:else if ["Queued", "OnHold", "Active"].includes(job.state) && job.assigned_tradesmen.length < job.max_tradesmen}<button disabled title="All your crew are on jobs or out — hire one, or free one up first">👷 No free crew</button>{/if}
           {#if job.state === "Active"}<button onclick={() => go((g) => g.holdJob(job.id))}>Hold</button>{/if}
+          {#if job.state === "OnHold"}<button onclick={() => go((g) => g.resumeJob(job.id))}>▶ Resume</button>{/if}
           {#if handHas("rush")}<button onclick={() => go((g) => g.playRush(job.id))}>⏩ Rush</button>{/if}
           {#if handHas("buy_time")}<button onclick={() => go((g) => g.playBuyTime(job.id))}>⏳ Buy Time</button>{/if}
           {#if !job.hirer_id && job.droppable && (job.state === "Queued" || job.state === "OnHold")}<button onclick={() => confirmSell(job.id, sellPrice(job))}>Sell</button>{/if}

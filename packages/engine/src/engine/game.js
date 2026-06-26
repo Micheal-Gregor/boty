@@ -241,6 +241,7 @@ export class Game {
 
   assignJob(jobId, tradesmanId) { return this.#act((p) => jobs.assign(this.state, p, jobId, tradesmanId)); }
   holdJob(jobId) { return this.#act((p) => jobs.hold(this.state, p, jobId)); }
+  resumeJob(jobId) { return this.#act((p) => jobs.resume(this.state, p, jobId)); }
   dropJob(jobId) { return this.#act((p) => jobs.drop(this.state, p, jobId)); }
   sellJob(jobId) { return this.#act((p) => jobs.sellJob(this.state, p, jobId)); }
   fixDefect(defectId) { return this.#act((p) => defects.fixDefect(this.state, p, defectId)); }
@@ -343,7 +344,11 @@ export class Game {
     const [pp] = this.state.pendingPoach.splice(i, 1);
     const player = this.#playerById(pp.playerId);
     const t = player.tradesmen.find((x) => x.id === workerId);
-    const walk = () => { if (t.assignedJob != null) jobs.releaseTradesman(this.state, player, t.id); player.tradesmen = player.tradesmen.filter((x) => x.id !== t.id); };
+    const walk = () => {
+      if (t.assignedJob != null) jobs.releaseTradesman(this.state, player, t.id);
+      for (const e of player.equipment) if (e.assigned_to === t.id) e.assigned_to = null; // free their tool so it reads idle for the next hire
+      player.tradesmen = player.tradesmen.filter((x) => x.id !== t.id);
+    };
     let line;
     if (!t) { line = `${workerId} was already gone before the offer landed`; }
     else if (counter <= 0) { walk(); line = `🚪 ${player.name} let ${workerId} walk — the Pettigrews got their hire`; }

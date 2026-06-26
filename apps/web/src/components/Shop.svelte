@@ -164,6 +164,7 @@
         <div class="job-actions">
           {#if canAssign(j)}<button class="mini" onclick={() => act((g) => g.assignJob(j.id))}>Assign</button>{/if}
           {#if j.state === "Active"}<button class="mini" onclick={() => act((g) => g.holdJob(j.id))}>Hold</button>{/if}
+          {#if j.state === "OnHold"}<button class="mini" onclick={() => act((g) => g.resumeJob(j.id))}>▶ Resume</button>{/if}
           {#if canSell(j)}<button class="mini" onclick={() => confirmSell(j.id, sellPrice(j))}>Sell {sellPrice(j)} W</button>{/if}
           {#if j.droppable}<button class="mini" onclick={() => act((g) => g.dropJob(j.id))}>Drop</button>{/if}
           {#if handHas("rush")}<button class="mini" onclick={() => act((g) => g.playRush(j.id))}>Rush</button>{/if}

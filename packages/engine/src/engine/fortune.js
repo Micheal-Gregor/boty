@@ -111,36 +111,36 @@ const NPC_LABEL = { hettrick: "Old Man Hettrick", lundgren: "Mrs. Lundgren", dot
 // drawing "Dot" see entirely different jobs, not the same quote with a swapped noun.
 const NPC_JOB_SKINS = {
   hettrick: {
-    "mechanic":        { job: "his rattling pickup",       flavor: "“Runs fine,” he says, knuckles white on the wheel. It does not run fine. He’ll pay you when the year’s out — net 90, his terms." },
-    "plumber":         { job: "his ‘fine’ dripping tap",   flavor: "“Barely a drip.” The bucket under it is full. He wants it done for parts and pays slow — net 90." },
-    "electrician":     { job: "his flickering porch light",flavor: "“It’s mood lighting.” It is a fire hazard. Fix it cheap; he settles up eventually." },
-    "pipefitter":      { job: "his ancient radiator",      flavor: "“The clanking’s company.” The radiator’s older than he is and twice as stubborn. Net 90, naturally." },
-    "welder":          { job: "his busted gate hinge",     flavor: "“A little weld, that’s all.” He’s haggling before you’ve even looked at it." },
-    "HVAC technician": { job: "his wheezing window unit",   flavor: "“Keeps the flies out.” It keeps nothing out. He’ll get to paying you — eventually." },
+    "mechanic":        { job: "his old truck — again",     flavor: "Old Man Hettrick’s ancient truck has broken down. Again. “Just a quick look,” he says. It never is. Net 90, his terms." },
+    "plumber":         { job: "his busted radiator",       flavor: "Hettrick’s radiator’s gone stone cold. He wants it fixed with parts off the shelf and pays slow — net 90." },
+    "electrician":     { job: "his shorting wiring",       flavor: "The wiring in Hettrick’s walls is flickering and shorting. “It’s just temperamental.” It’s a fire waiting to happen — net 90." },
+    "pipefitter":      { job: "his broken furnace",        flavor: "Hettrick’s furnace has quit and he’d rather wear two coats than pay quick. Net 90 — his terms, always." },
+    "welder":          { job: "his broken gate",           flavor: "The gate on Hettrick’s fence is hanging off its post. “A little weld, that’s all” — he’s haggling before you’ve looked." },
+    "HVAC technician": { job: "his dead window unit",      flavor: "Hettrick’s window air conditioner has died. “It still rattles, so it works.” It does not. He pays net 90." },
   },
   lundgren: {
-    "mechanic":        { job: "her car that won’t start",  flavor: "“So sorry to be a bother, dear.” She’s baked you cookies; the starter’s shot. She pays when she can — net 90." },
-    "plumber":         { job: "her cold water heater",     flavor: "“I’ve been doing dishes in the kettle.” Bless her — fix the heater before the frost. Slow to pay, sweet about it." },
-    "electrician":     { job: "her dead outlets",          flavor: "“The lamp just stopped one day.” Half her kitchen’s gone dark. She apologizes for the trouble." },
-    "pipefitter":      { job: "her knocking boiler",       flavor: "“It sings to me at night.” The boiler’s knocking like it wants out. Quiet it down — she’ll square up by and by." },
-    "welder":          { job: "her wrought-iron fence",    flavor: "“My late husband built it.” A weld or two and her garden fence stands another fifty years." },
-    "HVAC technician": { job: "her dead furnace",          flavor: "“Three sweaters on, I’m fine.” She is not fine. The furnace quit and winter’s coming." },
+    "mechanic":        { job: "her car that won’t start",  flavor: "Mrs. Lundgren’s old car won’t turn over. She’s baked you something and apologizes for the fuss — net 90, when she can." },
+    "plumber":         { job: "her scalding water tank",   flavor: "Mrs. Lundgren’s water tank runs far too hot — she nearly scalded herself. Bring it down to safe; she’ll square up by and by." },
+    "electrician":     { job: "her flickering wiring",     flavor: "The wiring in Mrs. Lundgren’s old home is flickering and shorting. “I don’t want to be a bother, dear” — but it needs doing before it’s dangerous." },
+    "pipefitter":      { job: "her cold bedroom radiator", flavor: "The radiator in Mrs. Lundgren’s bedroom won’t get warm and the nights are turning cold — get her cozy before the frost." },
+    "welder":          { job: "her back-yard shed door",   flavor: "The shed door in Mrs. Lundgren’s back yard is off its hinges. A weld or two and it’s good for another decade." },
+    "HVAC technician": { job: "her too-cold AC",           flavor: "Mrs. Lundgren’s window air conditioner is freezing her out. “I’m sure it’s fine, dear.” Set it right — gently." },
   },
   dot: {
-    "mechanic":        { job: "the diner’s delivery van",  flavor: "The lunch run’s stranded in the lot and the whole town knows it. Get the van rolling and Dot spreads the word." },
-    "plumber":         { job: "her flooded back room",     flavor: "The back room’s ankle-deep — a line let go behind the dish pit. Pump it out and re-pipe it before the health board hears." },
-    "electrician":     { job: "the neon sign",             flavor: "Half the “DINER” is dark, so it reads “DINE” at night. Dot’s losing the supper crowd — light it back up." },
-    "pipefitter":      { job: "the steam table",           flavor: "No steam, no hot plates, no blue-plate special. Dot needs the steam table breathing by lunch." },
-    "welder":          { job: "the counter & stools",      flavor: "Three stools wobble and a regular nearly went over. Tack them solid before someone sues over their coffee." },
-    "HVAC technician": { job: "the walk-in cooler",        flavor: "The walk-in’s creeping warm and a week of pie is at stake. Save the cooler, save the dessert case." },
+    "mechanic":        { job: "the diner delivery truck",  flavor: "Dot’s delivery truck won’t start and the day’s supplies are stranded at the depot — get it running and Dot spreads the word." },
+    "plumber":         { job: "the flooded storefront",    flavor: "Dot’s storefront has flooded — pump it out and find the leak before the health inspector catches wind of it." },
+    "electrician":     { job: "the breakfast blackout",    flavor: "The power’s out at Dot’s right in the middle of breakfast and the grill’s gone cold — get the lights back before she loses the rush." },
+    "pipefitter":      { job: "the kitchen steam table",   flavor: "No steam means no hot plates and no blue-plate special — Dot needs the steam table fixed before the lunch crowd." },
+    "welder":          { job: "the diner’s chairs & tables", flavor: "Dot’s metal chairs and tables have gone wobbly and loose — tack them solid before a regular ends up on the floor." },
+    "HVAC technician": { job: "the broken cooler",         flavor: "Dot’s walk-in cooler has packed it in and a week of food is warming up — get it cold again before it all spoils." },
   },
   boon: {
-    "mechanic":        { job: "the fire truck’s engine",   flavor: "Engine 1 won’t turn over and the chief’s pacing. This one can’t wait — the town’s counting on that truck." },
-    "plumber":         { job: "the firehouse standpipe",   flavor: "The standpipe’s dry and that’s a code red. Chief Boon needs water to the hose tower TODAY." },
-    "electrician":     { job: "the station alarm wiring",  flavor: "The alarm’s gone silent — a dead run in the wall. The chief won’t sleep till the bells work again." },
-    "pipefitter":      { job: "the sprinkler riser",       flavor: "The sprinkler riser failed inspection and the hall can’t open without it. Boon needs it fit now." },
-    "welder":          { job: "the ladder-truck weld",     flavor: "A cracked weld grounds the whole ladder rig. The chief needs it certified and back in service." },
-    "HVAC technician": { job: "the station exhaust",       flavor: "Diesel fumes are filling the bay — the exhaust extraction’s dead. Get the crew breathing clean air immediately." },
+    "mechanic":        { job: "a crash-car inspection",    flavor: "A wreck got towed into your shop — Chief Boon needs it inspected for the accident report before it’s released." },
+    "plumber":         { job: "Dot’s Diner flood response", flavor: "Dot’s Diner has flooded and Chief Boon’s running the response — he needs a plumber on site to stop the water." },
+    "electrician":     { job: "the fire-station alarm",    flavor: "The alarm system at the fire station is down — Chief Boon needs it wired back to life before the next call comes in." },
+    "pipefitter":      { job: "the school sprinkler reset", flavor: "After an incident at the elementary school, the sprinkler system has to be reset and recertified — Chief Boon needs it now." },
+    "welder":          { job: "the fire-truck ladder",     flavor: "The ladder on the fire truck has a cracked weld — Chief Boon can’t put the rig back in service until it’s fixed." },
+    "HVAC technician": { job: "the fire-station HVAC",     flavor: "The firehouse HVAC has quit and the bays are stifling — Chief Boon needs the crew comfortable and ready to roll." },
   },
 };
 
@@ -245,6 +245,7 @@ function resolveCard(state, player, card) {
       if (player.tradesmen.length === 0) return { type: "retirement", name: card.name, text: "no staff to retire" };
       const retiree = player.tradesmen[0];
       releaseTradesman(state, player, retiree.id);
+      for (const e of player.equipment) if (e.assigned_to === retiree.id) e.assigned_to = null; // free their tool — else it looks taken by a ghost
       player.tradesmen = player.tradesmen.filter((t) => t.id !== retiree.id);
       player.tradesmen.push(createTradesman());
       cashOut(state, player, ACCT.COGS_LABOUR, state.economy.sign_on_fee, "Retirement — replacement hire");

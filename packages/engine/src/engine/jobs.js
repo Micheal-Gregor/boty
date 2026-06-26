@@ -134,6 +134,14 @@ export function hold(state, player, jobId) {
   return `${player.name} put ${job.name} (${job.id}) on hold — its clock keeps ticking`;
 }
 
+/** Take a held job off hold — back to the queue, ready to staff again (Active once crew + gear return). */
+export function resume(state, player, jobId) {
+  const job = findJob(player, jobId);
+  if (job.state !== "OnHold") throw new GameError(`${job.name} is ${job.state} — only held jobs can be resumed`);
+  refreshState(state, player, job); // re-staffed → Active; otherwise back to Queued
+  return `${player.name} took ${job.name} (${job.id}) off hold — now ${job.state}`;
+}
+
 /** Drop a job entirely. Only droppable jobs can be walked away from for free. */
 export function drop(state, player, jobId) {
   const job = findJob(player, jobId);

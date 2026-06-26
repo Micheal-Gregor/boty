@@ -500,26 +500,6 @@
       "flavor": "The old mill grinds to a halt — steel cracked, pipe split, machinery seized. The Hollises need it running by week's end."
     },
     {
-      "type": "incident",
-      "copies": 1,
-      "id": "diner_trouble",
-      "name": "Trouble at Dot's Diner",
-      "trades": [
-        "plumber",
-        "electrician",
-        "HVAC technician"
-      ],
-      "value": 7,
-      "work_amount": 4,
-      "deadline": 3,
-      "terms": 1,
-      "min_tradesmen": 1,
-      "max_tradesmen": 1,
-      "required_equipment": null,
-      "droppable": true,
-      "flavor": "Dot's place goes dark mid-breakfast — the whole town will hear how fast (or slow) it gets fixed."
-    },
-    {
       "type": "windfall",
       "copies": 2,
       "id": "file_patent",
