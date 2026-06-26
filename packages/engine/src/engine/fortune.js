@@ -41,7 +41,7 @@ function cashLine(card, amount) {
     card.per_equipment ? `${card.per_equipment > 0 ? "+" : ""}${card.per_equipment}/equipment` : null,
     card.per_tradesman ? `${card.per_tradesman > 0 ? "+" : ""}${card.per_tradesman}/employee` : null,
   ].filter(Boolean).join(", ");
-  const sign = amount >= 0 ? "💰 +" : "⚡ ";
+  const sign = amount >= 0 ? "💰 +" : "⚡ −"; // explicit minus so a hit reads "⚡ −3 W", never an ambiguous "3 W"
   return `${sign}${w(Math.abs(amount))}${detail ? ` (${detail})` : ""}`;
 }
 

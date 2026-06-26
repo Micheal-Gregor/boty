@@ -141,7 +141,7 @@
       {#if drawn.length}
         {#each drawn as d, i (d.cardId + i)}
           <button class="card fortune dealt" style="animation-delay:{i * 140}ms" onclick={() => viewCard(d)}>
-            <Art kind="card" id={d.cardId} label={d.name} />
+            <Art kind="card" id={d.art ?? d.cardId} label={d.name} />
             <div class="card-name">{d.name} <span class="peek">🔍</span></div>
             {#if d.flavor}<div class="flavor">“{d.flavor}”</div>{/if}
             <div class="effect">{d.text}</div>

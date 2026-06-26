@@ -66,7 +66,7 @@
         <div class="pop-art"><Art kind="card" id={p.art ?? p.cardId} label={p.name} autoplay={!p.rival && $settings.animateCards} /></div>
         <h2>{p.name}</h2>
         {#if p.flavor}<p class="pop-flavor">“{p.flavor}”</p>{/if}
-        <p class="pop-effect">{p.text}</p>
+        <p class="pop-effect" class:hit={p.text?.includes("⚡")} class:gain={p.text?.includes("💰")}>{p.text}</p>
         {#if p.rule}<div class="pop-rule">📜 {p.rule}</div>{/if}
       {/if}
 
@@ -83,7 +83,11 @@
   .pop { background: var(--panel, #161a22); border: 1px solid var(--accent, #e0b341); border-radius: 14px; padding: 18px 20px; max-width: 420px; width: 100%; box-shadow: 0 12px 40px rgba(0,0,0,0.5); }
   .pop h2 { margin: 0 0 6px; }
   .pop h3 { margin: 14px 0 6px; font-size: 0.95em; }
-  .pop-art { margin-bottom: 10px; border-radius: 10px; overflow: hidden; }
+  .pop-art { margin-bottom: 10px; border-radius: 10px; overflow: hidden; text-align: center; }
+  /* Keep any aspect ratio (incl. tall 9:16 round-start art) inside the screen — scale to fit, never overflow. */
+  .pop-art :global(img), .pop-art :global(video) { max-width: 100%; max-height: 52vh; width: auto; height: auto; margin: 0 auto; display: block; }
+  .pop-effect.hit { color: #e8746a; font-weight: 600; }
+  .pop-effect.gain { color: #5fb87a; font-weight: 600; }
   .pop-flavor { color: var(--muted, #9aa0aa); font-style: italic; margin: 0 0 6px; }
   .summary-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin: 8px 0; }
   .summ-stat { background: var(--panel-2, #1b1f27); border-radius: 8px; padding: 8px 10px; display: flex; flex-direction: column; gap: 2px; }
