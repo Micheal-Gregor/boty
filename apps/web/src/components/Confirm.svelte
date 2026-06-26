@@ -1,5 +1,6 @@
 <script>
   import { ui, confirmYes, confirmNo, confirmAlt } from "../lib/store.js";
+  import { cashText } from "../lib/money.js";
   import Art from "./Art.svelte";
   const c = $derived($ui.confirm);
 </script>
@@ -9,7 +10,7 @@
     <div class="confirm" onclick={(e) => e.stopPropagation()}>
       {#if c.npc}<div class="conf-art"><Art kind="townsfolk" id={c.npc} label={c.title} autoplay /></div>{/if}
       <h2>{c.title}</h2>
-      <p class="cbody">{c.body}</p>
+      <p class="cbody">{$cashText(c.body)}</p>
       <div class="cbtns">
         <button class="no" onclick={confirmNo}>No</button>
         <button class="yes" onclick={confirmYes}>{c.yes} ▶</button>

@@ -1,6 +1,6 @@
 <script>
   import { ui, act, endTurn, isAI, viewCard, cardInLine, skipAITurns, openSettings, openHand, openRivals, openRules, openEntity, borrowCredit } from "../lib/store.js";
-  import { money } from "../lib/money.js";
+  import { money, cashText } from "../lib/money.js";
   import { muted, toggleMute, playSfx, playMusic } from "../lib/sound.js";
   import { seasonFor, findBuilding } from "@boty/engine";
   import Shop from "../components/Shop.svelte";
@@ -94,7 +94,7 @@
         <button class="skip" onclick={skipAITurns}>Skip ▶▶</button>
       </div>
       {#if aiTurn.drew?.length}<div class="ai-drew">drew: {aiTurn.drew.join(", ")}</div>{/if}
-      {#if aiTurn.lines?.length}<ul class="ai-log">{#each aiTurn.lines as l}<li>{l}</li>{/each}</ul>{/if}
+      {#if aiTurn.lines?.length}<ul class="ai-log">{#each aiTurn.lines as l}<li>{$cashText(l)}</li>{/each}</ul>{/if}
     </div>
   {/if}
 
@@ -120,9 +120,9 @@
         {#each logTail as line}
           {@const card = cardInLine(line)}
           {#if card}
-            <li><button class="logline" onclick={() => viewCard(card)}>{line} <span class="peek">🃏</span></button></li>
+            <li><button class="logline" onclick={() => viewCard(card)}>{$cashText(line)} <span class="peek">🃏</span></button></li>
           {:else}
-            <li>{line}</li>
+            <li>{$cashText(line)}</li>
           {/if}
         {/each}
       </ul>
@@ -144,8 +144,8 @@
           <button class="card fortune dealt" style="animation-delay:{i * 140}ms" onclick={() => viewCard(d)}>
             <Art kind="card" id={d.art ?? d.cardId} label={d.name} />
             <div class="card-name">{d.name} <span class="peek">🔍</span></div>
-            {#if d.flavor}<div class="flavor">“{d.flavor}”</div>{/if}
-            <div class="effect">{d.text}</div>
+            {#if d.flavor}<div class="flavor">“{$cashText(d.flavor)}”</div>{/if}
+            <div class="effect">{$cashText(d.text)}</div>
           </button>
         {/each}
       {:else}

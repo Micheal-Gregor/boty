@@ -1,6 +1,6 @@
 <script>
   import { ui, dismissPopup, skipAITurns } from "../lib/store.js";
-  import { money } from "../lib/money.js";
+  import { money, cashText } from "../lib/money.js";
   import { settings } from "../lib/settings.js";
   import Art from "./Art.svelte";
 
@@ -65,15 +65,15 @@
 
       {:else if p.kind === "alert"}
         <h2>{p.title}</h2>
-        <p class="pop-effect">{p.body}</p>
+        <p class="pop-effect">{$cashText(p.body)}</p>
 
       {:else if p.kind === "card"}
         {#if p.rival}<div class="pop-rival">🤖 {p.rival} drew:</div>{/if}
         <div class="pop-art"><Art kind="card" id={p.art ?? p.cardId} label={p.name} autoplay={!p.rival && $settings.animateCards} /></div>
         <h2>{p.name}</h2>
-        {#if p.flavor}<p class="pop-flavor">“{p.flavor}”</p>{/if}
-        <p class="pop-effect" class:hit={p.text?.includes("⚡")} class:gain={p.text?.includes("💰")}>{p.text}</p>
-        {#if p.rule}<div class="pop-rule">📜 {p.rule}</div>{/if}
+        {#if p.flavor}<p class="pop-flavor">“{$cashText(p.flavor)}”</p>{/if}
+        <p class="pop-effect" class:hit={p.text?.includes("⚡")} class:gain={p.text?.includes("💰")}>{$cashText(p.text)}</p>
+        {#if p.rule}<div class="pop-rule">📜 {$cashText(p.rule)}</div>{/if}
       {/if}
 
       <div class="pop-foot">

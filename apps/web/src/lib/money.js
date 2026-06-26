@@ -19,3 +19,11 @@ function fmt(w, mode) {
 
 /** Reactive formatter bound to the current currency mode: $money(120) → "$6,000" or "120 W". */
 export const money = derived(settings, ($s) => (w) => fmt(w, $s.currency ?? "usd"));
+
+/** Dollarize engine-written text: turns every cash "N W" into "$N×rate", leaving WORK text alone
+ *  ("3 work", "−2 output", "3/7", ⚡ — never written as "N W"). No-op in W mode. Use on log lines,
+ *  card effect text, flavor, and alert bodies that the engine produced. */
+export const cashText = derived(settings, ($s) => (str) => {
+  if (!str || ($s.currency ?? "usd") === "w") return str;
+  return String(str).replace(/(\d+(?:\.\d+)?) W\b/g, (_, n) => "$" + Math.round(parseFloat(n) * rate).toLocaleString("en-US"));
+});

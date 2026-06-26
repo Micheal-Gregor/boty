@@ -49,6 +49,7 @@
           <button class="seg-btn" class:on={($settings.currency ?? "usd") === val} onclick={() => setSetting("currency", val)}>{label}</button>
         {/each}
       </div>
+      <p class="muted hint">Money is shown in dollars at <strong>$50 per W</strong> — one <em>W</em> (work-unit) is a tradesperson's wage for one turn. Switch to <em>W</em> to read raw work-units. Job sizes, crew output and rankings are always counted in work, never cash.</p>
 
       <h3>Rivals' cards I want to see pop up</h3>
       <div class="seg">

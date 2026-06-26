@@ -1,6 +1,6 @@
 <script>
   import { ui, closeCard } from "../lib/store.js";
-  import { money } from "../lib/money.js";
+  import { money, cashText } from "../lib/money.js";
   import Art from "./Art.svelte";
 
   const c = $derived($ui.cardView);
@@ -27,8 +27,8 @@
       <div class="card-art-lg"><Art kind="card" id={cid} label={c.name} /></div>
       <div class="card-type {c.type}">{typeLabel(c.type)}</div>
       <h2>{c.name}</h2>
-      {#if c.flavor}<p class="flavor">“{c.flavor}”</p>{/if}
-      <p class="effect">{describe(c)}</p>
+      {#if c.flavor}<p class="flavor">“{$cashText(c.flavor)}”</p>{/if}
+      <p class="effect">{$cashText(describe(c))}</p>
       <div class="row"><button onclick={closeCard}>Close</button></div>
     </div>
   </div>
