@@ -326,9 +326,14 @@ function resolveCard(state, player, card) {
     case "union":
       return { type: "union", name: card.name, text: applyGlobal(state, { name: "Town labor union", kind: "union", magnitude: 0, turns: 99 }) };
     case "defect": {
-      const defect = createDefect(card, state.turn);
+      // A trade-specific violation is in a RANDOM system each time (electrical / plumbing / etc.) —
+      // randomise which trade fixes it so no one trade is quietly buffed, and the fix routes out to
+      // whoever holds that trade (forcing players to do business). General write-ups stay open to anyone.
+      const services = state.economy.services ?? [];
+      const fixTrade = card.fix_trade && services.length ? services[(state.die() - 1) % services.length] : (card.fix_trade ?? null);
+      const defect = createDefect({ ...card, fix_trade: fixTrade }, state.turn);
       player.defects.push(defect);
-      const route = card.fix_trade ? ` (a ${card.fix_trade} fixes it)` : "";
+      const route = fixTrade ? ` (a ${fixTrade} fixes it)` : "";
       return { type: "defect", name: card.name, defect, text: `🚧 code violation: −${defect.productivity_hit} output and ${w(defect.fine)}/turn until you fix it for ${w(defect.fix_cost)}${route}` };
     }
     case "payable": {
