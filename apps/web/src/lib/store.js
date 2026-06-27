@@ -446,13 +446,24 @@ function syncFromRow(row) {
 }
 
 // Write my freshly-recorded moves to the room. RLS admits the active player (or the host) only.
+// Writes are SERIALIZED through a promise chain so they always land in the order they were made —
+// otherwise the host's rapid AI-turn writes could reorder, leave active_seat stale, and 403 the
+// next player's legitimate write (the desync we saw).
+let writeChain = Promise.resolve();
 function flushMoves() {
   if (!online || !pending.length) return;
   const row = get(onlineGame);
   const canWrite = isHostClient || (row && row.active_seat === mySeat);
-  if (!canWrite) { pending.length = 0; return; } // gating should prevent this; never write illegally
+  if (!canWrite) { // shouldn't happen (act() gates input), but never write illegally — keep the moves to retry
+    if (realGame.state.activePlayerIndex === mySeat) console.warn("[online] my move couldn't flush (row active_seat stale) — will retry");
+    return;
+  }
   log.push(...pending); pending.length = 0;
-  writeGameState({ state: { ...onlineCfg, moves: log }, active_seat: realGame.state.activePlayerIndex });
+  const payload = { state: { ...onlineCfg, moves: [...log] }, active_seat: realGame.state.activePlayerIndex };
+  writeChain = writeChain
+    .then(() => writeGameState(payload))
+    .then((r) => { if (r?.error) console.error("[online] write rejected:", r.error); })
+    .catch((e) => console.error("[online] write failed:", e?.message ?? e));
 }
 
 // Host only: drive the deterministic AI seats and persist each, until a human is up or the game ends.
