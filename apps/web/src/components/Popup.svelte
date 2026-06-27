@@ -27,6 +27,7 @@
         {/if}
         <h2>Round {p.turn} · {p.season?.name ?? ""}</h2>
         <p class="pop-flavor">{p.townlifeFlavor ?? p.season?.flavor ?? `A new round dawns over ${p.town ?? "Maple Hollow"}.`}</p>
+        {#if p.lead}<p class="pop-lead">{p.leadIsMe ? "✨ You lead off — clear this and make your move!" : `▶ ${p.lead} leads off this round.`}</p>{/if}
 
       {:else if p.kind === "summary"}
         <h2>{p.rival ? "🤖" : "📋"} {p.name} — turn start</h2>
@@ -95,6 +96,7 @@
   .pop-effect.hit { color: #e8746a; font-weight: 600; }
   .pop-effect.gain { color: #5fb87a; font-weight: 600; }
   .pop-flavor { color: var(--muted, #9aa0aa); font-style: italic; margin: 0 0 6px; }
+  .pop-lead { color: var(--accent, #e0b341); font-weight: 700; margin: 4px 0 6px; }
   .summary-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin: 8px 0; }
   .summ-stat { background: var(--panel-2, #1b1f27); border-radius: 8px; padding: 8px 10px; display: flex; flex-direction: column; gap: 2px; }
   .summ-stat .lbl { font-size: 0.78em; color: var(--muted, #9aa0aa); }

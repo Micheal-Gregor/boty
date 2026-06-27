@@ -75,7 +75,7 @@
   </header>
 
   {#if isOnline()}
-    <div class="turn-strip" class:mine={!onlineWaiting}>{onlineWaiting ? `⏳ ${activeName}'s turn — waiting…` : "✓ Your turn — make your move"}</div>
+    <div class="turn-strip" class:mine={!onlineWaiting}>{onlineWaiting ? `⏳ ${activeName} is up — they're playing` : `🎯 Your turn, ${me?.name ?? "you"} — make your move!`}</div>
   {/if}
 
   <Popup />

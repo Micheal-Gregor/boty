@@ -362,6 +362,7 @@ function push(patch = {}) {
     if (online && !myTurn()) for (const k of DECISION_KEYS) next[k] = null;
     return next;
   });
+  if (online) surfaceRoundStart(); // the round just ticked? → flush the queue + townfolk card (guarded, fires once per round)
   if (online && pending.length) flushMoves(); // persist any moves I just recorded (online only)
 }
 function fail(msg) { ui.update((v) => ({ ...v, rev: v.rev + 1, error: msg })); }
@@ -443,9 +444,10 @@ function surfaceRoundStart() {
   lastRoundShown = s.turn;
   const view = get(ui).view;
   const tl = townlifeForRound(view?.season?.name, view?.season?.roundInSeason);
+  const lead = s.players[s.activePlayerIndex]?.name ?? null; // who leads off the new round (seat 0)
   ui.update((v) => ({
     ...v, rev: v.rev + 1,
-    popups: [{ kind: "round", turn: s.turn, season: view?.season, town: flavor?.town, townlife: tl?.id ?? null, townlifeFlavor: tl?.flavor ?? null }],
+    popups: [{ kind: "round", turn: s.turn, season: view?.season, town: flavor?.town, townlife: tl?.id ?? null, townlifeFlavor: tl?.flavor ?? null, lead, leadIsMe: s.activePlayerIndex === mySeat }],
   }));
 }
 
@@ -469,8 +471,7 @@ function buildOnlineGame(row) {
   log = [];
   const moves = row.state.moves ?? [];
   if (moves.length) { replay(realGame, moves, 0); log = [...moves]; }
-  push({ screen: "board", error: null, aiActing: null, threat: null, picking: null, reckoning: null, final: null, court: null });
-  surfaceRoundStart(); // round-1 townfolk card
+  push({ screen: "board", error: null, aiActing: null, threat: null, picking: null, reckoning: null, final: null, court: null }); // push fires the round-1 townfolk card
   surfaceNewOutcomes();
   maybeDriveAI();
   surfaceTurnDecisions(); // if the game opens on my turn, surface any pending decisions
@@ -482,8 +483,7 @@ function syncFromRow(row) {
     try { replay(realGame, moves, log.length); }
     catch (e) { console.error("[online] replay failed at move", log.length, "—", e?.message ?? e); }
     log = [...moves];
-    surfaceRoundStart(); // a new round began in the moves we just replayed → townfolk card + flush
-    push({ aiActing: null });
+    push({ aiActing: null }); // push fires the townfolk card if a new round began in these moves
     surfaceNewOutcomes();
     if (realGame.state.over) { playSfx("chime", 0.5); playMusic("gala", 0.3); return push({ screen: "gala", final: finalReport() }); }
   }
@@ -708,7 +708,7 @@ export function endTurn() {
     const ctx = game.endTurn();
     if (ctx.reckoning) return enterReckoning(ctx.order);
     if (ctx.over) { playSfx("chime", 0.5); playMusic("gala", 0.3); return push({ screen: "gala", ctx, final: finalReport() }); }
-    if (online) { push({ aiActing: null }); maybeDriveAI(); } // flush my turn; the host drives the next AI seats
+    if (online) { push({ aiActing: null }); surfaceNewOutcomes(); maybeDriveAI(); surfaceTurnDecisions(); } // flush my turn (push fires the round card if the round ticked); host drives the next AI seats
     else advanceUntilHuman(ctx);
   };
   if (!get(settings).confirmEndTurn) return proceed(); // quick-end mode
