@@ -453,6 +453,7 @@ function buildOnlineGame(row) {
   push({ screen: "board", error: null, aiActing: null, threat: null, picking: null, reckoning: null, final: null, court: null });
   surfaceNewOutcomes();
   maybeDriveAI();
+  surfaceTurnDecisions(); // if the game opens on my turn, surface any pending decisions
 }
 
 function syncFromRow(row) {
@@ -466,6 +467,7 @@ function syncFromRow(row) {
     if (realGame.state.over) { playSfx("chime", 0.5); playMusic("gala", 0.3); return push({ screen: "gala", final: finalReport() }); }
   }
   maybeDriveAI();
+  surfaceTurnDecisions(); // a remote update advanced the turn to me → surface my decisions
 }
 
 // Write my freshly-recorded moves to the room. RLS admits the active player (or the host) only.
@@ -727,10 +729,17 @@ let skipAI = false;
 /** Fast-forward the rest of the AI phase (the "Skip ▶▶" button): drain the rival pop-ups too. */
 export function skipAITurns() { skipAI = true; clearPopups(); }
 
-/** Resolve once the pop-up queue has drained (the human has read this rival's turn). */
+/** Resolve once the pop-up queue has drained (the human has read this rival's turn). The store
+ *  subscription fires SYNCHRONOUSLY on subscribe, so if there are no popups right now the callback
+ *  runs before `unsub` is assigned — defer the unsubscribe to dodge that temporal-dead-zone crash. */
 function waitForPopups() {
   return new Promise((resolve) => {
-    const unsub = ui.subscribe((v) => { if (!v.popups.length) { unsub(); resolve(); } });
+    let unsub;
+    unsub = ui.subscribe((v) => {
+      if (v.popups.length) return;
+      resolve();
+      if (unsub) unsub(); else queueMicrotask(() => unsub && unsub());
+    });
   });
 }
 
@@ -785,20 +794,32 @@ async function advanceUntilHuman(initialCtx) {
   }
   if (game.state.over) return;
   if (game.settleCases.length || game.courtCases.length || openDamages().length) playSfx("gavel", 0.5);
-  if (!online) enqueueTurnStart(lastCtx); // the human is up — round intro + summary + card reveals (online: skip — it'd fire on the host for a remote player's turn; the turn-start ceremony online is a later polish)
+  // Online: the host has only been DRIVING the AI. The human now up runs their own turn — surface
+  // their decisions on THEIR client (this one if it's the host's turn; otherwise the remote client
+  // does it via syncFromRow). Stop here; no host-side turn-start ceremony for a remote player.
+  if (online) { push({ aiActing: null }); surfaceTurnDecisions(); return; }
+  enqueueTurnStart(lastCtx); // the human is up — round intro + summary + card reveals
   push({ aiActing: null, ctx: lastCtx, error: null });
   // STACK RULES: read every card you drew FIRST (the Resolve reveals), THEN the response windows
   // surface in order — so a decision never pops over a card you haven't seen, and play doesn't
   // continue until each is answered. (Decisions raised mid-turn by your own actions surface live.)
   await waitForPopups();
   if (game.state.over) return;
+  surfaceTurnDecisions();
+}
+
+// Surface the active player's turn-start decision windows. Online, only on the active player's own
+// client (their decisions are theirs to resolve); local play always surfaces for the seated human.
+function surfaceTurnDecisions() {
+  if (online && !myTurn()) return;
+  const myReferrals = game.referralCases.filter((r) => r.contractor_id === meLive().id);
   push({
     settle: game.settleCases.length ? [...game.settleCases] : null,
     court: game.courtCases.length ? [...game.courtCases] : null,
     damages: openDamages().length ? openDamages() : null,
     poach: game.poachCases.length ? [...game.poachCases] : null,
     mayor: game.mayorCases.length ? [...game.mayorCases] : null,
-    referral: game.referralCases.filter((r) => r.contractor_id === meLive().id).length ? game.referralCases.filter((r) => r.contractor_id === meLive().id) : null,
+    referral: myReferrals.length ? myReferrals : null,
   });
 }
 
