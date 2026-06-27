@@ -175,10 +175,10 @@
         <Art kind={`shop/${tradeSlug(me.service)}`} id={me.building} label={`${me.service} ${findBuilding(econ, me.building).name}`} />
       </div>
       <!-- During a rival's turn `me` is THAT rival (you're watching), so lock the sheet — it's not yours to act on. -->
-      <div class="sheet-lock" class:locked={!!aiTurn}>
+      <div class="sheet-lock" class:locked={!!aiTurn || onlineWaiting}>
         <Shop player={me} {econ} {handHas} {nextBuilding} />
       </div>
-      <fieldset class="actions" disabled={!!aiTurn}>
+      <fieldset class="actions" disabled={!!aiTurn || onlineWaiting}>
         <Flash section="general" />
         <button title="Borrow cash now — a liability with interest, force-settled at year-end" onclick={borrowCredit}>🏦 Bank Credit</button>
         {#if locOwed > 0}<button title="Repay the line of credit" onclick={() => act((g) => g.repayCredit())}>Repay ({$money(locOwed)})</button>{/if}

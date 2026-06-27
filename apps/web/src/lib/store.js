@@ -348,8 +348,17 @@ function viewOf() {
   };
 }
 
+// Decision modals belong to the ACTIVE player only. Online, an inactive client must never show (or
+// resolve) one — it would diverge their game. They still get the informational alert pop-ups
+// (the "audit" trail) to catch up. (v1: every decision is the active player's; the cross-player
+// response windows come with networked PvP.)
+const DECISION_KEYS = ["court", "poach", "mayor", "settle", "referral", "damages", "threat", "dice"];
 function push(patch = {}) {
-  ui.update((v) => ({ ...v, game, view: viewOf(), rev: v.rev + 1, ...patch }));
+  ui.update((v) => {
+    const next = { ...v, game, view: viewOf(), rev: v.rev + 1, ...patch };
+    if (online && !myTurn()) for (const k of DECISION_KEYS) next[k] = null;
+    return next;
+  });
   if (online && pending.length) flushMoves(); // persist any moves I just recorded (online only)
 }
 function fail(msg) { ui.update((v) => ({ ...v, rev: v.rev + 1, error: msg })); }
@@ -611,6 +620,7 @@ function refreshDamages() {
 }
 
 export function sueDamagesUI(jobId, slick = false) {
+  if (online && !myTurn()) return; // online: only the active player resolves their own decisions
   try { game.sueDamages(jobId, { slick }); } catch (e) { return fail(e?.message ?? String(e)); }
   resolveThreat();
 }
@@ -628,6 +638,7 @@ function afterAct() {
 // --- Turn flow ---------------------------------------------------------------------------
 
 export function endTurn() {
+  if (online && !myTurn()) return; // online: only the active player resolves their own decisions
   if (game.state.pendingSettle.length) return fail("Answer the settlement offer first");
   if (game.state.pendingPoach.length) return fail("Answer the poaching offer first");
   if (game.state.pendingMayor.length) return fail("Answer the Mayor's drive first");
@@ -656,6 +667,7 @@ export function endTurn() {
 
 /** A failed Demand Roll summons you to court. AI seats auto-defend; a human rolls the getaway die. */
 export function resolveCourtUI(payableId, lawyer) {
+  if (online && !myTurn()) return; // online: only the active player resolves their own decisions
   const thr = game.courtThreshold(payableId, lawyer);
   const c = game.courtCases.find((x) => x.payableId === payableId);
   const vendor = c?.vendor ?? "the creditor"; const amount = c?.amount;
@@ -757,6 +769,7 @@ async function advanceUntilHuman(initialCtx) {
 
 // --- Referral: a rival brokered a job your trade can do — accept it (they earn a fee) or refuse ---
 export function resolveReferralUI(id, accept) {
+  if (online && !myTurn()) return; // online: only the active player resolves their own decisions
   try { game.resolveReferral(id, { accept }); } catch (e) { return fail(e?.message ?? String(e)); }
   surfaceNewOutcomes();
   const me = game.state.players[game.state.activePlayerIndex];
@@ -766,6 +779,7 @@ export function resolveReferralUI(id, accept) {
 
 // --- Poached: counter-offer (1/2/3 W + a loyalty roll) or let the worker walk ----------------
 export function resolvePoachUI(workerId, counter) {
+  if (online && !myTurn()) return; // online: only the active player resolves their own decisions
   if (counter <= 0) {
     try { game.resolvePoach(workerId, { counter: 0 }); } catch (e) { return fail(e?.message ?? String(e)); }
     surfaceNewOutcomes();
@@ -792,6 +806,7 @@ export function resolvePoachUI(workerId, counter) {
 
 // --- The Mayor's re-election drive: buy a Favor for 10 W (+seeds work) or pass ----------------
 export function resolveMayorUI(buy) {
+  if (online && !myTurn()) return; // online: only the active player resolves their own decisions
   try { game.resolveMayor({ buy }); } catch (e) { return fail(e?.message ?? String(e)); }
   surfaceNewOutcomes();
   push({ mayor: game.mayorCases.length ? [...game.mayorCases] : null });
@@ -799,6 +814,7 @@ export function resolveMayorUI(buy) {
 
 /** Accept or decline a natural-6 settlement offer. */
 export function resolveSettleUI(payableId, accept) {
+  if (online && !myTurn()) return; // online: only the active player resolves their own decisions
   try { game.resolveSettle(payableId, { accept }); } catch (e) { return fail(e?.message ?? String(e)); }
   push({ settle: game.settleCases.length ? [...game.settleCases] : null });
 }
