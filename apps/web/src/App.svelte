@@ -3,6 +3,7 @@
   import { ui } from "./lib/store.js";
   import { playSfx } from "./lib/sound.js";
   import Loading from "./screens/Loading.svelte";
+  import Login from "./screens/Login.svelte";
   import Menu from "./screens/Menu.svelte";
   import History from "./screens/History.svelte";
   import Faq from "./screens/Faq.svelte";
@@ -34,6 +35,8 @@
 <main>
   {#if $ui.screen === "loading"}
     <Loading />
+  {:else if $ui.screen === "login"}
+    <Login />
   {:else if $ui.screen === "menu"}
     <Menu />
   {:else if $ui.screen === "history"}

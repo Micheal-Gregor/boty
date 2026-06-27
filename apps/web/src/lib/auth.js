@@ -20,16 +20,24 @@ if (supabaseReady) {
   authReady.set(true); // no backend configured → resolve immediately, app runs in guest mode
 }
 
-/** Email a one-time magic link. Returns { error } — null on success. */
+/** Email a one-time magic link to an INVITED tester (no new accounts are created here — invites are
+ *  issued from the Supabase dashboard). Returns { error } — null on success. */
 export async function sendMagicLink(email) {
   if (!supabaseReady) return { error: "Sign-in isn't configured yet." };
   const clean = (email ?? "").trim().toLowerCase();
   if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(clean)) return { error: "Enter a valid email address." };
   const { error } = await supabase.auth.signInWithOtp({
     email: clean,
-    options: { emailRedirectTo: window.location.origin },
+    options: { emailRedirectTo: window.location.origin, shouldCreateUser: false },
   });
-  return { error: error?.message ?? null };
+  if (error) {
+    // Most failures here mean the email isn't on the invite list (signups are off for testing).
+    const msg = /signup|not allowed|disabled|user/i.test(error.message)
+      ? "That email isn't invited yet — ask for an invite, then try again."
+      : error.message;
+    return { error: msg };
+  }
+  return { error: null };
 }
 
 export async function signOut() {

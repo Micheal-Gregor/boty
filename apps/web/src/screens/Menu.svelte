@@ -1,5 +1,7 @@
 <script>
   import { goScreen } from "../lib/store.js";
+  import { user, signOut } from "../lib/auth.js";
+  import { supabaseReady } from "../lib/supabase.js";
   import Shell from "./Shell.svelte";
 </script>
 
@@ -13,7 +15,11 @@
       <button onclick={() => goScreen("faq")}>❔ How to Play &amp; FAQ</button>
       <button onclick={() => goScreen("credits")}>🎬 Credits</button>
     </nav>
-    <p class="acct">Playing as <strong>Guest</strong> · accounts &amp; multiplayer coming soon</p>
+    {#if supabaseReady && $user}
+      <p class="acct">Signed in as <strong>{$user.email}</strong> · <button class="link" onclick={signOut}>Sign out</button></p>
+    {:else}
+      <p class="acct">Playing as <strong>Guest</strong> · sign-in coming soon</p>
+    {/if}
   </div>
 </Shell>
 
@@ -26,4 +32,5 @@
   nav button:hover { border-color: var(--accent, #e0b341); }
   nav button.primary { background: var(--accent, #e0b341); color: #1a1a1a; border: none; box-shadow: 0 6px 20px rgba(224,179,65,0.3); }
   .acct { color: var(--muted, #9aa0aa); font-size: 0.85rem; margin-top: 26px; }
+  .acct .link { background: none; border: none; color: var(--accent, #e0b341); cursor: pointer; font: inherit; padding: 0; text-decoration: underline; }
 </style>

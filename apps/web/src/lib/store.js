@@ -12,6 +12,8 @@ import { dealTownlife, townlifeForRound } from "./townlife.js";
 import { setMoneyRate } from "./money.js";
 import { npcIntroFor } from "./townsfolk.js";
 import { crewIdentity } from "./crew.js";
+import { session as authSession } from "./auth.js";
+import { supabaseReady } from "./supabase.js";
 
 const { economy, decks, flavor } = loadContent();
 setMoneyRate(economy.w_to_usd); // wire the W→$ display rate from the economy data
@@ -353,12 +355,24 @@ function fail(msg) { ui.update((v) => ({ ...v, rev: v.rev + 1, error: msg })); }
 export const services = economy.services;
 export const isAI = (playerId) => !!ai[playerId];
 
-// --- Shell navigation (front-of-house: loading → menu → play / history / faq / credits) --------
+// --- Shell navigation (front-of-house: loading → login → menu → play / history / faq / credits) ---
 export function goScreen(name) { push({ screen: name }); }
-/** The loading splash's Enter button — the user gesture that unlocks audio and starts the intro theme. */
-export function enterApp() { unlockAudio(); playMusic("intro", 0.3); push({ screen: "menu" }); }
+const signedIn = () => !supabaseReady || !!get(authSession); // guest mode if no backend configured
+/** The loading splash's Enter button — the user gesture that unlocks audio and starts the intro theme.
+ *  Routes to the login gate unless the tester is already signed in. */
+export function enterApp() { unlockAudio(); playMusic("intro", 0.3); push({ screen: signedIn() ? "menu" : "login" }); }
 /** Back to the main menu (intro theme resumes). */
 export function backToMenu() { playMusic("intro", 0.3); push({ screen: "menu" }); }
+
+// Reactively follow auth: a magic-link sign-in advances the gate to the menu; signing out from the
+// menu drops back to the gate. (We don't yank a player mid-game on a transient session change.)
+let sawSession = false;
+authSession.subscribe((s) => {
+  const screen = get(ui).screen;
+  if (s && screen === "login") push({ screen: "menu" });
+  else if (!s && sawSession && screen === "menu") push({ screen: "login" });
+  sawSession = true;
+});
 
 const player = (id) => game.state.players.find((p) => p.id === id);
 const handHas = (p, type) => p.hand.some((c) => c.type === type);
