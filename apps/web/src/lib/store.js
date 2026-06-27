@@ -383,6 +383,24 @@ let hostDriving = false; // guard so the host runs the AI loop only once at a ti
 export const myTurn = () => !online || !!(realGame && !realGame.state.over && realGame.state.activePlayerIndex === mySeat && !ai[realGame.currentPlayer.id]);
 export const isOnline = () => online;
 
+// Diagnostics: type botyState() in the browser console (both windows) to compare clients.
+if (typeof window !== "undefined") {
+  window.botyState = () => {
+    const r = get(onlineGame);
+    const s = realGame?.state;
+    const out = {
+      online, isHost: isHostClient, mySeat, myTurn: myTurn(), hostDriving,
+      engineActive: s?.activePlayerIndex, engineTurn: s?.turn, over: s?.over,
+      localLog: log.length, pending: pending.length,
+      dbActiveSeat: r?.active_seat, dbMoves: r?.state?.moves?.length, dbStatus: r?.status,
+      cashes: s?.players.map((p) => p.cash),         // a quick state fingerprint to compare clients
+      jobs: s?.players.map((p) => p.jobs.length),
+    };
+    console.log("BOTY", JSON.stringify(out));        // eslint-disable-line no-console
+    return out;
+  };
+}
+
 /** Host: deal the seed + seats and flip the room to "active". Everyone builds the game from the row. */
 export async function startOnlineGame() {
   const row = get(onlineGame), me = get(authUser);
@@ -725,7 +743,7 @@ async function advanceUntilHuman(initialCtx) {
     const drew = (lastCtx?.drawn ?? []).map((d) => d.name); // what the deck just dealt this rival
     const mode = get(settings).rivalPopups;
 
-    if (mode !== "none" && !skipAI) {
+    if (mode !== "none" && !skipAI && !online) { // online: drive AI fast — no blocking rival pop-ups (don't make the table wait on the host clicking)
       // Opponent's turn opens with their executive summary, then their cards open & close in order —
       // wait for you to read the table before they make their moves.
       const rp = game.state.players.find((x) => x.id === p.id);
@@ -762,7 +780,7 @@ async function advanceUntilHuman(initialCtx) {
   }
   if (game.state.over) return;
   if (game.settleCases.length || game.courtCases.length || openDamages().length) playSfx("gavel", 0.5);
-  enqueueTurnStart(lastCtx); // the human is up — round intro + their executive summary + card reveals
+  if (!online) enqueueTurnStart(lastCtx); // the human is up — round intro + summary + card reveals (online: skip — it'd fire on the host for a remote player's turn; the turn-start ceremony online is a later polish)
   push({ aiActing: null, ctx: lastCtx, error: null });
   // STACK RULES: read every card you drew FIRST (the Resolve reveals), THEN the response windows
   // surface in order — so a decision never pops over a card you haven't seen, and play doesn't
