@@ -9,7 +9,8 @@
     "preview": "vite preview"
   },
   "dependencies": {
-    "@boty/engine": "*"
+    "@boty/engine": "*",
+    "@supabase/supabase-js": "^2.108.2"
   },
   "devDependencies": {
     "@sveltejs/vite-plugin-svelte": "^7.1.2",
