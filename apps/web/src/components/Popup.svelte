@@ -69,8 +69,8 @@
         <p class="pop-effect">{$cashText(p.body)}</p>
 
       {:else if p.kind === "card"}
-        {#if p.rival}<div class="pop-rival">🤖 {p.rival} drew:</div>{/if}
-        <div class="pop-art"><Art kind="card" id={p.art ?? p.cardId} label={p.name} autoplay={!p.rival && $settings.animateCards} /></div>
+        {#if p.who}<div class="pop-rival">{p.isAi ? "🤖" : "👤"} {p.who} drew — not your card:</div>{:else if p.rival}<div class="pop-rival">🤖 {p.rival} drew:</div>{/if}
+        <div class="pop-art" class:others={p.who}><Art kind="card" id={p.art ?? p.cardId} label={p.name} autoplay={!p.rival && !p.who && $settings.animateCards} /></div>
         <h2>{p.name}</h2>
         {#if p.flavor}<p class="pop-flavor">“{$cashText(p.flavor)}”</p>{/if}
         <p class="pop-effect" class:hit={p.text?.includes("⚡")} class:gain={p.text?.includes("💰")}>{$cashText(p.text)}</p>
@@ -109,6 +109,7 @@
   .exp-row.total span:first-child { color: inherit; }
   .pop-effect { margin: 4px 0; }
   .pop-rival { font-size: 0.82em; color: var(--muted, #9aa0aa); font-weight: 600; margin-bottom: 4px; }
+  .pop-art.others { filter: grayscale(0.55) brightness(0.85); opacity: 0.9; } /* another player's card — clearly not yours */
   .shuffle-deck { position: relative; width: 110px; height: 84px; margin: 10px auto 14px; }
   .shuffle-deck .sc { position: absolute; left: 50%; top: 50%; width: 46px; height: 64px; margin: -32px 0 0 -23px; border-radius: 6px; background: #f4f1e8; border: 1px solid #d8d2c0; box-shadow: 0 2px 6px rgba(0,0,0,0.45); }
   .shuffle-deck.adding .sc { background: linear-gradient(#f6f2e6, #d6ead2); }

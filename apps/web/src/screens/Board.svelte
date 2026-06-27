@@ -23,7 +23,7 @@
   const me = $derived(s ? s.players[s.meIndex ?? s.activePlayerIndex] : null); // online: your own sheet; local: the active player's
   const season = $derived(s ? seasonFor({ turn: s.turn, economy: econ, flavor: $ui.flavor }) : null);
   const seasonSlug = $derived(season ? season.name.toLowerCase() : "spring");
-  const drawn = $derived($ui.ctx?.drawn ?? []);
+  const drawn = $derived(isOnline() ? (me?.drewThisTurn ?? []) : ($ui.ctx?.drawn ?? [])); // online: read your own draws off the state (replay loses the ctx)
   const pnl = $derived(s?.pnl); // the active player's profit & loss, summed from the G/L
   const bs = $derived(s?.bs); // the balance sheet
   const locOwed = $derived((bs?.liabilityLines ?? []).find((l) => l.acct === 2100)?.amount ?? 0);
@@ -68,8 +68,8 @@
     <span class="round">round {s.turn} / {econ.max_turns}</span>
     <span class="turn">▶ {me.name}'s turn</span>
     <button class="mute" aria-label="toggle sound" title={$muted ? "sound off" : "sound on"} onclick={toggleMute}>{$muted ? "🔇" : "🔊"}</button>
-    <button class="mute" aria-label="view rivals" title="rivals' shops" onclick={openRivals}>👥</button>
-    <button class="mute" aria-label="open hand" title="open hand" onclick={openHand}>🃏</button>
+    <button class="mute key" aria-label="view rivals" title="rivals' shops" onclick={openRivals}>👥</button>
+    <button class="mute key" aria-label="open hand" title="open hand" onclick={openHand}>🃏</button>
     <button class="mute" aria-label="rules" title="how to play" onclick={openRules}>❔</button>
     <button class="mute" aria-label="settings" title="settings" onclick={openSettings}>⚙️</button>
   </header>
@@ -165,7 +165,7 @@
           </button>
         {/each}
       {:else}
-        <p class="muted">No cards drawn this turn — the deck is quiet for now.</p>
+        <p class="muted">This is your <strong>Fortune deck</strong> — it deals this game's work (jobs), windfalls, and shocks. The cards you draw at the start of each turn show up here to tap and read. Nothing drawn yet.</p>
       {/if}
     </section>
 

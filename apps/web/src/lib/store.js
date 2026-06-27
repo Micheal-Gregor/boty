@@ -362,7 +362,7 @@ function push(patch = {}) {
     if (online && !myTurn()) for (const k of DECISION_KEYS) next[k] = null;
     return next;
   });
-  if (online) { surfaceRoundStart(); surfaceMyTurnStart(); } // round card (round tick) + my fortune-card reveal (my turn) — both guarded
+  if (online) { surfaceRoundStart(); surfaceActiveDraws(); } // round card (round tick) + the active player's fortune reveal — both guarded
   if (online && pending.length) flushMoves(); // persist any moves I just recorded (online only)
 }
 function fail(msg) { ui.update((v) => ({ ...v, rev: v.rev + 1, error: msg })); }
@@ -451,23 +451,29 @@ function surfaceRoundStart() {
   }));
 }
 
-// Online: when it becomes MY turn, reveal the fortune cards I drew this turn (the engine drew them
-// during replay; the return value is lost, so we read player.drewThisTurn off the state). Guarded to
-// fire once per turn. This is the per-client turn-start ceremony — the cards appearing are also the
-// clear "you're up" signal, alongside the pulsing turn strip.
+// Online: reveal the ACTIVE player's fortune draw on every client — your own cards (no label), or a
+// rival's clearly attributed ("👤 X drew:"). The engine drew them during replay; the return value is
+// lost, so we read player.drewThisTurn off the state. Guarded once per (turn, player). Watching
+// another player honours the Settings rival-pop-up filter so it doesn't pile up.
 let lastTurnStartKey = "";
-function surfaceMyTurnStart() {
-  if (!game || !online || !myTurn()) return;
+function surfaceActiveDraws() {
+  if (!game || !online) return;
   const s = game.state;
   const key = `${s.turn}:${s.activePlayerIndex}`;
   if (key === lastTurnStartKey) return;
+  const actor = s.players[s.activePlayerIndex];
+  if (!actor) return;
   lastTurnStartKey = key;
-  const me = s.players[s.activePlayerIndex];
-  for (const d of me?.drewThisTurn ?? []) {
+  const mine = s.activePlayerIndex === mySeat;
+  const mode = get(settings).rivalPopups;
+  if (!mine && mode === "none") return; // watching, opted out of others' cards
+  const isAi = isAI(actor.id);
+  for (const d of actor.drewThisTurn ?? []) {
+    if (!mine && mode !== "all" && !rivalCardInteresting(d)) continue; // watcher: only the interesting draws
     const def = cardById.get(d.cardId);
     const intro = npcIntroFor(d.cardId);
     if (intro) enqueuePopup({ kind: "character", ...intro });
-    enqueuePopup({ kind: "card", cardId: d.cardId, art: d.art ?? null, name: d.name, flavor: d.flavor, text: d.text, rule: ruleFor(def) });
+    enqueuePopup({ kind: "card", who: mine ? null : actor.name, isAi, cardId: d.cardId, art: d.art ?? null, name: d.name, flavor: d.flavor, text: d.text, rule: ruleFor(def) });
   }
 }
 
