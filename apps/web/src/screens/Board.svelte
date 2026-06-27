@@ -189,25 +189,25 @@
       {#if booksView === "bs" && bs}
         <div class="pl">
           <div class="pl-row total"><span>Assets</span><span>{$money(bs.assets)}</span></div>
-          {#each bs.assetLines as l}<div class="pl-row sub"><span>{l.name}</span><span>{l.amount}</span></div>{/each}
+          {#each bs.assetLines as l}<div class="pl-row sub"><span>{l.name}</span><span>{$money(l.amount)}</span></div>{/each}
           <div class="pl-row total"><span>Liabilities</span><span>{$money(bs.liabilities)}</span></div>
-          {#each bs.liabilityLines as l}<div class="pl-row sub"><span>{l.name}</span><span>{l.amount}</span></div>{/each}
-          {#if !bs.liabilityLines.length}<div class="pl-row sub"><span>none</span><span>0</span></div>{/if}
+          {#each bs.liabilityLines as l}<div class="pl-row sub"><span>{l.name}</span><span>{$money(l.amount)}</span></div>{/each}
+          {#if !bs.liabilityLines.length}<div class="pl-row sub"><span>none</span><span>{$money(0)}</span></div>{/if}
           <div class="pl-row total"><span>Equity</span><span>{$money(bs.equity)}</span></div>
-          <div class="pl-row sub"><span>Owner's capital</span><span>{bs.capital}</span></div>
-          <div class="pl-row sub"><span>Retained earnings (net income)</span><span>{bs.retained}</span></div>
+          <div class="pl-row sub"><span>Owner's capital</span><span>{$money(bs.capital)}</span></div>
+          <div class="pl-row sub"><span>Retained earnings (net income)</span><span>{$money(bs.retained)}</span></div>
           <div class="pl-row net"><span>Liabilities + equity</span><span>{$money(bs.liabilities + bs.equity)}</span></div>
-          <p class="muted" style="margin-top:8px">Assets {bs.assets} = Liabilities {bs.liabilities} + Equity {bs.equity}. The books always balance.</p>
+          <p class="muted" style="margin-top:8px">Assets {$money(bs.assets)} = Liabilities {$money(bs.liabilities)} + Equity {$money(bs.equity)}. The books always balance.</p>
         </div>
       {:else if pnl}
         <div class="pl">
           <div class="pl-row total"><span>Revenue</span><span>{$money(pnl.revenue)}</span></div>
-          {#each pnl.revenueLines as l}<div class="pl-row sub"><span>{l.name}</span><span>{l.amount}</span></div>{/each}
+          {#each pnl.revenueLines as l}<div class="pl-row sub"><span>{l.name}</span><span>{$money(l.amount)}</span></div>{/each}
           <div class="pl-row total"><span>− Cost of jobs (COGS)</span><span>{$money(pnl.cogs)}</span></div>
-          {#each pnl.cogsLines as l}<div class="pl-row sub"><span>{l.name}</span><span>({l.amount})</span></div>{/each}
+          {#each pnl.cogsLines as l}<div class="pl-row sub"><span>{l.name}</span><span>({$money(l.amount)})</span></div>{/each}
           <div class="pl-row margin"><span>Gross margin</span><span>{$money(pnl.grossMargin)}</span></div>
           <div class="pl-row total"><span>− Overhead</span><span>{$money(pnl.overhead)}</span></div>
-          {#each pnl.overheadLines as l}<div class="pl-row sub"><span>{l.name}</span><span>({l.amount})</span></div>{/each}
+          {#each pnl.overheadLines as l}<div class="pl-row sub"><span>{l.name}</span><span>({$money(l.amount)})</span></div>{/each}
           <div class="pl-row net" class:bad={pnl.netIncome < 0}><span>Net income</span><span>{$money(pnl.netIncome)}</span></div>
         </div>
         <div class="cash-vs-profit">
