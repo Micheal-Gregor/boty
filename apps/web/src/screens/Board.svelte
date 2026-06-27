@@ -87,6 +87,14 @@
     </div>
   {/if}
 
+  {#if me.defects?.length}
+    <div class="town-banner warn">
+      {#each me.defects as d}
+        <button class="town-effect bad" onclick={() => openEntity("defect", d.id)} title="Tap to fix — restores your crew's output">🚧 {d.name} — output −{d.productivity_hit}/turn + {$money(d.fine)}/turn fine · tap to fix</button>
+      {/each}
+    </div>
+  {/if}
+
   {#if aiTurn}
     <div class="ai-banner">
       <div class="ai-head">
