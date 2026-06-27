@@ -1,9 +1,9 @@
 <script>
-  import { ui, backToMenu } from "../lib/store.js";
+  import { ui, backToMenu, startOnlineGame } from "../lib/store.js";
   import { user } from "../lib/auth.js";
   import {
     onlineGame, onlineSeats, lobbyBusy, lobbyError, lobbyNote,
-    hostGame, joinByCode, pickTrade, setSeatTrade, addAiSeat, removeSeat, leaveGame, startGame,
+    hostGame, joinByCode, pickTrade, setSeatTrade, addAiSeat, removeSeat, leaveGame,
   } from "../lib/games.js";
   import Shell from "./Shell.svelte";
 
@@ -96,7 +96,7 @@
       <div class="controls">
         {#if isHost}
           <button onclick={addAiSeat}>+ Add CPU</button>
-          <button class="primary" onclick={startGame}>Start game ▶</button>
+          <button class="primary" onclick={startOnlineGame}>Start game ▶</button>
         {:else}
           <span class="muted waiting">Waiting for the host to start…</span>
         {/if}

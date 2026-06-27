@@ -104,9 +104,20 @@ export async function leaveGame() {
   teardown();
 }
 
-/** Host: start the game. (Next phase: build + write the engine state and hand off to the sync.) */
-export function startGame() {
-  lobbyNote.set("Lobby's ready — wiring the live synced game is the next build step.");
+/** Replace the seat rows with a contiguous 0..n-1 set (called at Start). Keeps the engine's seat
+ *  index == game_seats.seat, which the RLS turn-lock relies on even if someone left a gap. */
+export async function replaceSeats(seats) {
+  const g = get(onlineGame); if (!g) return;
+  await supabase.from("game_seats").delete().eq("game_id", g.id);
+  await supabase.from("game_seats").insert(seats.map((s) => ({ game_id: g.id, seat: s.seat, user_id: s.user_id, display_name: s.name, trade: s.trade, is_ai: s.is_ai })));
+}
+
+/** Write game state/status to the row (the sync primitive). RLS lets the host or the active player
+ *  through. Used by the store's online transport to persist the seed + move log + whose turn it is. */
+export async function writeGameState(patch) {
+  const g = get(onlineGame); if (!g) return { error: "no game" };
+  const { error } = await supabase.from("games").update(patch).eq("id", g.id);
+  return { error: error?.message ?? null };
 }
 
 // --- internals -------------------------------------------------------------------------------

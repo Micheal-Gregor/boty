@@ -1,5 +1,5 @@
 <script>
-  import { ui, act, endTurn, isAI, viewCard, cardInLine, skipAITurns, openSettings, openHand, openRivals, openRules, openEntity, borrowCredit } from "../lib/store.js";
+  import { ui, act, endTurn, isAI, viewCard, cardInLine, skipAITurns, openSettings, openHand, openRivals, openRules, openEntity, borrowCredit, isOnline, myTurn } from "../lib/store.js";
   import { money, cashText } from "../lib/money.js";
   import { muted, toggleMute, playSfx, playSeasonMusic } from "../lib/sound.js";
   import { seasonFor, findBuilding } from "@boty/engine";
@@ -40,6 +40,9 @@
   const aiTurn = $derived($ui.aiActing); // an object {name, drew, lines} while a rival plays
   // Trade → art slug (most services are one word; HVAC technician is the exception).
   const tradeSlug = (svc) => (svc === "HVAC technician" ? "hvac" : svc.toLowerCase());
+  // Online turn gating: recompute whenever the view changes (rev bumps on every push/replay).
+  const onlineWaiting = $derived.by(() => { void $ui.rev; return isOnline() && !myTurn(); });
+  const activeName = $derived(s ? (s.players[s.activePlayerIndex]?.name ?? "") : "");
 
   // On YOUR fresh turn that dealt cards, flip to the Fortune tab so you watch the draw, then you
   // tap over to your shop to act. (On wide screens all three are columns, so this is a no-op.)
@@ -70,6 +73,10 @@
     <button class="mute" aria-label="rules" title="how to play" onclick={openRules}>❔</button>
     <button class="mute" aria-label="settings" title="settings" onclick={openSettings}>⚙️</button>
   </header>
+
+  {#if isOnline()}
+    <div class="turn-strip" class:mine={!onlineWaiting}>{onlineWaiting ? `⏳ ${activeName}'s turn — waiting…` : "✓ Your turn — make your move"}</div>
+  {/if}
 
   <Popup />
   <Settings />

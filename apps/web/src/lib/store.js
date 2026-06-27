@@ -3,7 +3,7 @@
 // intents to Supabase, and the UI won't change. AI seats are driven by the engine's own bots.
 
 import { writable, get } from "svelte/store";
-import { Game, profitAndLoss, balanceSheet, recurringExpenses, seasonFor, workerProductivity, findEquipment, classifyTermination, unionActive } from "@boty/engine";
+import { Game, profitAndLoss, balanceSheet, recurringExpenses, seasonFor, workerProductivity, findEquipment, classifyTermination, unionActive, recordable, replay, resetIds } from "@boty/engine";
 import { settings } from "./settings.js";
 import { botActions } from "@boty/engine/bots";
 import { loadContent } from "./content.js";
@@ -12,8 +12,9 @@ import { dealTownlife, townlifeForRound } from "./townlife.js";
 import { setMoneyRate } from "./money.js";
 import { npcIntroFor } from "./townsfolk.js";
 import { crewIdentity } from "./crew.js";
-import { session as authSession } from "./auth.js";
+import { session as authSession, user as authUser } from "./auth.js";
 import { supabaseReady } from "./supabase.js";
+import { onlineGame, onlineSeats, writeGameState, replaceSeats } from "./games.js";
 
 const { economy, decks, flavor } = loadContent();
 setMoneyRate(economy.w_to_usd); // wire the W→$ display rate from the economy data
@@ -349,10 +350,109 @@ function viewOf() {
 
 function push(patch = {}) {
   ui.update((v) => ({ ...v, game, view: viewOf(), rev: v.rev + 1, ...patch }));
+  if (online && pending.length) flushMoves(); // persist any moves I just recorded (online only)
 }
 function fail(msg) { ui.update((v) => ({ ...v, rev: v.rev + 1, error: msg })); }
 
 export const services = economy.services;
+
+// ================= Online (lockstep) transport =================================================
+// The whole game lives as {seed, seats, moves} in a Supabase row. Every client rebuilds the engine
+// from seed+seats and replays the shared move log; the engine is deterministic (see
+// packages/engine/src/engine/replay.js), so all stay in sync. The active player records their moves
+// through a proxy and writes them; the HOST drives the (deterministic) AI seats and writes those.
+let online = false;
+let realGame = null;     // the un-proxied engine — replay applies here (no re-recording)
+let pending = [];        // moves I've made since the last flush (the recordable proxy pushes here)
+let log = [];            // the full shared move list I've applied to realGame
+let onlineCfg = null;    // { seed, seats } — the immutable game config
+let mySeat = -1;         // my seat index (== activePlayerIndex when it's my turn)
+let isHostClient = false;
+let hostDriving = false; // guard so the host runs the AI loop only once at a time
+
+/** True for local play, or in online play when it's my seat's turn (used to gate the UI). */
+export const myTurn = () => !online || !!(realGame && !realGame.state.over && realGame.state.activePlayerIndex === mySeat && !ai[realGame.currentPlayer.id]);
+export const isOnline = () => online;
+
+/** Host: deal the seed + seats and flip the room to "active". Everyone builds the game from the row. */
+export async function startOnlineGame() {
+  const row = get(onlineGame), me = get(authUser);
+  if (!row || !me) return;
+  if (row.host_id !== me.id) return fail("Only the host can start the game.");
+  const seats = [...get(onlineSeats)].sort((a, b) => a.seat - b.seat);
+  if (!seats.length) return fail("Need at least one player to start.");
+  const taken = new Set(seats.map((s) => s.trade).filter(Boolean));
+  const free = economy.services.filter((t) => !taken.has(t)); // fill "auto" seats from the remaining trades
+  const cfgSeats = seats.map((s, i) => ({ seat: i, name: s.display_name ?? `Seat ${i + 1}`, trade: s.trade || free.shift(), is_ai: !!s.is_ai, user_id: s.user_id ?? null }));
+  unlockAudio();
+  await replaceSeats(cfgSeats); // contiguous seats so engine index == game_seats.seat (RLS turn-lock)
+  await writeGameState({ state: { seed: (Math.random() * 2 ** 32) >>> 0, seats: cfgSeats, moves: [] }, status: "active", active_seat: 0 });
+}
+
+// React to the room row: build the game when it goes active, then replay new moves as they land.
+onlineGame.subscribe((row) => {
+  if (!row || row.status !== "active") { if (!row) resetOnline(); return; }
+  if (!realGame) buildOnlineGame(row);
+  else syncFromRow(row);
+});
+
+function resetOnline() { online = false; realGame = null; pending = []; log = []; onlineCfg = null; mySeat = -1; isHostClient = false; hostDriving = false; }
+
+function buildOnlineGame(row) {
+  const me = get(authUser);
+  onlineCfg = { seed: row.state.seed, seats: row.state.seats };
+  resetIds(); // deterministic entity ids across every client
+  realGame = new Game(economy, onlineCfg.seats.map((s) => ({ name: s.name, service: s.trade })), { ...decks, difficulty: row.difficulty, seed: onlineCfg.seed });
+  realGame.state.flavor = flavor;
+  pending = [];
+  game = recordable(realGame, pending);
+  ai = {};
+  realGame.state.players.forEach((p, i) => { ai[p.id] = onlineCfg.seats[i].is_ai ? "balanced" : null; });
+  mySeat = onlineCfg.seats.findIndex((s) => s.user_id === me?.id);
+  isHostClient = row.host_id === me?.id;
+  online = true;
+  declinedDamages.clear();
+  dealTownlife();
+  lastScanned = 0; lastRoundShown = 0; lastDeckEvent = 0;
+  realGame.start();
+  log = [];
+  const moves = row.state.moves ?? [];
+  if (moves.length) { replay(realGame, moves, 0); log = [...moves]; }
+  push({ screen: "board", error: null, aiActing: null, threat: null, picking: null, reckoning: null, final: null, court: null });
+  surfaceNewOutcomes();
+  maybeDriveAI();
+}
+
+function syncFromRow(row) {
+  const moves = row.state?.moves ?? [];
+  if (moves.length > log.length) {
+    replay(realGame, moves, log.length);
+    log = [...moves];
+    push({ aiActing: null });
+    surfaceNewOutcomes();
+    if (realGame.state.over) { playSfx("chime", 0.5); playMusic("gala", 0.3); return push({ screen: "gala", final: finalReport() }); }
+  }
+  maybeDriveAI();
+}
+
+// Write my freshly-recorded moves to the room. RLS admits the active player (or the host) only.
+function flushMoves() {
+  if (!online || !pending.length) return;
+  const row = get(onlineGame);
+  const canWrite = isHostClient || (row && row.active_seat === mySeat);
+  if (!canWrite) { pending.length = 0; return; } // gating should prevent this; never write illegally
+  log.push(...pending); pending.length = 0;
+  writeGameState({ state: { ...onlineCfg, moves: log }, active_seat: realGame.state.activePlayerIndex });
+}
+
+// Host only: drive the deterministic AI seats and persist each, until a human is up or the game ends.
+async function maybeDriveAI() {
+  if (!online || !isHostClient || hostDriving) return;
+  if (!realGame || realGame.state.over) return;
+  if (!ai[realGame.currentPlayer.id]) return; // a human is up
+  hostDriving = true;
+  try { await advanceUntilHuman(null); } finally { hostDriving = false; }
+}
 export const isAI = (playerId) => !!ai[playerId];
 
 // --- Shell navigation (front-of-house: loading → login → menu → play / history / faq / credits) ---
@@ -379,6 +479,7 @@ const handHas = (p, type) => p.hand.some((c) => c.type === type);
 
 /** Start a new game. seats: [{ name, service, strategy|null }]. difficulty: steady|standard|cutthroat. */
 export function newGame(seats, difficulty = "standard") {
+  online = false; // a local/hotseat game — not the online transport
   unlockAudio(); // the Start click is our user gesture — lets the browser make sound
   game = new Game(economy, seats.map((s) => ({ name: s.name, service: s.service })), {
     ...decks,
@@ -401,13 +502,17 @@ export function newGame(seats, difficulty = "standard") {
 /** Run an engine action for the current (human) player, catching illegal moves. */
 export function act(fn) {
   if (game && ai[game.currentPlayer.id]) return; // a rival is acting — ignore stray human input
+  if (online && game.state.activePlayerIndex !== mySeat) return; // online: not your turn — ignore
   try { fn(game); push({ error: null, flash: null }); surfaceNewOutcomes(); } // the triggering button clicks via the app-wide listener
   catch (e) { flashError(e?.message ?? String(e)); }
 }
 
 // --- Threats (Sabotage / Sue) + the response window --------------------------------------
 
-export function startPick(type) { push({ picking: type, error: null }); }
+export function startPick(type) {
+  if (online) return fail("Sue / Sabotage / Favor aren't enabled in online play yet — coming soon.");
+  push({ picking: type, error: null });
+}
 export function cancelPick() { push({ picking: null }); }
 
 export function playSabotage(jobId) {
@@ -534,7 +639,8 @@ export function endTurn() {
     const ctx = game.endTurn();
     if (ctx.reckoning) return enterReckoning(ctx.order);
     if (ctx.over) { playSfx("chime", 0.5); playMusic("gala", 0.3); return push({ screen: "gala", ctx, final: finalReport() }); }
-    advanceUntilHuman(ctx);
+    if (online) { push({ aiActing: null }); maybeDriveAI(); } // flush my turn; the host drives the next AI seats
+    else advanceUntilHuman(ctx);
   };
   if (!get(settings).confirmEndTurn) return proceed(); // quick-end mode
   // Safety check: flag anything you might want to handle before passing the turn.

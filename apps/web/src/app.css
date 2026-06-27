@@ -164,6 +164,8 @@ button.thumb { background: none; border: none; color: var(--ink); font: inherit;
 .town-effect:hover { background: rgba(232, 116, 106, 0.18); }
 .town-banner.warn { background: rgba(224, 86, 75, 0.22); border-color: #ff6a5c; }
 .town-effect.bad { color: #ff9387; font-weight: 700; text-decoration-style: solid; }
+.turn-strip { text-align: center; font-weight: 700; padding: 7px 12px; border-radius: 8px; margin-bottom: 10px; background: rgba(154,160,170,0.14); border: 1px solid var(--line, #2a2f3a); color: var(--muted, #9aa0aa); }
+.turn-strip.mine { background: rgba(224,179,65,0.16); border-color: var(--accent, #e0b341); color: var(--accent, #e0b341); }
 .ai-head { display: flex; align-items: center; justify-content: space-between; font-weight: 600; }
 .ai-head .skip { background: transparent; color: var(--accent); border: 1px solid var(--accent); padding: 2px 10px; font-size: 0.75rem; border-radius: 6px; }
 .ai-drew { color: var(--ink); font-weight: 400; font-size: 0.82rem; margin-top: 4px; }
