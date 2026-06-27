@@ -1,7 +1,7 @@
 <script>
   import { ui, act, endTurn, isAI, viewCard, cardInLine, skipAITurns, openSettings, openHand, openRivals, openRules, openEntity, borrowCredit } from "../lib/store.js";
   import { money, cashText } from "../lib/money.js";
-  import { muted, toggleMute, playSfx, playMusic } from "../lib/sound.js";
+  import { muted, toggleMute, playSfx, playSeasonMusic } from "../lib/sound.js";
   import { seasonFor, findBuilding } from "@boty/engine";
   import Shop from "../components/Shop.svelte";
   import Art from "../components/Art.svelte";
@@ -53,8 +53,9 @@
   });
   // While a rival plays, sit on the Table tab so you watch the open books move.
   $effect(() => { if (aiTurn) tab = "table"; });
-  // Seasonal ambient loop — switches when the season turns (no-op until music files exist).
-  $effect(() => { if (seasonSlug) playMusic(seasonSlug); });
+  // Seasonal music — the season theme plays once, then the jukebox shuffles until the season turns
+  // (and switches to the next theme). No-op until music files exist.
+  $effect(() => { if (seasonSlug) playSeasonMusic(seasonSlug); });
 </script>
 
 <div class="board season-{seasonSlug}">

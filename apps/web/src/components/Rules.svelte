@@ -27,15 +27,19 @@
         reassign.</p>
 
       <h3>Jobs</h3>
-      <p>Assign crew to a job; its work burns by the crew's combined productivity. Finish before the
-        deadline to bill the customer (paid on terms). Need cash now? <strong>Factor</strong> an invoice
-        for a fee, or <strong>sell</strong> a job you can't staff.</p>
+      <p>Work comes in sizes. Small <strong>walk-ins</strong> take a hand or two; the ladder jobs
+        <strong>(J1–J6)</strong> climb from a quick service call to a full commercial contract — each rung
+        wants more crew, better tools, and eventually a bigger shop, and pays to match. Regulars like
+        <strong>Hettrick, Mrs. Lundgren, Dot and Chief Boon</strong> bring word-of-mouth work that pays
+        slowly (net-90) but keeps coming. Assign crew and the work burns by their combined productivity;
+        finish before the deadline to bill on terms. Need cash now? <strong>Factor</strong> an invoice for
+        a fee, or <strong>sell</strong> a job you can't staff.</p>
 
       <h3>Working together</h3>
-      <p><strong>Subcontract</strong> jobs you can't do — a rival does the work for a fee while you bill
-        the customer and keep the markup. <strong>Civic jobs</strong> pay favours when delivered but drop
-        a town-wide levy on everyone if they collapse. <strong>Projects</strong> pay 50% up front and the
-        balance only when every phase lands.</p>
+      <p>A job outside your trade is <strong>referred</strong> to a rival who can do it — they run the work
+        and owe you a <strong>finder's fee</strong> for the lead (drag them to court if they stiff you).
+        <strong>Civic jobs</strong> pay favours when delivered but drop a town-wide levy on everyone if they
+        collapse. <strong>Projects</strong> pay 50% up front and the balance only when every phase lands.</p>
 
       <h3>Growing</h3>
       <p>Moving to a bigger shop (or adding capacity) is a <strong>capital project</strong>: pay a deposit
