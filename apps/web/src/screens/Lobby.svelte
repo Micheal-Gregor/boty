@@ -3,7 +3,7 @@
   import { user } from "../lib/auth.js";
   import {
     onlineGame, onlineSeats, lobbyBusy, lobbyError, lobbyNote,
-    hostGame, joinByCode, pickTrade, addAiSeat, removeSeat, leaveGame, startGame,
+    hostGame, joinByCode, pickTrade, setSeatTrade, addAiSeat, removeSeat, leaveGame, startGame,
   } from "../lib/games.js";
   import Shell from "./Shell.svelte";
 
@@ -67,7 +67,16 @@
               {#if s.user_id === $user?.id}<span class="tag">you</span>{/if}
               {#if $onlineGame.host_id === s.user_id}<span class="tag host">host</span>{/if}
             </span>
-            <span class="trade">{#if s.trade}{cap(s.trade)}{:else}<span class="muted">choosing…</span>{/if}</span>
+            <span class="trade">
+              {#if isHost && s.is_ai}
+                <select value={s.trade ?? ""} onchange={(e) => setSeatTrade(s.seat, e.currentTarget.value)}>
+                  <option value="">auto</option>
+                  {#each services as t}<option value={t} disabled={takenTrades.has(t) && s.trade !== t}>{cap(t)}</option>{/each}
+                </select>
+              {:else if s.trade}{cap(s.trade)}
+              {:else if s.is_ai}<span class="muted">auto</span>
+              {:else}<span class="muted">choosing…</span>{/if}
+            </span>
             {#if isHost && s.user_id !== $user?.id}<button class="kick" title="Remove" onclick={() => removeSeat(s.seat)}>✕</button>{/if}
           </div>
         {/each}

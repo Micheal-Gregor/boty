@@ -70,6 +70,14 @@ export async function pickTrade(trade) {
   await refreshSeats(g.id);
 }
 
+/** Host: set (or clear, with null) a specific seat's trade — used to pin a CPU seat. RLS lets the
+ *  host write any seat; an empty trade means "auto", filled from the free trades at Start. */
+export async function setSeatTrade(seat, trade) {
+  const g = get(onlineGame); if (!g) return;
+  await supabase.from("game_seats").update({ trade: trade || null }).eq("game_id", g.id).eq("seat", seat);
+  await refreshSeats(g.id);
+}
+
 /** Host: add a CPU seat. */
 export async function addAiSeat() {
   const g = get(onlineGame); if (!g) return;
