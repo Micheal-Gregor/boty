@@ -417,11 +417,16 @@ export async function startOnlineGame() {
 }
 
 // React to the room row: build the game when it goes active, then replay new moves as they land.
-onlineGame.subscribe((row) => {
-  if (!row || row.status !== "active") { if (!row) resetOnline(); return; }
-  if (!realGame) buildOnlineGame(row);
-  else syncFromRow(row);
-});
+// Registered at the END of the module (see bottom) so every const it reaches (isAI, etc.) is already
+// initialized — otherwise a hot-reload, which re-runs this file while onlineGame still holds an active
+// game, would fire the subscriber before those consts exist (temporal-dead-zone crash).
+function subscribeOnlineRoom() {
+  onlineGame.subscribe((row) => {
+    if (!row || row.status !== "active") { if (!row) resetOnline(); return; }
+    if (!realGame) buildOnlineGame(row);
+    else syncFromRow(row);
+  });
+}
 
 function resetOnline() { online = false; realGame = null; pending = []; log = []; onlineCfg = null; mySeat = -1; isHostClient = false; hostDriving = false; }
 
@@ -888,3 +893,7 @@ export function restart() {
 if (typeof window !== "undefined" && import.meta.env?.DEV) {
   window.__boty = { ui, getGame: () => game, refresh: () => push({}) };
 }
+
+// Start reacting to the online room — registered LAST so every binding it touches is initialized
+// (safe even when a hot-reload re-runs this module with an active game already in onlineGame).
+subscribeOnlineRoom();
