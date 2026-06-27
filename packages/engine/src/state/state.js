@@ -220,9 +220,31 @@ export function createGame(economy, playerSeeds, options = {}) {
     }
   }
 
+  // First-player roll + rotating lead (real games pass rotateFirst). A d6 is re-rolled until it lands
+  // on a seated player (1 → seat 0, counting AI seats); then the lead-off rotates one seat clockwise
+  // each round so the first-mover edge moves around the table. A dedicated PRNG stream (seed+50) keeps
+  // it from disturbing the deck/dice order, so balance and existing tests/replays are untouched.
+  const rotate = !!options.rotateFirst;
+  let firstSeat = 0, firstRoll = null;
+  if (rotate) {
+    const n = players.length;
+    const rrng = makeRng(seed === undefined ? undefined : seed + 50);
+    const rolls = [];
+    for (;;) {
+      const r = 1 + Math.floor(rrng() * 6);
+      rolls.push(r);
+      if (r <= n) { firstSeat = r - 1; break; } // landed on a real seat
+    }
+    firstRoll = { seat: firstSeat, rolls };
+  }
+
   return {
     economy,
     players,
+    rotate, // rotate the round lead-off each round (real games); off → seat 0 leads every round (tests)
+    firstSeat, // round-1 lead-off (the roll result); round R lead = (firstSeat + R - 1) % n
+    firstRoll, // { seat, rolls } — the d6 sequence for the opening "who goes first" reveal (null if !rotate)
+    roundPos: 0, // 0-based position within the current round; wraps at n to start the next round
     difficulty, // active tier name — womFires() reads this each trigger
     cardPool: fortuneCards, // the master Fortune composition — the source for living-deck injections
     deckBuild: { size: built.deck.length, reserve: built.reserve.length, pool: fortuneCards.length }, // for the "unique deck dealt" intro
@@ -244,7 +266,7 @@ export function createGame(economy, playerSeeds, options = {}) {
     projects: [], // phased story-projects in flight (deposit + phases + balance) — projects.js
     civics: [], // town-wide civic contracts in flight (one sub-contract per player + PM) — civics.js
     turn: 1, // 1-based round counter; game ends after round === max_turns completes
-    activePlayerIndex: 0,
+    activePlayerIndex: firstSeat, // round-1 lead-off (0 unless rotateFirst rolled otherwise)
     over: false,
     log: [],
   };

@@ -180,9 +180,9 @@ export function advance(state) {
 
   const n = state.players.length;
   for (let step = 0; step < n; step++) {
-    state.activePlayerIndex++;
-    if (state.activePlayerIndex >= n) {
-      state.activePlayerIndex = 0;
+    state.roundPos = (state.roundPos ?? 0) + 1;
+    if (state.roundPos >= n) {
+      state.roundPos = 0;
       state.turn++;
       state.log.push(...tickGlobals(state)); // a new round — age out any town-wide effects
       state.log.push(...tickCivics(state)); // a civic build past deadline penalises the whole town
@@ -191,6 +191,10 @@ export function advance(state) {
         return null;
       }
     }
+    // The round's lead-off rotates one seat clockwise each round when rotate is on; off → always seat 0
+    // (the legacy order, so tests/tuning are unchanged). Within a round, play proceeds clockwise from the lead.
+    const lead = state.rotate ? (state.firstSeat + state.turn - 1) % n : 0;
+    state.activePlayerIndex = (lead + state.roundPos) % n;
     const candidate = state.players[state.activePlayerIndex];
     if (!candidate.bankrupt) {
       if (allBankrupt(state)) break;

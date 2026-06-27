@@ -181,7 +181,18 @@ export function closeEntity() { push({ entityCard: null }); }
 
 // --- The pop-up QUEUE (E5 §2): modals shown one at a time, in order, easy close/next. ----------
 let lastRoundShown = 0;
+let firstRollShown = false; // the opening "who goes first" dice reveal — shown once per game
 function enqueuePopup(p) { ui.update((v) => ({ ...v, rev: v.rev + 1, popups: [...v.popups, p] })); }
+
+// The opening dice ceremony: a d6 was re-rolled until it landed on a seated player (the engine did this
+// deterministically at game build; we just read state.firstRoll). Returns the pop-up once, then null.
+function buildFirstRoll() {
+  const fr = game?.state?.firstRoll;
+  if (!fr || firstRollShown) return null;
+  firstRollShown = true;
+  const n = game.state.players.length;
+  return { kind: "roll", rolls: fr.rolls, players: n, seat: fr.seat, leadName: game.state.players[fr.seat]?.name ?? `Player ${fr.seat + 1}`, leadIsMe: online && fr.seat === mySeat };
+}
 export function dismissPopup() { ui.update((v) => ({ ...v, rev: v.rev + 1, popups: v.popups.slice(1) })); }
 export function clearPopups() { ui.update((v) => ({ ...v, rev: v.rev + 1, popups: [] })); }
 export function openSettings() { push({ settingsOpen: true }); }
@@ -444,11 +455,10 @@ function surfaceRoundStart() {
   lastRoundShown = s.turn;
   const view = get(ui).view;
   const tl = townlifeForRound(view?.season?.name, view?.season?.roundInSeason);
-  const lead = s.players[s.activePlayerIndex]?.name ?? null; // who leads off the new round (seat 0)
-  ui.update((v) => ({
-    ...v, rev: v.rev + 1,
-    popups: [{ kind: "round", turn: s.turn, season: view?.season, town: flavor?.town, townlife: tl?.id ?? null, townlifeFlavor: tl?.flavor ?? null, lead, leadIsMe: s.activePlayerIndex === mySeat }],
-  }));
+  const lead = s.players[s.activePlayerIndex]?.name ?? null; // who leads off the new round (rotates each round)
+  const roll = s.turn === 1 ? buildFirstRoll() : null; // round 1 opens with the "who goes first" dice
+  const roundCard = { kind: "round", turn: s.turn, season: view?.season, town: flavor?.town, townlife: tl?.id ?? null, townlifeFlavor: tl?.flavor ?? null, lead, leadIsMe: s.activePlayerIndex === mySeat };
+  ui.update((v) => ({ ...v, rev: v.rev + 1, popups: roll ? [roll, roundCard] : [roundCard] }));
 }
 
 // Online: reveal the ACTIVE player's fortune draw on every client — your own cards (no label), or a
@@ -481,7 +491,7 @@ function buildOnlineGame(row) {
   const me = get(authUser);
   onlineCfg = { seed: row.state.seed, seats: row.state.seats };
   resetIds(); // deterministic entity ids across every client
-  realGame = new Game(economy, onlineCfg.seats.map((s) => ({ name: s.name, service: s.trade })), { ...decks, difficulty: row.difficulty, seed: onlineCfg.seed });
+  realGame = new Game(economy, onlineCfg.seats.map((s) => ({ name: s.name, service: s.trade })), { ...decks, difficulty: row.difficulty, seed: onlineCfg.seed, rotateFirst: true });
   realGame.state.flavor = flavor;
   pending = [];
   game = recordable(realGame, pending);
@@ -496,8 +506,9 @@ function buildOnlineGame(row) {
   realGame.start();
   log = [];
   const moves = row.state.moves ?? [];
+  firstRollShown = moves.length > 0; // fresh game → show the dice; reconnect mid-game → skip it
   if (moves.length) { replay(realGame, moves, 0); log = [...moves]; }
-  push({ screen: "board", error: null, aiActing: null, threat: null, picking: null, reckoning: null, final: null, court: null }); // push fires the round-1 townfolk card
+  push({ screen: "board", error: null, aiActing: null, threat: null, picking: null, reckoning: null, final: null, court: null }); // push fires the round-1 dice + townfolk card
   surfaceNewOutcomes();
   maybeDriveAI();
   surfaceTurnDecisions(); // if the game opens on my turn, surface any pending decisions
@@ -578,15 +589,17 @@ export function newGame(seats, difficulty = "standard") {
     ...decks,
     difficulty,
     seed: (Math.random() * 2 ** 32) >>> 0,
+    rotateFirst: true, // roll for first player + rotate the lead-off each round
   });
   game.state.flavor = flavor;
   ai = {};
   declinedDamages.clear();
   dealTownlife(); // secretly deal this game's 6-of-12-per-season story of Maple Hollow
-  lastScanned = 0; lastRoundShown = 0; lastDeckEvent = 0;
+  lastScanned = 0; lastRoundShown = 0; lastDeckEvent = 0; firstRollShown = false;
   game.state.players.forEach((p, i) => { ai[p.id] = seats[i].strategy ?? null; });
   const ctx = game.start();
   push({ screen: "board", ctx, error: null, aiActing: null, threat: null, picking: null, reckoning: null, final: null, court: null });
+  const fr = buildFirstRoll(); if (fr) enqueuePopup(fr); // the opening "who goes first" dice
   const db = game.state.deckBuild;
   if (db) enqueuePopup({ kind: "deckbuilt", size: db.size, reserve: db.reserve, pool: db.pool }); // "a unique deck dealt for this game"
   advanceUntilHuman(ctx);

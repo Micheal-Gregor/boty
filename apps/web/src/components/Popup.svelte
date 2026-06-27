@@ -56,6 +56,17 @@
         <h2>🃏 A unique deck is dealt</h2>
         <p class="pop-effect">A one-of-a-kind <strong>{p.size}-card</strong> deck has been built for this game from Maple Hollow's {p.pool} possible events — then shuffled fresh for every player. No two games, and no two seats, play alike. <span class="muted">({p.reserve} more wait in reserve.)</span></p>
 
+      {:else if p.kind === "roll"}
+        <h2>🎲 Who goes first?</h2>
+        <div class="roll-dice">
+          {#each p.rolls as r, i}
+            <span class="rdie" class:dud={r > p.players} class:landed={i === p.rolls.length - 1} style="animation-delay:{i * 240}ms">{["⚀","⚁","⚂","⚃","⚄","⚅"][r - 1]}</span>
+          {/each}
+        </div>
+        {#if p.rolls.length > 1}<p class="muted">Rolled past the table {p.rolls.length - 1}× — re-rolled until it landed on a seat.</p>{/if}
+        <p class="pop-effect">{#if p.leadIsMe}🎯 <strong>You lead off Round 1!</strong>{:else}<strong>{p.leadName}</strong> leads off Round 1!{/if}</p>
+        <p class="pop-flavor">The lead-off rotates one seat clockwise each round — the first-mover edge passes around the whole table.</p>
+
       {:else if p.kind === "shuffle"}
         <div class="shuffle-deck" class:adding={!p.removed} class:pulling={p.removed}>
           <span class="sc sc1"></span><span class="sc sc2"></span><span class="sc sc3"></span>
@@ -110,6 +121,11 @@
   .pop-effect { margin: 4px 0; }
   .pop-rival { font-size: 0.82em; color: var(--muted, #9aa0aa); font-weight: 600; margin-bottom: 4px; }
   .pop-art.others { filter: grayscale(0.55) brightness(0.85); opacity: 0.9; } /* another player's card — clearly not yours */
+  .roll-dice { display: flex; gap: 10px; justify-content: center; align-items: center; margin: 10px 0 6px; flex-wrap: wrap; }
+  .rdie { font-size: 3rem; line-height: 1; opacity: 0; transform: scale(0.4) rotate(-25deg); animation: rdie-drop 0.42s cubic-bezier(.2,1.3,.5,1) forwards; }
+  .rdie.dud { color: var(--muted, #9aa0aa); opacity: 0.4; font-size: 2.1rem; }
+  .rdie.landed { color: var(--accent, #e0b341); text-shadow: 0 0 14px rgba(224,179,65,0.6); }
+  @keyframes rdie-drop { to { opacity: 1; transform: scale(1) rotate(0); } }
   .shuffle-deck { position: relative; width: 110px; height: 84px; margin: 10px auto 14px; }
   .shuffle-deck .sc { position: absolute; left: 50%; top: 50%; width: 46px; height: 64px; margin: -32px 0 0 -23px; border-radius: 6px; background: #f4f1e8; border: 1px solid #d8d2c0; box-shadow: 0 2px 6px rgba(0,0,0,0.45); }
   .shuffle-deck.adding .sc { background: linear-gradient(#f6f2e6, #d6ead2); }
