@@ -141,6 +141,7 @@ button.thumb { background: none; border: none; color: var(--ink); font: inherit;
 .log li { padding: 2px 0; border-bottom: 1px solid var(--line); }
 .rivals .rival { display: flex; gap: 8px; align-items: baseline; flex-wrap: wrap; padding: 6px 0; border-bottom: 1px solid var(--line); }
 .rival.bankrupt { opacity: 0.5; }
+.rivals .rival.mine { background: rgba(224,179,65,0.10); border-left: 3px solid var(--accent, #e0b341); padding-left: 8px; border-radius: 4px; }
 .tag { color: var(--bad); font-size: 0.75rem; }
 
 /* Gala */

@@ -3,6 +3,7 @@
   import { money } from "../lib/money.js";
   import { findEquipment } from "@boty/engine";
   import { crewIdentity } from "../lib/crew.js";
+  import { settings } from "../lib/settings.js";
   import Art from "./Art.svelte";
 
   const tradeSlug = (svc) => (svc === "HVAC technician" ? "hvac" : (svc ?? "").toLowerCase());
@@ -60,7 +61,7 @@
 
       {#if worker}
         <span class="headline">⚡{worker.productivity}</span>
-        <div class="ent-art"><Art kind="crew" id={worker.id} label="portrait" /></div>
+        <div class="ent-art"><Art kind="crew" id={worker.id} label="portrait" autoplay={$settings.animateCards} /></div>
         <h2>{ident.name}</h2>
         <p class="ent-sub">{worker.id} · <em>“{ident.flavor}”</em></p>
         <div class="stack">
@@ -86,7 +87,7 @@
         </div>
 
       {:else if gear}
-        <div class="ent-art"><Art kind="equipment" id={equipArtId(gear)} seed={gear.id} label={gearName(gear)} /></div>
+        <div class="ent-art"><Art kind="equipment" id={equipArtId(gear)} seed={gear.id} label={gearName(gear)} autoplay={$settings.animateCards} /></div>
         <h2>{gearName(gear)}</h2>
         <div class="stack">
           <div class="stack-row"><span>Tenure</span><span>{gear.owned ? "owned" : "rented"}</span></div>
@@ -109,7 +110,7 @@
 
       {:else if job}
         <span class="headline">{job.work_done}/{job.work_amount}</span>
-        <div class="ent-art"><Art kind="card" id={job.art ?? job.card} label={job.name} /></div>
+        <div class="ent-art"><Art kind="card" id={job.art ?? job.card} label={job.name} autoplay={$settings.animateCards} /></div>
         <h2>{job.name} <span class="muted">[{job.state}]</span></h2>
         <div class="bar"><div class="fill" style="width:{Math.min(100, (100 * job.work_done) / job.work_amount)}%"></div></div>
         <div class="stack">
@@ -131,7 +132,7 @@
         </div>
 
       {:else if defect}
-        <div class="ent-art"><Art kind="card" id="code_violation" label={defect.name} /></div>
+        <div class="ent-art"><Art kind="card" id="code_violation" label={defect.name} autoplay={$settings.animateCards} /></div>
         <h2>🚧 {defect.name}</h2>
         <div class="stack">
           <div class="stack-row"><span>Output drag</span><span>−{defect.productivity_hit}/turn</span></div>
@@ -143,7 +144,7 @@
         </div>
 
       {:else if glob}
-        <div class="ent-art"><Art kind="card" id={glob.art ?? (glob.kind === "union" ? "union_drive" : glob.kind === "boom" ? "county_fair" : "downtown_storm")} label={glob.name} /></div>
+        <div class="ent-art"><Art kind="card" id={glob.art ?? (glob.kind === "union" ? "union_drive" : glob.kind === "boom" ? "county_fair" : "downtown_storm")} label={glob.name} autoplay={$settings.animateCards} /></div>
         <h2>🌐 {glob.name}</h2>
         <p class="gdesc">{globalDesc(glob)}</p>
         <div class="stack">

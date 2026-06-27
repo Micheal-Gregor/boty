@@ -5,7 +5,8 @@
   import Art from "./Art.svelte";
 
   const c = $derived($ui.cardView);
-  const cid = $derived(c ? c.id ?? c.cardId : "");
+  // Prefer the explicit art key (a tailored job carries `art` but no cardId), like the card pop-up does.
+  const cid = $derived(c ? (c.art ?? c.cardId ?? c.id) : "");
 
   // A one-line description: the resolved effect if we have it (a card drawn this turn), else a
   // static read from the card's own fields (a card opened from the log).

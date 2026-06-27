@@ -122,9 +122,10 @@
       </div>
       <h2>The table</h2>
       <div class="rivals">
-        {#each rivals as r}
-          <div class="rival" class:bankrupt={r.bankrupt}>
-            <strong>{r.name}</strong> {isAI(r.id) ? "🤖" : "🧑"}
+        {#each s.players as r, i}
+          {@const isMe = i === (s.meIndex ?? s.activePlayerIndex)}
+          <div class="rival" class:bankrupt={r.bankrupt} class:mine={isMe}>
+            <strong>{r.name}</strong> {isMe ? "⭐ you" : isAI(r.id) ? "🤖" : "🧑"}
             <span class="cash">{$money(r.cash)}</span>
             <span class="muted">{findBuilding(econ, r.building).name} · {r.tradesmen.length} crew · {r.jobs.length} jobs</span>
             {#if r.bankrupt}<span class="tag">bankrupt</span>{/if}

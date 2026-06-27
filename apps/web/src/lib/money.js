@@ -5,6 +5,7 @@
 
 import { derived } from "svelte/store";
 import { settings } from "./settings.js";
+import { crewIdentity } from "./crew.js";
 
 let rate = 50;
 export function setMoneyRate(r) { if (typeof r === "number" && r > 0) rate = r; }
@@ -24,6 +25,10 @@ export const money = derived(settings, ($s) => (w) => fmt(w, $s.currency ?? "usd
  *  ("3 work", "−2 output", "3/7", ⚡ — never written as "N W"). No-op in W mode. Use on log lines,
  *  card effect text, flavor, and alert bodies that the engine produced. */
 export const cashText = derived(settings, ($s) => (str) => {
-  if (!str || ($s.currency ?? "usd") === "w") return str;
-  return String(str).replace(/(\d+(?:\.\d+)?) W\b/g, (_, n) => "$" + Math.round(parseFloat(n) * rate).toLocaleString("en-US"));
+  if (!str) return str;
+  // Worker ids (T1, T2…) → their cosmetic crew names (always; the engine only knows the id).
+  let out = String(str).replace(/\bT\d+\b/g, (id) => crewIdentity(id).name);
+  // Dollarize "N W" → "$N×rate" unless the player chose raw work-units.
+  if (($s.currency ?? "usd") !== "w") out = out.replace(/(\d+(?:\.\d+)?) W\b/g, (_, n) => "$" + Math.round(parseFloat(n) * rate).toLocaleString("en-US"));
+  return out;
 });
