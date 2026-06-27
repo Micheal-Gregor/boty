@@ -20,7 +20,12 @@ export function classifyTermination(state, player, t) {
   const term = state.economy.termination;
   if (t.flag) return { kind: "with cause", threshold: term.cause, reason: t.flag };
   if (isSick(t, state.turn)) return { kind: "punitive", threshold: term.punitive };
-  const hasWork = player.jobs.some((j) => ["Queued", "OnHold", "Active"].includes(j.state));
+  // Pretextual ("no cause") only if THIS worker is doing work, or there's UNALLOCATED work he could
+  // be doing (a job with an open crew slot). A fully-staffed queue + an idle surplus worker = a clean
+  // layoff: you genuinely have no work for them.
+  const hasWork =
+    t.assignedJob != null ||
+    player.jobs.some((j) => ["Queued", "OnHold", "Active"].includes(j.state) && (j.assigned_tradesmen?.length ?? 0) < (j.max_tradesmen ?? 1));
   if (hasWork) return { kind: "no cause", threshold: term.nocause };
   return { kind: "legit", threshold: 0 };
 }

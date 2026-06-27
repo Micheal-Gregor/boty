@@ -1,7 +1,7 @@
 <script>
   import { ui, act, startPick, playSue, openEntity, openConfirm, confirmSell, confirmFire, confirmDispose } from "../lib/store.js";
   import { money } from "../lib/money.js";
-  import { findBuilding, findEquipment } from "@boty/engine";
+  import { findBuilding, findEquipment, SERVICES } from "@boty/engine";
   import { crewIdentity } from "../lib/crew.js";
   import Art from "./Art.svelte";
   import Flash from "./Flash.svelte";
@@ -37,6 +37,19 @@
   const hasMod = (k) => player.modifiers?.some((m) => m.kind === k);
   const modDesc = { insurance: "shocks become deductibles", marketing: "extra work each turn", accountant: "cheaper factoring + cleaner books", training: "the crew burns work faster" };
   const handDesc = { slick_lawyer: "±2 in a court / sue / damages window", rush: "finish or advance a job", buy_time: "extend a deadline", sabotage: "set back a rival's job", favor: "cancel a rival's standing perk" };
+  const premium = (k) => SERVICES[k]?.premium ?? 0; // BBB service fee per turn (W)
+
+  // --- Job queue sorting -----------------------------------------------------------------
+  let jobSort = $state("due");
+  const jobSortOpts = [["due", "Due"], ["pay", "Pay"], ["progress", "Progress"], ["crew", "Crew need"]];
+  const sortedJobs = $derived.by(() => {
+    const js = [...player.jobs];
+    if (jobSort === "due") js.sort((a, b) => (a.deadline_turn ?? 1e6) - (b.deadline_turn ?? 1e6));
+    else if (jobSort === "pay") js.sort((a, b) => b.value - a.value);
+    else if (jobSort === "progress") js.sort((a, b) => b.work_done / b.work_amount - a.work_done / a.work_amount);
+    else if (jobSort === "crew") js.sort((a, b) => (b.max_tradesmen - b.assigned_tradesmen.length) - (a.max_tradesmen - a.assigned_tradesmen.length));
+    return js;
+  });
 
   // --- AR / AP aging ---------------------------------------------------------------------
   const allPlayers = $derived($ui.view?.players ?? []);
@@ -121,7 +134,7 @@
         <button class="thumb" onclick={() => openEntity("equipment", e.id)}>
           <Art kind="equipment" id={equipArtId(e)} seed={e.id} label={findEquipment(econ, e.defId).name} small />
           <div class="slot-id">{findEquipment(econ, e.defId).name}</div>
-          <div class="muted">{e.owned ? "owned" : "rented"} · {e.assignedToId ? "→ " + e.assignedToId : "💤 idle"}</div>
+          <div class="muted">{e.owned ? "owned" : "rented"} · {e.assignedToId ? "→ " + crewIdentity(e.assignedToId).name : "💤 idle"}</div>
         </button>
         {#if e.owned}<button class="mini" onclick={() => confirmDispose(e.id, findEquipment(econ, e.defId).name)}>Dispose</button>
         {:else}<button class="mini" onclick={() => act((g) => g.cancelRental(e.id))}>Cancel</button>{/if}
@@ -150,9 +163,13 @@
     </div>
   {/if}
 
-  <h3>Jobs ({player.jobs.length}) <Flash section="jobs" /></h3>
+  <h3 class="jobs-head">Jobs ({player.jobs.length}) <Flash section="jobs" />
+    {#if player.jobs.length > 1}
+      <span class="sortbar">sort:{#each jobSortOpts as [val, label]}<button class="sort-btn" class:on={jobSort === val} onclick={() => (jobSort = val)}>{label}</button>{/each}</span>
+    {/if}
+  </h3>
   <div class="jobs">
-    {#each player.jobs as j (j.id)}
+    {#each sortedJobs as j (j.id)}
       <div class="card job">
         <button class="thumb" onclick={() => openEntity("job", j.id)}>
           <div class="card-name">{j.name} <span class="state">[{j.state}]</span>{#if j.readying} <span class="routed">🏗️ fit-out</span>{:else if j.project_id} <span class="routed">🏛️ project phase</span>{:else if j.political} <span class="routed">🏛️ civic</span>{:else if j.hirer_id} <span class="routed">⇄ contract</span>{/if}</div>
@@ -214,16 +231,16 @@
       {#each player.modifiers as m (m.id)}
         <div class="cardrow">
           <span class="cardname">{m.positive ? "🛡️" : "⚠️"} {m.name}</span>
-          <span class="muted">{modDesc[m.kind] ?? ""}{#if m.turnsLeft} · {m.turnsLeft} turn(s) left{/if}</span>
+          <span class="muted">{modDesc[m.kind] ?? ""}{#if premium(m.kind)} · {$money(premium(m.kind))}/turn{/if}{#if m.turnsLeft} · {m.turnsLeft} turn(s) left{/if}</span>
         </div>
       {/each}
       {#if player.bbbThisTurn}
         <div class="bbb-card">
           <div class="cardname bbb-name">🏛️ BBB vendor fair <span class="muted">— buy this turn only</span></div>
-          {#if !hasMod("insurance")}<div class="bbb-opt"><button onclick={() => act((g) => g.buyService("insurance"))}>Insurance</button><span class="muted">{modDesc.insurance}</span></div>{/if}
-          {#if !hasMod("marketing")}<div class="bbb-opt"><button onclick={() => act((g) => g.buyService("marketing"))}>Marketing</button><span class="muted">{modDesc.marketing}</span></div>{/if}
-          {#if !hasMod("accountant")}<div class="bbb-opt"><button onclick={() => act((g) => g.buyService("accountant"))}>Accountant</button><span class="muted">{modDesc.accountant}</span></div>{/if}
-          {#if !hasMod("training")}<div class="bbb-opt"><button onclick={() => act((g) => g.buyService("training"))}>Training</button><span class="muted">{modDesc.training}</span></div>{/if}
+          {#if !hasMod("insurance")}<div class="bbb-opt"><button onclick={() => act((g) => g.buyService("insurance"))}>Insurance · {$money(premium("insurance"))}/turn</button><span class="muted">{modDesc.insurance}</span></div>{/if}
+          {#if !hasMod("marketing")}<div class="bbb-opt"><button onclick={() => act((g) => g.buyService("marketing"))}>Marketing · {$money(premium("marketing"))}/turn</button><span class="muted">{modDesc.marketing}</span></div>{/if}
+          {#if !hasMod("accountant")}<div class="bbb-opt"><button onclick={() => act((g) => g.buyService("accountant"))}>Accountant · {$money(premium("accountant"))}/turn</button><span class="muted">{modDesc.accountant}</span></div>{/if}
+          {#if !hasMod("training")}<div class="bbb-opt"><button onclick={() => act((g) => g.buyService("training"))}>Training · {$money(premium("training"))}/turn</button><span class="muted">{modDesc.training}</span></div>{/if}
           <div class="bbb-opt"><button onclick={() => act((g) => g.startExpansion("improve"))}>⬆️ Upgrade</button><span class="muted">+1 crew capacity (capital project)</span></div>
         </div>
       {/if}
@@ -272,6 +289,10 @@
   .bbb-opt { display: flex; align-items: center; gap: 8px; }
   .bbb-opt button { flex: 0 0 auto; min-width: 116px; }
   .bbb-opt .muted { font-size: 0.85em; }
+  .jobs-head { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+  .sortbar { display: inline-flex; align-items: center; gap: 3px; font-size: 0.72em; font-weight: 400; color: var(--muted, #9aa0aa); text-transform: none; letter-spacing: 0; }
+  .sort-btn { padding: 2px 8px; margin-left: 2px; background: var(--panel-2, #1b1f27); border: 1px solid var(--line, #2a2f3a); border-radius: 6px; font-size: 1em; color: var(--muted, #9aa0aa); cursor: pointer; }
+  .sort-btn.on { border-color: var(--accent, #e0b341); color: var(--accent, #e0b341); font-weight: 700; }
   .warehouse { display: flex; justify-content: space-between; align-items: center; gap: 8px; flex-wrap: wrap; margin: 4px 0 4px; padding: 6px 8px; background: var(--panel-2, #1b1f27); border-radius: 8px; }
   .wh-name { font-weight: 600; }
   .wh-actions { display: flex; gap: 4px; flex-wrap: wrap; }

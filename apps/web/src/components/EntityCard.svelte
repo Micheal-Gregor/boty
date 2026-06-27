@@ -73,9 +73,9 @@
         {#if worker.flag}<p class="flag">{worker.flag === "theft" ? "🚨 Suspected of theft" : "📋 On notice — poor review"} · grounds to fire <em>with cause</em></p>{/if}
         {#if picking}
           <div class="picker">
-            <p class="muted">Put a tool on {worker.id}:</p>
+            <p class="muted">Put a tool on {ident.name}:</p>
             {#each me.equipment as e}
-              <button class="opt" onclick={() => go((g) => g.assignEquipment(e.id, worker.id))}>{gearName(e)} {e.assigned_to ? `(on ${e.assigned_to})` : "(idle)"}</button>
+              <button class="opt" onclick={() => go((g) => g.assignEquipment(e.id, worker.id))}>{gearName(e)} {e.assigned_to ? `(on ${crewIdentity(e.assigned_to).name})` : "(idle)"}</button>
             {:else}<p class="muted">No tools owned.</p>{/each}
           </div>
         {/if}
@@ -90,13 +90,13 @@
         <h2>{gearName(gear)}</h2>
         <div class="stack">
           <div class="stack-row"><span>Tenure</span><span>{gear.owned ? "owned" : "rented"}</span></div>
-          <div class="stack-row"><span>Assigned</span><span>{gear.assigned_to ?? "💤 idle (rent, no output)"}</span></div>
+          <div class="stack-row"><span>Assigned</span><span>{gear.assigned_to ? crewIdentity(gear.assigned_to).name : "💤 idle (rent, no output)"}</span></div>
         </div>
         {#if picking}
           <div class="picker">
             <p class="muted">Put this tool on a worker:</p>
             {#each me.tradesmen as t}
-              <button class="opt" onclick={() => go((g) => g.assignEquipment(gear.id, t.id))}>{t.id} ⚡{t.productivity}</button>
+              <button class="opt" onclick={() => go((g) => g.assignEquipment(gear.id, t.id))}>{crewIdentity(t.id).name} ⚡{t.productivity}</button>
             {/each}
           </div>
         {/if}

@@ -58,9 +58,14 @@ const cashOf = (p) => p.cash;
   assert.deepEqual([classifyTermination(st, p, t).kind, classifyTermination(st, p, t).threshold], ["punitive", T.punitive]);
   ok("classify: firing someone out sick → punitive (riskiest)");
 
-  t.out_until = null; p.jobs = [{ id: "J", state: "Queued" }];
+  t.out_until = null; p.jobs = [{ id: "J", state: "Queued", assigned_tradesmen: [], max_tradesmen: 1 }];
   assert.deepEqual([classifyTermination(st, p, t).kind, classifyTermination(st, p, t).threshold], ["no cause", T.nocause]);
-  ok("classify: laying off with work still on the books → no cause");
+  ok("classify: laying off with unstaffed work on the books → no cause");
+
+  // A FULLY-staffed queue + an idle surplus worker = a clean layoff (you genuinely have no work).
+  p.jobs = [{ id: "J", state: "Active", assigned_tradesmen: ["x"], max_tradesmen: 1 }]; t.assignedJob = null;
+  assert.equal(classifyTermination(st, p, t).kind, "legit");
+  ok("classify: idle worker + every slot filled → legit (no claim)");
 
   t.flag = "theft"; t.out_until = st.turn + 2; // grounds win over the sick-timing penalty
   assert.equal(classifyTermination(st, p, t).kind, "with cause");
