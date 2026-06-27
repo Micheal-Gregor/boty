@@ -19,4 +19,5 @@ export { workerProductivity, jobWorkScore } from "./src/engine/jobs.js";
 export { classifyTermination, fireWorker, performanceReview, unionActive } from "./src/engine/employment.js";
 export { injectById, injectAllById, removeMatching, pullJobs } from "./src/engine/livingdeck.js";
 export { SERVICES, premiumsFor } from "./src/engine/modifiers.js";
+export { INTENTS, recordable, replay } from "./src/engine/replay.js";
 export { profitAndLoss, balanceSheet, balances, ACCT, ACCT_NAME } from "./src/state/ledger.js";
