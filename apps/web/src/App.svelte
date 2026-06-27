@@ -5,6 +5,7 @@
   import Loading from "./screens/Loading.svelte";
   import Login from "./screens/Login.svelte";
   import Menu from "./screens/Menu.svelte";
+  import Lobby from "./screens/Lobby.svelte";
   import History from "./screens/History.svelte";
   import Faq from "./screens/Faq.svelte";
   import Credits from "./screens/Credits.svelte";
@@ -39,6 +40,8 @@
     <Login />
   {:else if $ui.screen === "menu"}
     <Menu />
+  {:else if $ui.screen === "lobby"}
+    <Lobby />
   {:else if $ui.screen === "history"}
     <History />
   {:else if $ui.screen === "faq"}

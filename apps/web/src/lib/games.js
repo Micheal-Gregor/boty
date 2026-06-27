@@ -1,0 +1,131 @@
+// Online lobby data layer. A "game" is a row in Supabase; players claim rows in game_seats. While
+// you're in a lobby we subscribe to Realtime so seats appear/leave live. The actual turn-by-turn
+// game sync (the RemoteTransport) is the next phase — here we get people into the same room.
+
+import { writable, get } from "svelte/store";
+import { supabase, supabaseReady } from "./supabase.js";
+import { user } from "./auth.js";
+
+export const onlineGame = writable(null);   // the current games row (or null)
+export const onlineSeats = writable([]);    // game_seats rows for it, ordered by seat
+export const lobbyBusy = writable(false);   // a request is in flight
+export const lobbyError = writable(null);   // last error to show
+export const lobbyNote = writable(null);    // a friendly, non-error message
+
+const MAX_SEATS = 6;
+let channel = null;
+
+const fail = (e) => { lobbyError.set(typeof e === "string" ? e : (e?.message ?? String(e))); lobbyBusy.set(false); return null; };
+const nameOf = (u) => (u?.email ?? "player").split("@")[0];
+function genCode() {
+  const a = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"; // no ambiguous chars
+  let s = ""; for (let i = 0; i < 4; i++) s += a[Math.floor(Math.random() * a.length)];
+  return `MAPLE-${s}`;
+}
+const firstOpenSeat = (seats) => { const t = new Set(seats.map((s) => s.seat)); let n = 0; while (t.has(n)) n++; return n; };
+
+/** Host a new game — creates the row, claims seat 0, and drops you into its lobby. */
+export async function hostGame(difficulty = "standard") {
+  if (!supabaseReady) return fail("Online play isn't configured.");
+  const me = get(user); if (!me) return fail("Sign in first.");
+  lobbyError.set(null); lobbyNote.set(null); lobbyBusy.set(true);
+  let game = null;
+  for (let tries = 0; tries < 5 && !game; tries++) {
+    const { data, error } = await supabase.from("games").insert({ code: genCode(), difficulty }).select().single();
+    if (!error) game = data;
+    else if (!/duplicate|unique/i.test(error.message)) return fail(error);
+  }
+  if (!game) return fail("Couldn't reserve a game code — try again.");
+  const { error: se } = await supabase.from("game_seats").insert({ game_id: game.id, seat: 0, user_id: me.id, display_name: nameOf(me) });
+  if (se) return fail(se);
+  await enterGame(game);
+  lobbyBusy.set(false);
+}
+
+/** Join an existing lobby by its code. */
+export async function joinByCode(rawCode) {
+  if (!supabaseReady) return fail("Online play isn't configured.");
+  const me = get(user); if (!me) return fail("Sign in first.");
+  const code = (rawCode ?? "").trim().toUpperCase();
+  if (!code) return fail("Enter a game code.");
+  lobbyError.set(null); lobbyNote.set(null); lobbyBusy.set(true);
+  const { data: game, error } = await supabase.from("games").select("*").eq("code", code).eq("status", "lobby").maybeSingle();
+  if (error) return fail(error);
+  if (!game) return fail("No open game with that code.");
+  const { data: seats } = await supabase.from("game_seats").select("*").eq("game_id", game.id);
+  if (!(seats ?? []).some((s) => s.user_id === me.id)) { // not already seated
+    const seat = firstOpenSeat(seats ?? []);
+    if (seat >= MAX_SEATS) return fail("That game is full.");
+    const { error: se } = await supabase.from("game_seats").insert({ game_id: game.id, seat, user_id: me.id, display_name: nameOf(me) });
+    if (se) return fail(se);
+  }
+  await enterGame(game);
+  lobbyBusy.set(false);
+}
+
+/** Pick your trade (each trade can be taken once — the UI offers only free ones). */
+export async function pickTrade(trade) {
+  const g = get(onlineGame), me = get(user); if (!g || !me) return;
+  await supabase.from("game_seats").update({ trade }).eq("game_id", g.id).eq("user_id", me.id);
+  await refreshSeats(g.id);
+}
+
+/** Host: add a CPU seat. */
+export async function addAiSeat() {
+  const g = get(onlineGame); if (!g) return;
+  const seat = firstOpenSeat(get(onlineSeats));
+  if (seat >= MAX_SEATS) return;
+  await supabase.from("game_seats").insert({ game_id: g.id, seat, is_ai: true, display_name: `CPU ${seat + 1}` });
+  await refreshSeats(g.id);
+}
+
+/** Host: remove a seat (kick a player or drop a CPU). */
+export async function removeSeat(seat) {
+  const g = get(onlineGame); if (!g) return;
+  await supabase.from("game_seats").delete().eq("game_id", g.id).eq("seat", seat);
+  await refreshSeats(g.id);
+}
+
+/** Leave the lobby — the host closes the whole game; a guest just frees their seat. */
+export async function leaveGame() {
+  const g = get(onlineGame), me = get(user);
+  if (g && me) {
+    if (g.host_id === me.id) await supabase.from("games").delete().eq("id", g.id);
+    else await supabase.from("game_seats").delete().eq("game_id", g.id).eq("user_id", me.id);
+  }
+  teardown();
+}
+
+/** Host: start the game. (Next phase: build + write the engine state and hand off to the sync.) */
+export function startGame() {
+  lobbyNote.set("Lobby's ready — wiring the live synced game is the next build step.");
+}
+
+// --- internals -------------------------------------------------------------------------------
+async function enterGame(game) {
+  onlineGame.set(game);
+  await refreshSeats(game.id);
+  subscribe(game.id);
+}
+
+async function refreshSeats(gameId) {
+  const { data } = await supabase.from("game_seats").select("*").eq("game_id", gameId).order("seat");
+  onlineSeats.set(data ?? []);
+}
+
+function subscribe(gameId) {
+  if (channel) supabase.removeChannel(channel);
+  channel = supabase
+    .channel(`game:${gameId}`)
+    .on("postgres_changes", { event: "*", schema: "public", table: "game_seats", filter: `game_id=eq.${gameId}` }, () => refreshSeats(gameId))
+    .on("postgres_changes", { event: "*", schema: "public", table: "games", filter: `id=eq.${gameId}` }, (p) => {
+      if (p.eventType === "DELETE") { lobbyNote.set("The host closed the lobby."); teardown(); }
+      else onlineGame.set(p.new);
+    })
+    .subscribe();
+}
+
+function teardown() {
+  if (channel) { supabase.removeChannel(channel); channel = null; }
+  onlineGame.set(null); onlineSeats.set([]); lobbyError.set(null);
+}

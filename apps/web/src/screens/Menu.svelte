@@ -10,7 +10,10 @@
     <p class="bbb">🎀 Better Business Bureau · Est. 1867</p>
     <h1>Business of the Year</h1>
     <nav>
-      <button class="primary" onclick={() => goScreen("setup")}>▶ Play</button>
+      <button class="primary" onclick={() => goScreen("setup")}>▶ Play (this device)</button>
+      {#if supabaseReady && $user}
+        <button class="primary online" onclick={() => goScreen("lobby")}>🌐 Play Online</button>
+      {/if}
       <button onclick={() => goScreen("history")}>📜 The Story of Maple Hollow</button>
       <button onclick={() => goScreen("faq")}>❔ How to Play &amp; FAQ</button>
       <button onclick={() => goScreen("credits")}>🎬 Credits</button>
