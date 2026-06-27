@@ -54,11 +54,13 @@ create policy games_insert on public.games for insert to authenticated
 
 drop policy if exists games_update on public.games;
 create policy games_update on public.games for update to authenticated
-  using (                                                      -- only the host or the ACTIVE player writes
+  using (                                                      -- WHO may write: the host or the player whose turn it is now
     host_id = auth.uid()
     or exists (select 1 from public.game_seats s
                where s.game_id = id and s.seat = active_seat and s.user_id = auth.uid())
-  );
+  )
+  with check (true);                                           -- once allowed, they may write the next state — incl. handing active_seat to the next player
+                                                               -- (without this, Postgres reuses USING as the check and rejects the turn-handoff: 403 "new row violates RLS")
 
 drop policy if exists games_delete on public.games;
 create policy games_delete on public.games for delete to authenticated
