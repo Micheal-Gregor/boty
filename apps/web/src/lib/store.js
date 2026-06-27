@@ -242,7 +242,7 @@ const ALERTS = [
   [/🏛️ civic project "(.+?)" delivered/, "🏛️ Civic job delivered", (m) => `${m[1]} was delivered — favours earned.`],
   [/🌐 Town labor union grips/, "🪙 Union drive", () => `The trades unionised — every firing is far riskier now (+2 to their odds). A Favor busts it.`],
   [/⚖️ (.+?) fired .+? SUED AND WON/, "⚖️ Wrongful termination", (m) => `${m[1]} fired a worker who sued and won — a costly payout on the books.`],
-  [/🌐 (.+?) grips Maple Hollow/, "🌐 Town penalty", (m) => `${m[1]} — a town-wide levy now hits every shop, including yours.`],
+  [/🌐 (.+?) grips Maple Hollow/, "🌐 Town penalty", (m) => `${m[1]} — a town-wide levy now hits every shop in Maple Hollow.`],
   [/🏗️ (.+?) moved into (.+?) \(from/, "🏗️ Moved in", (m) => `${m[1]} finished readying and moved into ${m[2]}.`],
   [/⚠ (.+?) couldn't cover the .* balance on (.+?) —/, "⚠ Move forfeited", (m) => `${m[1]} couldn't close out ${m[2]} — the deposit is lost.`],
 ];
@@ -433,6 +433,22 @@ function subscribeOnlineRoom() {
 
 function resetOnline() { online = false; realGame = null; pending = []; log = []; onlineCfg = null; mySeat = -1; isHostClient = false; hostDriving = false; }
 
+// Online round start: when the round ticks over, FLUSH the previous round's piled-up pop-ups and
+// lead with the townfolk story card — a clean reset for the new round on every client. (Local play
+// shows this via enqueueTurnStart; online skips that tail, so we surface it here.)
+function surfaceRoundStart() {
+  if (!game || !online) return;
+  const s = game.state;
+  if (s.turn <= lastRoundShown) return;
+  lastRoundShown = s.turn;
+  const view = get(ui).view;
+  const tl = townlifeForRound(view?.season?.name, view?.season?.roundInSeason);
+  ui.update((v) => ({
+    ...v, rev: v.rev + 1,
+    popups: [{ kind: "round", turn: s.turn, season: view?.season, town: flavor?.town, townlife: tl?.id ?? null, townlifeFlavor: tl?.flavor ?? null }],
+  }));
+}
+
 function buildOnlineGame(row) {
   const me = get(authUser);
   onlineCfg = { seed: row.state.seed, seats: row.state.seats };
@@ -454,6 +470,7 @@ function buildOnlineGame(row) {
   const moves = row.state.moves ?? [];
   if (moves.length) { replay(realGame, moves, 0); log = [...moves]; }
   push({ screen: "board", error: null, aiActing: null, threat: null, picking: null, reckoning: null, final: null, court: null });
+  surfaceRoundStart(); // round-1 townfolk card
   surfaceNewOutcomes();
   maybeDriveAI();
   surfaceTurnDecisions(); // if the game opens on my turn, surface any pending decisions
@@ -465,6 +482,7 @@ function syncFromRow(row) {
     try { replay(realGame, moves, log.length); }
     catch (e) { console.error("[online] replay failed at move", log.length, "—", e?.message ?? e); }
     log = [...moves];
+    surfaceRoundStart(); // a new round began in the moves we just replayed → townfolk card + flush
     push({ aiActing: null });
     surfaceNewOutcomes();
     if (realGame.state.over) { playSfx("chime", 0.5); playMusic("gala", 0.3); return push({ screen: "gala", final: finalReport() }); }
