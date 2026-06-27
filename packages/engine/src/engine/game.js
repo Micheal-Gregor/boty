@@ -220,6 +220,7 @@ export class Game {
     });
   }
   buyService(kind) { return this.#act((p) => { this.#requireBBB(p); return modifiers.buyService(this.state, p, kind); }); }
+  cancelService(kind) { return this.#act((p) => modifiers.cancelService(this.state, p, kind)); }
   #requireBBB(p) { if (!p.bbbThisTurn) throw new GameError("The BBB vendor fair isn't in town — wait for a BBB Special"); }
   drawCredit() { return this.#act((p) => modifiers.drawCredit(this.state, p, this.state.economy.line_of_credit.draw), true); }
   repayCredit(amount) { return this.#act((p) => modifiers.repayCredit(this.state, p, amount ?? this.state.economy.line_of_credit.draw), true); }

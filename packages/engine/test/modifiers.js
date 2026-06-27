@@ -5,7 +5,7 @@ import { loadEconomy } from "../src/engine/content-fs.js";
 import { Game } from "../src/engine/game.js";
 import { resetIds, createEquipment, createDefect } from "../src/state/state.js";
 import { drawFortune } from "../src/engine/fortune.js";
-import { buyService, hasModifier, tickModifiers, bearLoss, marketingInjection, factoringFeeRate, trainingSpeedBonus, drawCredit, repayCredit, chargeInterest, forceSettleCredit } from "../src/engine/modifiers.js";
+import { buyService, cancelService, hasModifier, tickModifiers, bearLoss, marketingInjection, factoringFeeRate, trainingSpeedBonus, drawCredit, repayCredit, chargeInterest, forceSettleCredit } from "../src/engine/modifiers.js";
 import { profitAndLoss, balanceSheet, balances, ACCT } from "../src/state/ledger.js";
 
 let passed = 0;
@@ -30,6 +30,15 @@ const economy = await loadEconomy();
 
   assert.deepEqual(bearLoss(ana, 4), { borne: 2, covered: 2, insured: true }, "a 4 W loss → 2 W deductible, 2 W covered");
   ok("insurance: premium = overhead, and it turns a loss into a deductible");
+
+  // Cancel the service → it leaves play and stops billing at the next upkeep.
+  g.cancelService("insurance");
+  assert.ok(!hasModifier(ana, "insurance"), "cancelled insurance is gone");
+  const cashAfterCancel = ana.cash;
+  tickModifiers(g.state, ana);
+  assert.equal(ana.cash, cashAfterCancel, "no premium charged once cancelled");
+  assert.throws(() => cancelService(g.state, ana, "insurance"), /doesn't carry/, "cancelling a service you don't have errors");
+  ok("cancel service: drops the card and stops the premium");
 }
 
 // Marketing: injects a job card into the draws.

@@ -232,6 +232,7 @@
         <div class="cardrow">
           <span class="cardname">{m.positive ? "🛡️" : "⚠️"} {m.name}</span>
           <span class="muted">{modDesc[m.kind] ?? ""}{#if premium(m.kind)} · {$money(premium(m.kind))}/turn{/if}{#if m.turnsLeft} · {m.turnsLeft} turn(s) left{/if}</span>
+          {#if premium(m.kind)}<button class="mini" title="Stop this service — no more premiums (no refund of what you've already paid)" onclick={() => openConfirm({ title: `Cancel ${m.name}?`, body: `Stops the ${$money(premium(m.kind))}/turn premium from next upkeep. No refund of premiums already paid.`, yes: "Cancel it" }, () => act((g) => g.cancelService(m.kind)))}>Cancel</button>{/if}
         </div>
       {/each}
       {#if player.bbbThisTurn}

@@ -5,6 +5,7 @@
   import { ui, openEntity, closeHand } from "../lib/store.js";
   import { money } from "../lib/money.js";
   import { findEquipment } from "@boty/engine";
+  import { crewIdentity } from "../lib/crew.js";
   import Art from "./Art.svelte";
 
   const econ = $derived($ui.economy);
@@ -12,6 +13,8 @@
   const me = $derived(view ? view.players[view.activePlayerIndex] : null);
   const open = $derived($ui.handView);
   const gearName = (e) => findEquipment(econ, e.defId).name;
+  const tradeSlug = (svc) => (svc === "HVAC technician" ? "hvac" : (svc ?? "").toLowerCase());
+  const equipArtId = (e) => (e.defId === "pro" ? `pro/${tradeSlug(me?.service)}` : e.defId); // per-trade pro gear
 
   let show = $state({ crew: true, equip: true, jobs: true, persistent: true, playable: true, global: true });
   const typeDefs = [
@@ -23,9 +26,9 @@
   const items = $derived.by(() => {
     if (!me) return [];
     const out = [];
-    if (show.crew) for (const t of me.tradesmen) out.push({ kind: "worker", id: t.id, type: "Tradesperson", title: t.id, sub: `⚡${t.productivity} · ${t.tool ?? "bare-handed"}`, art: ["portraits", t.id] });
-    if (show.equip) for (const e of me.equipment) out.push({ kind: "equipment", id: e.id, type: "Equipment", title: gearName(e), sub: e.assigned_to ? `→ ${e.assigned_to}` : "💤 idle", art: ["equipment", e.defId] });
-    if (show.jobs) for (const j of me.jobs) out.push({ kind: "job", id: j.id, type: "Job", title: j.name, sub: `${j.work_done}/${j.work_amount} · ${$money(j.value)}`, art: ["card", j.card] });
+    if (show.crew) for (const t of me.tradesmen) out.push({ kind: "worker", id: t.id, type: "Tradesperson", title: crewIdentity(t.id).name, sub: `⚡${t.productivity} · ${t.tool ?? "bare-handed"}`, art: ["crew", t.id] });
+    if (show.equip) for (const e of me.equipment) out.push({ kind: "equipment", id: e.id, type: "Equipment", title: gearName(e), sub: e.assigned_to ? `→ ${crewIdentity(e.assigned_to).name}` : "💤 idle", art: ["equipment", equipArtId(e), e.id] });
+    if (show.jobs) for (const j of me.jobs) out.push({ kind: "job", id: j.id, type: "Job", title: j.name, sub: `${j.work_done}/${j.work_amount} · ${$money(j.value)}`, art: ["card", j.art ?? j.card] });
     if (show.persistent) for (const m of me.modifiers ?? []) out.push({ kind: "mod", type: "Persistent", title: m.name, sub: m.positive ? "🛡️ standing" : "⚠️ standing", icon: m.positive ? "🛡️" : "⚠️" });
     if (show.playable) for (const c of me.hand ?? []) out.push({ kind: "play", type: "Playable", title: c.name, sub: "🃏 hand card", icon: "🃏" });
     if (show.global) for (const g of view.globalEffects ?? []) out.push({ kind: "global", id: g.id, type: "Global", title: g.name, sub: g.kind === "union" ? "until busted" : `${g.turnsLeft} round(s) left`, icon: "🌐" });
@@ -54,7 +57,7 @@
       <div class="cc-scroll" bind:this={scroller} onscroll={onScroll}>
         {#each items as it, i (it.kind + (it.id ?? it.title))}
           <button class="cc" class:active={i === activeIdx} class:near={Math.abs(i - activeIdx) === 1} class:flat={!openable(it.kind)} onclick={() => clickCard(it)}>
-            <div class="cc-art">{#if it.art}<Art kind={it.art[0]} id={it.art[1]} label={it.title} />{:else}<div class="cc-icon">{it.icon}</div>{/if}</div>
+            <div class="cc-art">{#if it.art}<Art kind={it.art[0]} id={it.art[1]} seed={it.art[2] ?? ""} label={it.title} />{:else}<div class="cc-icon">{it.icon}</div>{/if}</div>
             <div class="cc-type">{it.type}</div>
             <div class="cc-title">{it.title}</div>
             <div class="cc-sub muted">{it.sub}</div>

@@ -36,6 +36,15 @@ export function buyService(state, player, kind) {
   return `${player.name} signed up for ${def.name} (${w(def.premium)}/turn)${span}`;
 }
 
+/** Cancel a standing service: stops all future premiums. No refund — upkeep already paid stays paid. */
+export function cancelService(state, player, kind) {
+  const m = (player.modifiers ?? []).find((x) => x.kind === kind);
+  if (!m) throw new GameError(`${player.name} doesn't carry that service`);
+  if (!SERVICES[kind]) throw new GameError(`"${kind}" isn't a cancellable service`);
+  player.modifiers = player.modifiers.filter((x) => x.kind !== kind);
+  return `${player.name} cancelled ${m.name} — no more premiums`;
+}
+
 /** Upkeep: charge each modifier's premium, tick timers, drop expired ones. */
 export function tickModifiers(state, player) {
   const lines = [];

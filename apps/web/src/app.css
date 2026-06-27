@@ -46,7 +46,7 @@ main { max-width: 1200px; margin: 0 auto; padding: 16px; }
 .start { font-size: 1rem; padding: 12px 20px; margin-top: 8px; }
 
 /* Board */
-.banner { display: flex; gap: 16px; align-items: baseline; background: var(--panel); padding: 10px 14px; border-radius: 8px; margin-bottom: 12px; }
+.banner { display: flex; flex-wrap: wrap; gap: 6px 16px; align-items: baseline; background: var(--panel); padding: 10px 14px; border-radius: 8px; margin-bottom: 12px; }
 .banner .town { font-weight: 700; color: var(--accent); }
 .banner .turn { margin-left: auto; font-weight: 600; }
 /* Tab shell — phones show one play-area at a time with a bottom tab bar; wide screens
