@@ -15,7 +15,7 @@
   <div class="ent-overlay">
     <div class="confirm" onclick={(e) => e.stopPropagation()}>
       <h2>⚔️ Poached!</h2>
-      <p class="cbody">The Pettigrews are dangling a paycheck at <strong>{who.name}</strong> ({c.workerId}). Counter-offer to keep them — you pay it and roll their loyalty — or let them walk.</p>
+      <p class="cbody">The Pettigrews are dangling a paycheck at <strong>{who.name}</strong>. Counter-offer to keep them — you pay it and roll their loyalty — or let them walk.</p>
       <div class="offers">
         {#each offers as o}
           <button class="offer" onclick={() => resolvePoachUI(c.workerId, o.w)}><span class="ow">{$money(o.w)}</span><span class="oo">stays {o.odds}</span></button>

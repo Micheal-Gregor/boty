@@ -43,6 +43,19 @@ function cashEffect(state, player, card) {
   return amount;
 }
 
+// Weather/storms cost a lost day of WORK, not cash — they undo progress on the jobs underway
+// (spread across active jobs, floored at 0). Returns how much work was actually undone.
+function workSetback(player, amount) {
+  let remaining = amount, lost = 0;
+  for (const job of player.jobs ?? []) {
+    if (remaining <= 0) break;
+    if (job.state !== "Active" || job.work_done <= 0) continue;
+    const cut = Math.min(job.work_done, remaining);
+    job.work_done -= cut; remaining -= cut; lost += cut;
+  }
+  return lost;
+}
+
 function cashLine(card, amount) {
   const detail = [
     card.per_equipment ? `${card.per_equipment > 0 ? "+" : ""}${card.per_equipment} W/equipment` : null,
@@ -234,6 +247,11 @@ function resolveCard(state, player, card) {
     }
     case "windfall":
     case "shock": {
+      if (card.work) { // a weather/storm shock: lost work, not cash
+        const lost = workSetback(player, card.work);
+        const text = lost > 0 ? `⛈️ −${lost} work` : "⛈️ a wash — no work underway to lose";
+        return { type: card.type, name: card.name, work: -lost, text };
+      }
       const amount = cashEffect(state, player, card);
       if (amount >= 0) {
         cashIn(state, player, ACCT.OTHER_INCOME, amount, card.name);

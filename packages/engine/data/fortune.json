@@ -270,7 +270,7 @@
       "copies": 1,
       "id": "bad_weather",
       "name": "Bad weather",
-      "cash": -1,
+      "work": 1,
       "flavor_by_season": {
         "Spring": "April rains turn the jobsite to mud and wash out a day.",
         "Summer": "A sudden thunderstorm rolls over the Hollow and sends everyone home early.",
@@ -356,7 +356,7 @@
       "copies": 1,
       "id": "heat_wave",
       "name": "Heat wave",
-      "cash": -2,
+      "work": 2,
       "flavor_by_season": {
         "Summer": "A brutal heat wave bakes the Hollow — crews slow down and the AC bills pile up.",
         "Spring": "An early hot spell catches everyone off guard."
@@ -368,7 +368,7 @@
       "copies": 1,
       "id": "ice_storm",
       "name": "Ice storm",
-      "cash": -2,
+      "work": 2,
       "flavor_by_season": {
         "Winter": "An ice storm glazes the county — downed lines, cancelled days, a cold snap of costs.",
         "Fall": "A freak early freeze coats everything in ice overnight."
@@ -380,7 +380,7 @@
       "copies": 1,
       "id": "storm_of_decade",
       "name": "Storm of the decade",
-      "cash": -3,
+      "work": 3,
       "flavor": "The storm they'll talk about for years tears through Maple Hollow — everyone's reeling and scrambling."
     },
     {
