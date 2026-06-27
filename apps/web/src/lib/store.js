@@ -362,7 +362,7 @@ function push(patch = {}) {
     if (online && !myTurn()) for (const k of DECISION_KEYS) next[k] = null;
     return next;
   });
-  if (online) surfaceRoundStart(); // the round just ticked? → flush the queue + townfolk card (guarded, fires once per round)
+  if (online) { surfaceRoundStart(); surfaceMyTurnStart(); } // round card (round tick) + my fortune-card reveal (my turn) — both guarded
   if (online && pending.length) flushMoves(); // persist any moves I just recorded (online only)
 }
 function fail(msg) { ui.update((v) => ({ ...v, rev: v.rev + 1, error: msg })); }
@@ -449,6 +449,26 @@ function surfaceRoundStart() {
     ...v, rev: v.rev + 1,
     popups: [{ kind: "round", turn: s.turn, season: view?.season, town: flavor?.town, townlife: tl?.id ?? null, townlifeFlavor: tl?.flavor ?? null, lead, leadIsMe: s.activePlayerIndex === mySeat }],
   }));
+}
+
+// Online: when it becomes MY turn, reveal the fortune cards I drew this turn (the engine drew them
+// during replay; the return value is lost, so we read player.drewThisTurn off the state). Guarded to
+// fire once per turn. This is the per-client turn-start ceremony — the cards appearing are also the
+// clear "you're up" signal, alongside the pulsing turn strip.
+let lastTurnStartKey = "";
+function surfaceMyTurnStart() {
+  if (!game || !online || !myTurn()) return;
+  const s = game.state;
+  const key = `${s.turn}:${s.activePlayerIndex}`;
+  if (key === lastTurnStartKey) return;
+  lastTurnStartKey = key;
+  const me = s.players[s.activePlayerIndex];
+  for (const d of me?.drewThisTurn ?? []) {
+    const def = cardById.get(d.cardId);
+    const intro = npcIntroFor(d.cardId);
+    if (intro) enqueuePopup({ kind: "character", ...intro });
+    enqueuePopup({ kind: "card", cardId: d.cardId, art: d.art ?? null, name: d.name, flavor: d.flavor, text: d.text, rule: ruleFor(def) });
+  }
 }
 
 function buildOnlineGame(row) {

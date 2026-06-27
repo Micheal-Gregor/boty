@@ -147,6 +147,7 @@ export class Game {
     this.state.log.push(...upkeep.lines);
     const canAct = !player.bankrupt;
     const drawn = canAct ? drawFortune(this.state, player, this.drawPowerFor(player)) : [];
+    player.drewThisTurn = drawn; // exposed so a lockstep client can reveal the draw after replay (return value is lost on replay)
     for (const d of drawn) this.state.log.push(`${player.name} drew ${d.name}: ${d.text}`);
     return {
       over: false,
