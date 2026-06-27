@@ -432,9 +432,10 @@ export class Game {
   /** AI/CLI/harness: the contractor takes the referral if it has crew to spare, else passes.
    *  `shouldAuto(contractorId)` filters which to auto-resolve (the web only auto-answers AI shops). */
   autoResolveReferral(shouldAuto = () => true) {
+    const auto = typeof shouldAuto === "function" ? shouldAuto : () => true; // tolerate a null arg (lockstep replay serializes no functions)
     const lines = [];
     for (const r of [...this.state.pendingReferral]) {
-      if (!shouldAuto(r.contractor_id)) continue;
+      if (!auto(r.contractor_id)) continue;
       const c = this.#playerById(r.contractor_id);
       const busy = c.jobs.filter((j) => ["Queued", "OnHold", "Active"].includes(j.state)).length;
       lines.push(this.resolveReferral(r.id, { accept: !c.bankrupt && c.tradesmen.length > busy }));

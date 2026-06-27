@@ -435,7 +435,8 @@ function buildOnlineGame(row) {
 function syncFromRow(row) {
   const moves = row.state?.moves ?? [];
   if (moves.length > log.length) {
-    replay(realGame, moves, log.length);
+    try { replay(realGame, moves, log.length); }
+    catch (e) { console.error("[online] replay failed at move", log.length, "—", e?.message ?? e); }
     log = [...moves];
     push({ aiActing: null });
     surfaceNewOutcomes();
@@ -736,7 +737,7 @@ async function advanceUntilHuman(initialCtx) {
     if (game.damagesCases.length) game.autoResolveDamages();
     if (game.poachCases.length) game.autoResolvePoach();
     if (game.mayorCases.length) game.autoResolveMayor();
-    if (game.referralCases.length) game.autoResolveReferral((cid) => !!ai[cid]); // only AI shops auto-answer
+    if (game.referralCases.length) game.autoResolveReferral(online ? undefined : (cid) => !!ai[cid]); // online: no callback (must serialize for replay) → auto-resolves all; local: only AI shops
     const humanIds = new Set(game.state.players.filter((x) => !ai[x.id]).map((x) => x.id));
     try { botActions(game, ai[p.id], { humanIds }); } catch { /* best effort */ }
     const lines = game.state.log.slice(before).slice(-5); // this rival's moves this turn

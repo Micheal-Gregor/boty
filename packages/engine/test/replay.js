@@ -39,8 +39,11 @@ for (let round = 0; round < 8; round++) {
 const recorded = snap(g1);
 
 // --- Replay the log onto a fresh same-seed game ----------------------------------------------
+// Replay the JSON round-tripped log (the real wire path: a non-serializable arg would vanish here).
+const wire = JSON.parse(JSON.stringify(moves));
+assert.equal(wire.length, moves.length, "every move survives JSON serialization");
 const g2 = fresh();
-replay(g2, moves);
+replay(g2, wire);
 const replayed = snap(g2);
 
 assert.equal(replayed, recorded, "replayed state must equal recorded state");
@@ -50,8 +53,8 @@ console.log(`✓ lockstep replay is deterministic — ${moves.length} moves, ${g
 // must equal replaying the whole log at once.
 const cut = Math.floor(moves.length / 2);
 const gInc = fresh();
-replay(gInc, moves.slice(0, cut)); // first batch
-replay(gInc, moves.slice(cut));    // the rest, applied later
+replay(gInc, wire.slice(0, cut)); // first batch
+replay(gInc, wire.slice(cut));    // the rest, applied later
 assert.equal(snap(gInc), recorded, "chunked catch-up equals full replay");
 console.log(`✓ incremental catch-up replays cleanly`);
 

@@ -31,6 +31,12 @@ export function recordable(game, moves = []) {
       if (!INTENTS.has(prop)) return val.bind(target);
       return (...args) => {
         const result = val.apply(target, args);
+        // Args must be JSON-serializable to survive the move log. A function arg (e.g. a callback)
+        // would vanish on replay and desync the clients — fail loud in dev.
+        if (args.some((a) => typeof a === "function")) {
+          // eslint-disable-next-line no-console
+          console.error(`[lockstep] move "${prop}" was logged with a function argument — it will not serialize. Pass plain data instead.`);
+        }
         moves.push({ m: prop, a: args });
         return result;
       };
