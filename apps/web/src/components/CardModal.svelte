@@ -1,6 +1,7 @@
 <script>
   import { ui, closeCard } from "../lib/store.js";
   import { money, cashText } from "../lib/money.js";
+  import { settings } from "../lib/settings.js";
   import Art from "./Art.svelte";
 
   const c = $derived($ui.cardView);
@@ -24,7 +25,7 @@
 {#if c}
   <div class="overlay" onclick={closeCard} role="presentation">
     <div class="modal card-detail" onclick={(e) => e.stopPropagation()} role="presentation">
-      <div class="card-art-lg"><Art kind="card" id={cid} label={c.name} /></div>
+      <div class="card-art-lg"><Art kind="card" id={cid} label={c.name} autoplay={$settings.animateCards} /></div>
       <div class="card-type {c.type}">{typeLabel(c.type)}</div>
       <h2>{c.name}</h2>
       {#if c.flavor}<p class="flavor">“{$cashText(c.flavor)}”</p>{/if}

@@ -54,6 +54,7 @@
 </script>
 
 <script>
+  import { settings } from "../lib/settings.js";
   // `autoplay` — start the animation on open (round intro & your cards when "Animate cards" is on).
   // `animatable` — allow click-to-play (off for, e.g., tiny shop thumbnails). Still-only assets and
   // placeholders never animate.
@@ -66,16 +67,21 @@
 
   let vid = $state(null);
   let playing = $state(false);
-  let soundOn = $state(false);
+  // Card-video sound is a SETTINGS choice now (off by default) — no per-card button cluttering the art.
+  const cardSound = $derived($settings.cardSound ?? false);
 
-  $effect(() => { if (vid && autoplay && anim) play(); });
+  // Honour the sound setting. The element keeps a static `muted` for reliable native autoplay; this
+  // unmutes once the player has opted in, and scales the clip by the master Volume throttle.
+  $effect(() => { if (vid) { vid.muted = !cardSound; vid.volume = Math.max(0, Math.min(1, $settings.volume ?? 0.7)); } });
+  // Belt-and-suspenders for autoplay: native `autoplay muted` covers the initial open; this catches a
+  // late case (e.g. the player flips "Animate cards" on while a card is already showing).
+  $effect(() => { if (vid && autoplay && anim && !playing) play(); });
 
-  function play() { if (!vid) return; vid.muted = !soundOn; vid.play().then(() => (playing = true)).catch(() => {}); }
+  function play() { if (!vid) return; vid.play().then(() => (playing = true)).catch(() => {}); }
   function toggle() {
     if (!anim || !animatable || !vid) return;
     if (playing) { vid.pause(); playing = false; } else { play(); }
   }
-  function toggleSound(e) { e.stopPropagation(); soundOn = !soundOn; if (vid) vid.muted = !soundOn; }
   // Custom tail-loop: when loopFrom is set the video isn't natively looped, so it fires `ended` after
   // the full first pass — we then seek to loopFrom and replay, repeating only the tail thereafter.
   function onEnded() { if (loopFrom && vid) { vid.currentTime = loopFrom; vid.play().catch(() => {}); } }
@@ -83,13 +89,10 @@
 
 {#if anim}
   <div class="art-anim" class:sm={small} class:playable={animatable} onclick={toggle} role="button" tabindex="0">
-    <video bind:this={vid} class="art-vid" class:sm={small} poster={still} loop={!loopFrom} onended={onEnded} playsinline preload="metadata" muted>
+    <video bind:this={vid} class="art-vid" class:sm={small} poster={still} loop={!loopFrom} autoplay={autoplay} muted onended={onEnded} onplay={() => (playing = true)} onpause={() => (playing = false)} playsinline preload="metadata">
       <source src={anim} />
     </video>
-    {#if animatable}
-      <button class="snd" title={soundOn ? "sound on" : "sound off"} onclick={toggleSound}>{soundOn ? "🔊" : "🔇"}</button>
-      {#if !playing}<span class="play-hint">▶</span>{/if}
-    {/if}
+    {#if animatable && !playing}<span class="play-hint">▶</span>{/if}
   </div>
 {:else if still}
   <img class="art-img" class:sm={small} src={still} alt={label} />
@@ -101,6 +104,5 @@
   .art-anim { position: relative; line-height: 0; cursor: default; }
   .art-anim.playable { cursor: pointer; }
   .art-vid { width: 100%; display: block; border-radius: inherit; }
-  .snd { position: absolute; top: 6px; right: 6px; background: rgba(0,0,0,0.5); border: none; border-radius: 50%; width: 28px; height: 28px; font-size: 0.9em; cursor: pointer; }
   .play-hint { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; font-size: 2em; color: rgba(255,255,255,0.85); text-shadow: 0 1px 4px rgba(0,0,0,0.6); pointer-events: none; }
 </style>

@@ -39,6 +39,11 @@
         <input type="checkbox" checked={$settings.animateCards} onchange={(e) => setSetting("animateCards", e.currentTarget.checked)} />
       </label>
       <label class="set-row">
+        <span>Card animation sound</span>
+        <input type="checkbox" checked={$settings.cardSound} onchange={(e) => setSetting("cardSound", e.currentTarget.checked)} />
+      </label>
+      <p class="muted hint">Cards play clean by default. Turn these on for auto-playing, sounding card animations; the on-card buttons are gone, so the art shows uncluttered. Card sound rides the Volume slider above.</p>
+      <label class="set-row">
         <span>Confirm before ending my turn</span>
         <input type="checkbox" checked={$settings.confirmEndTurn} onchange={(e) => setSetting("confirmEndTurn", e.currentTarget.checked)} />
       </label>

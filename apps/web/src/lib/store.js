@@ -199,16 +199,28 @@ export function openSettings() { push({ settingsOpen: true }); }
 export function closeSettings() { push({ settingsOpen: false }); }
 
 /** Front of the round flow: a round-intro (once per round) then this player's exec summary. */
+// The round-start townfolk card — fires ONCE at each round boundary for LOCAL play, no matter who
+// leads off. With the rotating lead an AI can open the round, so this can't hang off the human's
+// turn-start; advanceUntilHuman calls it at the boundary too. Online uses surfaceRoundStart. Returns
+// true if it showed the card (so the caller can block on it).
+function maybeShowRoundCard() {
+  if (!game || online) return false;
+  const s = game.state;
+  if (s.turn <= lastRoundShown) return false;
+  lastRoundShown = s.turn;
+  const view = viewOf();
+  const tl = townlifeForRound(view.season?.name, view.season?.roundInSeason); // this round's Maple Hollow story beat
+  const leadP = s.players[s.activePlayerIndex];
+  enqueuePopup({ kind: "round", turn: s.turn, season: view.season, town: flavor?.town, townlife: tl?.id ?? null, townlifeFlavor: tl?.flavor ?? null, lead: leadP?.name ?? null, leadIsMe: leadP ? !isAI(leadP.id) : false });
+  return true;
+}
+
 function enqueueTurnStart(ctx) {
   if (!ctx || ctx.over || ctx.reckoning) return;
   const view = viewOf();
   const me = view.players[view.activePlayerIndex];
   if (isAI(me.id)) return; // rivals' turn-start summaries arrive with the watchable-AI work (Phase 4)
-  if (ctx.turn > lastRoundShown) {
-    lastRoundShown = ctx.turn;
-    const tl = townlifeForRound(view.season?.name, view.season?.roundInSeason); // this round's Maple Hollow story beat
-    enqueuePopup({ kind: "round", turn: ctx.turn, season: view.season, town: flavor?.town, townlife: tl?.id ?? null, townlifeFlavor: tl?.flavor ?? null });
-  }
+  maybeShowRoundCard(); // the round intro (guarded once per round; may already have fired if an AI led off)
   surfaceNewOutcomes(); // alert windows for what resolved during the rivals' round / your upkeep
   enqueuePopup({ kind: "summary", name: me.name, recurring: view.recurring, cash: me.cash, upkeepNet: ctx.upkeepNet ?? 0, drew: (ctx.drawn ?? []).length });
   // Then read each card you drew — preceded by a townsfolk intro when one of the cast is behind it,
@@ -816,6 +828,8 @@ async function advanceUntilHuman(initialCtx) {
   while (!game.state.over) {
     const p = game.currentPlayer;
     if (!ai[p.id]) break; // human is up
+    if (maybeShowRoundCard()) await waitForPopups(); // round kicks off for everyone BEFORE the lead (even an AI) plays
+    if (game.state.over) return;
     const drew = (lastCtx?.drawn ?? []).map((d) => d.name); // what the deck just dealt this rival
     const mode = get(settings).rivalPopups;
 

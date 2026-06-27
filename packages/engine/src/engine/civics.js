@@ -8,6 +8,7 @@ import { createJob } from "../state/state.js";
 import { cashIn, ACCT } from "../state/ledger.js";
 import { applyGlobal } from "./globals.js";
 import { findBuilding, w } from "./economy.js";
+import { seasonName } from "./season.js";
 
 let counter = 0;
 export function resetCivics() { counter = 0; }
@@ -18,12 +19,14 @@ const CONTRACT = { 1: { crew: 2, value: 8 }, 2: { crew: 3, value: 12 }, 3: { cre
 /** One sub-contract per solvent player; the drawer is PM. Returns the announcement line. */
 export function startCivic(state, drawer, card) {
   const id = `CV${++counter}`;
-  const art = card.art ?? `civic/${card.id}`;
+  // Match fortune.js's art keying: a seasonal storm follows the season; everything else is by id.
+  const art = card.art ?? (card.seasonal_storm ? `civic/storm/${seasonName(state).toLowerCase()}` : `civic/${card.id}`);
+  const penalty = card.global_penalty ?? { name: `${card.name} overrun`, kind: "levy", magnitude: 1, turns: 3 };
   const civic = {
     id, name: card.name, art, pm_id: drawer.id,
     deadline_turn: state.turn + (card.deadline ?? 4),
     favor_reward: card.favor_reward ?? 2,
-    global_penalty: card.global_penalty ?? { name: `${card.name} overrun`, kind: "levy", magnitude: 1, turns: 3 },
+    global_penalty: { ...penalty, art: penalty.art ?? art }, // the levy it spawns shows the civic's own art (e.g. the storm)
     contracts: [],
   };
   let bank = 0;
