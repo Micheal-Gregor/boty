@@ -264,6 +264,8 @@ const SOUND_CUES = [
   [/bank CALLED the loan/, "sting_loan", true],
   [/🌐 .* grips Maple Hollow|levy now hits|town levy/i, "sting_levy", true],
   [/code violation|safety write-up|inspection .* fine|🚧/i, "sting_fine", true],
+  [/COLLAPSED past deadline/, "sting_collapse", true], // a project/civic blows its deadline — balance forfeit
+  [/⚖️.*(WINS|WALKS|SUED AND WON|lost in court)/, "sting_verdict", true], // a lawsuit is decided — the gavel falls
   [/✔ .* completed/, "job_done", false],
   [/collects .* in receivables|settles up|paid in full/i, "cash_register", false],
   [/walks anyway|poached|🚪|let .* go|fired/i, "worker_leaves", false],
