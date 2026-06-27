@@ -1,6 +1,7 @@
 <script>
   // Read-only browse of every shop at the table — scroll with ◀ ▶ to see what rivals are up to.
   import { ui, closeRivals } from "../lib/store.js";
+  import { money } from "../lib/money.js";
   import { findEquipment, findBuilding } from "@boty/engine";
   import Art from "./Art.svelte";
 
@@ -29,7 +30,7 @@
         <button class="arr" onclick={next}>▶</button>
       </div>
       <div class="stats">
-        <span class="cash" class:broke={p.bankrupt}>{p.bankrupt ? "BANKRUPT" : p.cash + " W"}</span>
+        <span class="cash" class:broke={p.bankrupt}>{p.bankrupt ? "BANKRUPT" : $money(p.cash)}</span>
         <span class="muted">{bld?.name} · cap {(bld?.capacity ?? 0) + (p.capacityBonus ?? 0)}</span>
       </div>
       <div class="shop-art"><Art kind={`shop/${tradeSlug(p.service)}`} id={p.building} label={`${p.service} ${bld?.name}`} /></div>

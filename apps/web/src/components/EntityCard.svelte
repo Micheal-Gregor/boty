@@ -114,6 +114,8 @@
         <div class="bar"><div class="fill" style="width:{Math.min(100, (100 * job.work_done) / job.work_amount)}%"></div></div>
         <div class="stack">
           <div class="stack-row"><span>Work score / turn</span><span>⚡{workScore(job)}</span></div>
+          {#if me.modifiers?.some((m) => m.kind === "training")}<div class="stack-row"><span>Training</span><span class="bonus">🎓 +1/turn · shop-wide</span></div>{/if}
+          {#if me.defects?.length}<div class="stack-row"><span>Code drag</span><span class="malus">🚧 −{me.defects.reduce((s, d) => s + (d.productivity_hit ?? 0), 0)}/turn · shop-wide — fix to restore output</span></div>{/if}
           <div class="stack-row"><span>Crew</span><span>{job.assigned_tradesmen.length} / {job.max_tradesmen}</span></div>
           <div class="stack-row"><span>Value · due</span><span>{$money(job.value)} · turn {job.deadline_turn}</span></div>
         </div>

@@ -15,7 +15,7 @@
       <h2>⚖️ {c.vendor} hauled you to court</h2>
       <p>You stretched them {$money(c.amount)} and failed the Demand Roll. You <strong>walk on a
         1–2 (33%)</strong>; a <strong>Slick Lawyer</strong> pushes that to <strong>1–4 (67%)</strong>.
-        Walk → the debt is wiped; lose → you pay {$money(c.amount)}. Either way there's a 1 W legal fee.</p>
+        Walk → the debt is wiped; lose → you pay {$money(c.amount)}. Either way there's a {$money(1)} legal fee.</p>
       <div class="row">
         <button disabled={lawyers === 0} onclick={() => resolveCourtUI(c.payableId, true)}>
           🧑‍⚖️ Play Slick Lawyer ({lawyers} in hand)

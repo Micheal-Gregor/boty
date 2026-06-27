@@ -13,10 +13,10 @@
       <p class="cbody">{$cashText(c.body)}</p>
       <div class="cbtns">
         <button class="no" onclick={confirmNo}>No</button>
-        <button class="yes" onclick={confirmYes}>{c.yes} ▶</button>
+        <button class="yes" onclick={confirmYes}>{$cashText(c.yes)} ▶</button>
       </div>
       {#if c.alt}
-        <button class="alt" onclick={confirmAlt}>⚖️ {c.alt.label}</button>
+        <button class="alt" onclick={confirmAlt}>⚖️ {$cashText(c.alt.label)}</button>
       {/if}
     </div>
   </div>
