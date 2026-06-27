@@ -274,7 +274,7 @@ function surfaceNewOutcomes() {
 let lastDeckEvent = 0;
 function surfaceDeckEvents() {
   if (!game) return;
-  const me = game.state.players[game.state.activePlayerIndex];
+  const me = game.state.players[online && mySeat >= 0 ? mySeat : game.state.activePlayerIndex]; // your own deck reshapes
   if (!me || isAI(me.id)) return;
   const evs = game.state.deckEvents ?? [];
   for (let i = lastDeckEvent; i < evs.length; i++) {
@@ -320,16 +320,19 @@ let ai = {}; // playerId -> strategy string, or null for a human seat
 function viewOf() {
   if (!game) return null;
   const s = game.state;
+  // Whose sheet this client renders: online, ALWAYS your own (each player sees their own shop, locked
+  // when it isn't their turn); local/hotseat, the active player's (one screen follows the table).
+  const mi = online && mySeat >= 0 ? mySeat : s.activePlayerIndex;
   return {
-    turn: s.turn, activePlayerIndex: s.activePlayerIndex, over: s.over, phase: s.phase,
+    turn: s.turn, activePlayerIndex: s.activePlayerIndex, meIndex: mi, over: s.over, phase: s.phase,
     mustStaffBoon: game.unstaffedBoon.length > 0, // Chief Boon's mandatory job blocks end-turn until staffed
     log: s.log.slice(-8),
-    deckLeft: s.players[s.activePlayerIndex]?.deck?.pile?.length ?? 0, // the active player's own deck (living deck)
+    deckLeft: s.players[mi]?.deck?.pile?.length ?? 0, // your own deck (living deck)
     globalEffects: (s.globalEffects ?? []).map((e) => ({ ...e })), // town-wide conditions (the global cards)
     projects: (s.projects ?? []).map((p) => ({ ...p, phases: p.phases.map((ph) => ({ ...ph })) })), // phased story-projects in flight
-    pnl: profitAndLoss(s.players[s.activePlayerIndex]), // the active player's books so far
-    bs: balanceSheet(s.players[s.activePlayerIndex]),
-    recurring: recurringExpenses(s, s.players[s.activePlayerIndex]), // the turn-start exec summary
+    pnl: profitAndLoss(s.players[mi]), // your books so far
+    bs: balanceSheet(s.players[mi]),
+    recurring: recurringExpenses(s, s.players[mi]), // the turn-start exec summary
     season: seasonFor({ turn: s.turn, economy, flavor }),
     players: s.players.map((p) => ({
       id: p.id, name: p.name, service: p.service, cash: p.cash, bankrupt: p.bankrupt, building: p.building, capacityBonus: p.capacityBonus ?? 0, bbbThisTurn: !!p.bbbThisTurn, pendingExpansion: p.pendingExpansion ? { ...p.pendingExpansion } : null,

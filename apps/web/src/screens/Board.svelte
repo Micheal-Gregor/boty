@@ -20,7 +20,7 @@
 
   const s = $derived($ui.view);
   const econ = $derived($ui.economy);
-  const me = $derived(s ? s.players[s.activePlayerIndex] : null);
+  const me = $derived(s ? s.players[s.meIndex ?? s.activePlayerIndex] : null); // online: your own sheet; local: the active player's
   const season = $derived(s ? seasonFor({ turn: s.turn, economy: econ, flavor: $ui.flavor }) : null);
   const seasonSlug = $derived(season ? season.name.toLowerCase() : "spring");
   const drawn = $derived($ui.ctx?.drawn ?? []);
@@ -28,7 +28,7 @@
   const bs = $derived(s?.bs); // the balance sheet
   const locOwed = $derived((bs?.liabilityLines ?? []).find((l) => l.acct === 2100)?.amount ?? 0);
   let booksView = $state("pl"); // "pl" | "bs"
-  const rivals = $derived(s ? s.players.filter((_, i) => i !== s.activePlayerIndex) : []);
+  const rivals = $derived(s ? s.players.filter((_, i) => i !== (s.meIndex ?? s.activePlayerIndex)) : []);
   const logTail = $derived(s ? s.log.slice(-8) : []);
 
   const nextBuilding = $derived.by(() => {
