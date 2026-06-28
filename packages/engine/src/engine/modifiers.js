@@ -15,6 +15,7 @@ export const SERVICES = {
   marketing: { name: "Marketing campaign", account: ACCT.MARKETING, premium: 2, inject: "marketing_lead", duration: 3, positive: true },
   accountant: { name: "Accountant on retainer", account: ACCT.PROF_FEES, premium: 1, positive: true },
   training: { name: "Training program", account: ACCT.TRAINING, premium: 1, speed: 1, positive: true },
+  private_security: { name: "Private security", account: ACCT.PROF_FEES, premium: 1, positive: true }, // prevents theft + boosts the sabotage-catch (effects in economy.security)
 };
 
 export function hasModifier(player, kind) {

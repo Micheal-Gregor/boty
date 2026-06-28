@@ -7,6 +7,7 @@ import { w } from "./economy.js";
 import { cashOut, ACCT } from "../state/ledger.js";
 import { bearLoss } from "./modifiers.js";
 import { releaseTradesman, isSidelined } from "./jobs.js";
+import { injectById } from "./livingdeck.js";
 
 /** Pick a worker to hit: an idle, available one first, else any available one. */
 function pickWorker(player, turn) {
@@ -39,6 +40,19 @@ export function applyCrewEvent(state, player, card) {
   }
 
   return { type: "crew", name: card.name, text: "(no effect)" };
+}
+
+/** Upkeep: keep a flagged thief on the payroll and they keep stealing — a chance each round to slip
+ *  another tool_theft into your deck (capped). Firing them (clearing the flag) stops it. */
+export function tickTheftEscalation(state, player) {
+  const cfg = state.economy.theft ?? {};
+  const cap = cfg.escalation_cap ?? 2;
+  if ((player.theftEscalations ?? 0) >= cap) return [];
+  if (!(player.tradesmen ?? []).some((t) => t.flag === "theft")) return [];
+  if (state.die() > (cfg.escalation_chance ?? 3)) return []; // they lie low this round
+  player.theftEscalations = (player.theftEscalations ?? 0) + 1;
+  injectById(state, player, "tool_theft", 1, "a kept thief strikes again");
+  return [`🚨 ${player.name} kept a flagged thief on — another tool theft slips into their deck`];
 }
 
 /** Upkeep: bring back any worker whose time out has elapsed. */

@@ -12,7 +12,7 @@
 import { w, findEquipment } from "./economy.js";
 import { createJob, createPayable, createTradesman, createDefect } from "../state/state.js";
 import { post, cashIn, cashOut, ACCT } from "../state/ledger.js";
-import { bearLoss, marketingInjection } from "./modifiers.js";
+import { bearLoss, marketingInjection, hasModifier } from "./modifiers.js";
 import { applyCrewEvent } from "./crew.js";
 import { applyIncident } from "./incidents.js";
 import { startRouted } from "./routed.js";
@@ -335,6 +335,10 @@ export function resolveCard(state, player, card) {
       // A rig is stolen: insured → pay the deductible and it's replaced; uninsured → written off.
       const owned = player.equipment.filter((e) => e.owned);
       if (!owned.length) return { type: "theft", name: card.name, text: "nothing worth stealing" };
+      // Private security may PREVENT the theft outright — no loss, no inside-job, no escalation.
+      if (hasModifier(player, "private_security") && state.die() <= (state.economy.security?.prevent ?? 0)) {
+        return { type: "theft", name: card.name, text: `🛡️ ${player.name}'s private security catches the thief in the act — nothing taken` };
+      }
       const eq = owned[0];
       const def = findEquipment(state.economy, eq.defId);
       const { borne, insured } = bearLoss(player, def.buy_cost);

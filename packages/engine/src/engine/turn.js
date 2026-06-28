@@ -16,7 +16,7 @@ import { tickExpansion } from "./expansion.js";
 import { chargeLevy, tickGlobals, levyDue } from "./globals.js";
 import { tickProjects } from "./projects.js";
 import { tickCivics } from "./civics.js";
-import { returnCrew } from "./crew.js";
+import { returnCrew, tickTheftEscalation } from "./crew.js";
 import { post, balances, ACCT } from "../state/ledger.js";
 
 /** Total recurring overhead a player owes each turn: rent + wages + rented-equipment fees. */
@@ -65,6 +65,7 @@ export function runUpkeep(state, player) {
   player.bbbThisTurn = false; // reset before the draw, which may re-arm it via a BBB Special
   const lines = [];
   lines.push(...returnCrew(state, player)); // bring back anyone whose time out has elapsed
+  lines.push(...tickTheftEscalation(state, player)); // a kept thief keeps stealing (capped)
   lines.push(...tickProjects(state, player)); // collapse any of this lead's projects past deadline
   // NOTE: overdue jobs no longer expire here — that moved to the end-of-turn CLEANUP phase
   // (game.endTurn → expireOverdue, hard deadline) so a job has its whole deadline turn to finish.

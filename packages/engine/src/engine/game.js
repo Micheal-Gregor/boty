@@ -637,8 +637,10 @@ export class Game {
    *  saboteur for damages (recovered, capped). Private security will later raise the catch odds. */
   #sabotageCaught(t, job) {
     const c = this.state.economy.cards;
-    if (this.state.die() > (c.sabotage_caught ?? 2)) return ""; // got away clean
     const victim = this.#playerById(t.ownerId);
+    // The victim's private security raises the odds the saboteur is caught (unless they bribed it).
+    const secBonus = victim && modifiers.hasModifier(victim, "private_security") && !t.bribedSecurity ? (this.state.economy.security?.catch_bonus ?? 0) : 0;
+    if (this.state.die() > (c.sabotage_caught ?? 2) + secBonus) return ""; // got away clean
     const attacker = this.#playerById(t.attackerId);
     if (!victim || !attacker || victim.bankrupt || attacker.bankrupt) return "";
     const value = c.sabotage_damages ?? 4;

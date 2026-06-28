@@ -35,7 +35,7 @@
   const sellPrice = (j) => Math.max(1, Math.floor(j.value * econ.sell_rate));
 
   const hasMod = (k) => player.modifiers?.some((m) => m.kind === k);
-  const modDesc = { insurance: "shocks become deductibles", marketing: "extra work each turn", accountant: "cheaper factoring + cleaner books", training: "the crew burns work faster" };
+  const modDesc = { insurance: "shocks become deductibles", marketing: "extra work each turn", accountant: "cheaper factoring + cleaner books", training: "the crew burns work faster", private_security: "stops thieves + catches saboteurs" };
   const handDesc = { slick_lawyer: "±2 in a court / sue / damages window", rush: "finish or advance a job", buy_time: "extend a deadline", sabotage: "set back a rival's job", favor: "cancel a rival's standing perk" };
   const premium = (k) => SERVICES[k]?.premium ?? 0; // BBB service fee per turn (W)
 
@@ -242,6 +242,7 @@
           {#if !hasMod("marketing")}<div class="bbb-opt"><button onclick={() => act((g) => g.buyService("marketing"))}>Marketing · {$money(premium("marketing"))}/turn</button><span class="muted">{modDesc.marketing}</span></div>{/if}
           {#if !hasMod("accountant")}<div class="bbb-opt"><button onclick={() => act((g) => g.buyService("accountant"))}>Accountant · {$money(premium("accountant"))}/turn</button><span class="muted">{modDesc.accountant}</span></div>{/if}
           {#if !hasMod("training")}<div class="bbb-opt"><button onclick={() => act((g) => g.buyService("training"))}>Training · {$money(premium("training"))}/turn</button><span class="muted">{modDesc.training}</span></div>{/if}
+          {#if !hasMod("private_security")}<div class="bbb-opt"><button onclick={() => act((g) => g.buyService("private_security"))}>Private security · {$money(premium("private_security"))}/turn</button><span class="muted">{modDesc.private_security}</span></div>{/if}
           <div class="bbb-opt"><button onclick={() => act((g) => g.startExpansion("improve"))}>⬆️ Upgrade</button><span class="muted">+1 crew capacity (capital project)</span></div>
         </div>
       {/if}
