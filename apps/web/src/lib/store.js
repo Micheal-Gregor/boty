@@ -445,7 +445,13 @@ export async function startOnlineGame() {
   const cfgSeats = seats.map((s, i) => ({ seat: i, name: s.display_name ?? `Seat ${i + 1}`, trade: s.trade || free.shift(), is_ai: !!s.is_ai, user_id: s.user_id ?? null }));
   unlockAudio();
   await replaceSeats(cfgSeats); // contiguous seats so engine index == game_seats.seat (RLS turn-lock)
-  await writeGameState({ state: { seed: (Math.random() * 2 ** 32) >>> 0, seats: cfgSeats, moves: [] }, status: "active", active_seat: 0 });
+  const seed = (Math.random() * 2 ** 32) >>> 0;
+  // The first-player roll can make the round-1 lead a seat OTHER than 0; the row's active_seat must
+  // match it or that player can't write (RLS turn-lock). Build a throwaway game to read the rolled seat.
+  resetIds();
+  const probe = new Game(economy, cfgSeats.map((s) => ({ name: s.name, service: s.trade })), { ...decks, difficulty: row.difficulty, seed, rotateFirst: true });
+  const firstSeat = probe.state.firstSeat ?? 0;
+  await writeGameState({ state: { seed, seats: cfgSeats, moves: [] }, status: "active", active_seat: firstSeat });
 }
 
 // React to the room row: build the game when it goes active, then replay new moves as they land.
@@ -525,6 +531,11 @@ function buildOnlineGame(row) {
   const moves = row.state.moves ?? [];
   firstRollShown = moves.length > 0; // fresh game → show the dice; reconnect mid-game → skip it
   if (moves.length) { replay(realGame, moves, 0); log = [...moves]; }
+  // Self-heal: if the row's active_seat doesn't match the engine's real lead (e.g. a game started
+  // before the first-player roll, or any drift), the host corrects it so the true active player can write.
+  if (isHostClient && row.active_seat !== realGame.state.activePlayerIndex) {
+    writeGameState({ state: { ...onlineCfg, moves: [...log] }, active_seat: realGame.state.activePlayerIndex });
+  }
   push({ screen: "board", error: null, aiActing: null, threat: null, picking: null, reckoning: null, final: null, court: null }); // push fires the round-1 dice + townfolk card
   surfaceNewOutcomes();
   maybeDriveAI();
