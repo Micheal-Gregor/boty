@@ -85,6 +85,21 @@
         <h2>{p.name}</h2>
         {#if p.flavor}<p class="pop-flavor">“{$cashText(p.flavor)}”</p>{/if}
         <p class="pop-effect" class:hit={p.text?.includes("⚡")} class:gain={p.text?.includes("💰")}>{$cashText(p.text)}</p>
+        {#if p.routing}
+          <div class="routing">
+            <div class="routing-hd">🧰 {p.routing.kind === "incident" ? "Tenders" : "Trades"} routed · due turn {p.routing.deadlineTurn}</div>
+            {#each p.routing.portions as part}
+              <div class="routing-row" class:mine={part.isActor}>
+                <span class="rt-trade">{part.trade}</span>
+                <span class="rt-arrow">→</span>
+                <span class="rt-who">{part.isActor && p.ownContract ? "You" : part.who}</span>
+                <span class="rt-val">{$money(part.value)}</span>
+              </div>
+              <div class="rt-note">{part.note}</div>
+            {/each}
+            <p class="routing-foot">{$cashText(p.routing.headline)}</p>
+          </div>
+        {/if}
         {#if p.rule}<div class="pop-rule">📜 {$cashText(p.rule)}</div>{/if}
       {/if}
 
@@ -138,6 +153,16 @@
   .shuffle-deck.adding .badge { background: #5fb87a; color: #0f1a12; }
   .shuffle-deck.pulling .badge { background: #e8746a; color: #1a1010; }
   .pop-rule { margin-top: 10px; padding: 8px 10px; background: var(--panel-2, #1b1f27); border-left: 3px solid var(--accent, #e0b341); border-radius: 6px; font-size: 0.86em; color: var(--ink, #e7e7ea); }
+  .routing { margin-top: 10px; padding: 10px 12px; background: var(--panel-2, #1b1f27); border-radius: 8px; }
+  .routing-hd { font-size: 0.8em; font-weight: 700; color: var(--accent, #e0b341); text-transform: uppercase; letter-spacing: 0.04em; margin-bottom: 6px; }
+  .routing-row { display: grid; grid-template-columns: 1fr auto 1.3fr auto; align-items: center; gap: 8px; font-variant-numeric: tabular-nums; }
+  .routing-row.mine { font-weight: 700; }
+  .rt-trade { text-transform: capitalize; }
+  .rt-arrow { color: var(--muted, #9aa0aa); }
+  .rt-who { text-align: right; }
+  .rt-val { text-align: right; color: var(--accent, #e0b341); font-weight: 700; }
+  .rt-note { font-size: 0.76em; color: var(--muted, #9aa0aa); margin: 0 0 6px; }
+  .routing-foot { font-size: 0.84em; margin: 6px 0 0; padding-top: 6px; border-top: 1px solid var(--line, #2a2f3a); }
   .pop-foot { display: flex; gap: 8px; margin-top: 16px; }
   .pop-close { flex: 1; padding: 10px; font-weight: 700; }
   .skip-rivals { flex: 0 0 auto; padding: 10px 12px; background: var(--panel-2, #1b1f27); color: var(--muted, #9aa0aa); border: 1px solid var(--line, #2a2f3a); font-size: 0.85em; }

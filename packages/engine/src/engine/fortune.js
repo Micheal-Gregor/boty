@@ -303,8 +303,10 @@ export function resolveCard(state, player, card) {
     }
     case "incident":
       return applyIncident(state, player, card);
-    case "routed":
-      return { type: "routed", name: card.name, text: startRouted(state, player, card) };
+    case "routed": {
+      const r = startRouted(state, player, card);
+      return { type: "routed", name: card.name, text: r.text, routing: r.routing };
+    }
     case "project":
       return { type: "project", name: card.name, text: startProject(state, player, card) };
     case "civic": {

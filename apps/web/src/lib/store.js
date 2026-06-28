@@ -229,7 +229,7 @@ function enqueueTurnStart(ctx) {
     const def = cardById.get(d.cardId) ?? {};
     const intro = npcIntroFor(d.cardId);
     if (intro) enqueuePopup({ kind: "character", ...intro });
-    enqueuePopup({ kind: "card", cardId: d.cardId, art: d.art ?? null, name: d.name, flavor: d.flavor, text: d.text, rule: ruleFor(def) });
+    enqueuePopup({ kind: "card", cardId: d.cardId, art: d.art ?? null, name: d.name, flavor: d.flavor, text: d.text, rule: ruleFor(def), routing: d.routing ?? null, ownContract: true });
   }
 }
 
@@ -510,7 +510,7 @@ function surfaceActiveDraws() {
     const def = cardById.get(d.cardId);
     const intro = npcIntroFor(d.cardId);
     if (intro) enqueuePopup({ kind: "character", ...intro });
-    enqueuePopup({ kind: "card", who: mine ? null : actor.name, isAi, cardId: d.cardId, art: d.art ?? null, name: d.name, flavor: d.flavor, text: d.text, rule: ruleFor(def) });
+    enqueuePopup({ kind: "card", who: mine ? null : actor.name, isAi, cardId: d.cardId, art: d.art ?? null, name: d.name, flavor: d.flavor, text: d.text, rule: ruleFor(def), routing: d.routing ?? null, ownContract: mine });
   }
 }
 
@@ -860,7 +860,7 @@ async function advanceUntilHuman(initialCtx) {
       for (const d of lastCtx?.drawn ?? []) if (mode === "all" || rivalCardInteresting(d)) {
         const intro = npcIntroFor(d.cardId);
         if (intro) enqueuePopup({ kind: "character", rival: p.name, ...intro });
-        enqueuePopup({ kind: "card", rival: p.name, cardId: d.cardId, art: d.art ?? null, name: d.name, flavor: d.flavor, text: d.text });
+        enqueuePopup({ kind: "card", rival: p.name, cardId: d.cardId, art: d.art ?? null, name: d.name, flavor: d.flavor, text: d.text, routing: d.routing ?? null, ownContract: false });
       }
       await waitForPopups();
       if (game.state.over) return;

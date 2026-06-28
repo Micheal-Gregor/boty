@@ -34,6 +34,7 @@ export function startRouted(state, gc, card) {
   const deadline = card.deadline ?? 4;
   const contract = { id, gc_id: gc.id, deadline_turn: state.turn + deadline, client_value: 0, portions: [], failed: false };
   const notes = [];
+  const parts = []; // structured allocation for the "contract routed" popup
   for (const trade of card.required_trades ?? []) {
     if (gc.service === trade) {
       // GC does this portion — their own job, no AP, base+markup is theirs.
@@ -43,6 +44,7 @@ export function startRouted(state, gc, card) {
       contract.portions.push({ trade, job_id: job.id, self: true, done: false });
       contract.client_value += subVal + markup;
       notes.push(`you take ${trade}`);
+      parts.push({ trade, who: gc.name, isActor: true, kind: "self", value: subVal + markup, note: "your own crew" });
       continue;
     }
     const sub = pickSub(state, gc, trade);
@@ -55,16 +57,25 @@ export function startRouted(state, gc, card) {
       contract.portions.push({ trade, job_id: job.id, sub_id: sub.id, done: false });
       contract.client_value += subVal + markup;
       notes.push(`${trade} → ${sub.name}`);
+      parts.push({ trade, who: sub.name, kind: "sub", value: subVal, note: "you owe, net-30 on delivery" });
     } else {
       // No local trade → the bank covers it: base value only (no markup), counts done now.
       contract.client_value += subVal;
       contract.portions.push({ trade, bank: true, done: true });
       notes.push(`${trade} → the bank`);
+      parts.push({ trade, who: "The bank", kind: "bank", value: subVal, note: "no local trade — covered, no markup" });
     }
   }
   state.routed.push(contract);
   maybeCompleteRouted(state, contract); // an all-bank contract settles at once
-  return `🏗️ ${gc.name} takes ${card.name} as GC — ${notes.join(", ")}; bills ${w(contract.client_value)} net-90 when it all lands`;
+  const routing = {
+    kind: "routed",
+    gc: gc.name,
+    deadlineTurn: contract.deadline_turn,
+    headline: `Bills ${w(contract.client_value)} (net-90) once every portion lands — miss one and the whole contract collapses.`,
+    portions: parts,
+  };
+  return { text: `🏗️ ${gc.name} takes ${card.name} as GC — ${notes.join(", ")}; bills ${w(contract.client_value)} net-90 when it all lands`, routing };
 }
 
 /** A routed portion was delivered → mark it; bill the client when the last one lands. */

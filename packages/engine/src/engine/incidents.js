@@ -25,6 +25,7 @@ export function applyIncident(state, pm, card) {
   const deadline = card.deadline ?? 4;
   const contract = { id, pm_id: pm.id, fee, deadline_turn: state.turn + deadline, portions: [], failed: false };
   const notes = [];
+  const parts = []; // structured allocation for the "contract routed" popup
   for (const trade of card.trades ?? []) {
     const taker = tradePlayer(state, trade, pm);
     if (taker) {
@@ -33,14 +34,23 @@ export function applyIncident(state, pm, card) {
       taker.jobs.push(job);
       contract.portions.push({ trade, job_id: job.id, sub_id: taker.id, done: false });
       notes.push(`${trade}→${taker.name}`);
+      parts.push({ trade, who: taker.name, isActor: taker.id === pm.id, kind: "tender", value, note: taker.id === pm.id ? "you run it (NPC-paid)" : "NPC-paid tender" });
     } else {
       contract.portions.push({ trade, bank: true, done: true }); // no local trade → the county covers it
       notes.push(`${trade}→county`);
+      parts.push({ trade, who: "The county", kind: "bank", value, note: "no local trade — county covers" });
     }
   }
   state.incidents.push(contract);
   maybeCompleteIncident(state, contract);
-  return { type: "incident", name: card.name, text: `🚧 ${card.name} — ${pm.name} coordinates (${notes.join(", ")}); ${w(fee)} PM fee if it all lands` };
+  const routing = {
+    kind: "incident",
+    pm: pm.name,
+    deadlineTurn: contract.deadline_turn,
+    headline: `As PM, ${pm.name} takes a ${w(fee)} fee if every tender lands — let one stall and the fee is lost (sue the no-show).`,
+    portions: parts,
+  };
+  return { type: "incident", name: card.name, routing, text: `🚧 ${card.name} — ${pm.name} coordinates (${notes.join(", ")}); ${w(fee)} PM fee if it all lands` };
 }
 
 /** A tender was delivered → mark it; pay the PM fee when the last one lands. */
