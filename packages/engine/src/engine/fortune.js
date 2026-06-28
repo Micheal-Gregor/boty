@@ -45,13 +45,17 @@ function cashEffect(state, player, card) {
 
 // Weather/storms cost a lost day of WORK, not cash — they undo progress on the jobs underway
 // (spread across active jobs, floored at 0). Returns how much work was actually undone.
-function workSetback(player, amount) {
-  let remaining = amount, lost = 0;
-  for (const job of player.jobs ?? []) {
-    if (remaining <= 0) break;
-    if (job.state !== "Active" || job.work_done <= 0) continue;
-    const cut = Math.min(job.work_done, remaining);
-    job.work_done -= cut; remaining -= cut; lost += cut;
+// Shave progress off active jobs. mode "all" = every active job loses `amount` (a storm hits every
+// crew); mode "top" = only your most-progressed job takes it (a broken rig stalls one big push).
+// Deterministic (no RNG) → lockstep-safe. Returns the TOTAL work lost (for the feed line).
+function workSetback(player, amount, mode = "all") {
+  const active = (player.jobs ?? []).filter((j) => j.state === "Active" && j.work_done > 0);
+  let lost = 0;
+  if (mode === "top") {
+    const job = active.sort((a, b) => b.work_done - a.work_done)[0];
+    if (job) { const cut = Math.min(job.work_done, amount); job.work_done -= cut; lost += cut; }
+  } else {
+    for (const job of active) { const cut = Math.min(job.work_done, amount); job.work_done -= cut; lost += cut; }
   }
   return lost;
 }
@@ -249,7 +253,7 @@ function resolveCard(state, player, card) {
     case "shock": {
       if (card.work) { // a setback that costs WORK, not cash (weather, a broken rig, …)
         const icon = card.icon ?? "⛈️";
-        const lost = workSetback(player, card.work);
+        const lost = workSetback(player, card.work, card.work_hits ?? "all"); // weather → all crews; equipment → your biggest push
         const text = lost > 0 ? `${icon} −${lost} work` : `${icon} a wash — no work underway to lose`;
         return { type: card.type, name: card.name, work: -lost, text };
       }

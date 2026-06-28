@@ -252,6 +252,7 @@
       "id": "equipment_breakdown",
       "name": "Equipment breakdown",
       "work": 2,
+      "work_hits": "top",
       "icon": "🔧",
       "flavor": "Your good compressor gives up the ghost — naturally, on a Friday afternoon.",
       "flavor_by_season": {
