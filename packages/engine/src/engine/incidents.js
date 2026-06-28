@@ -8,6 +8,7 @@
 import { createJob } from "../state/state.js";
 import { cashIn, ACCT } from "../state/ledger.js";
 import { w } from "./economy.js";
+import { routeOrDefer } from "./routed.js";
 
 /** The solvent player who runs a trade (prefer the PM/drawer when they match it). */
 function tradePlayer(state, trade, pm) {
@@ -15,31 +16,60 @@ function tradePlayer(state, trade, pm) {
   return state.players.find((p) => !p.bankrupt && p.service === trade) ?? null;
 }
 
-/** Resolve a building incident as a mini-PM contract. Returns a Fortune-feed summary. */
+/** Resolve a building incident as a mini-PM contract. The PM plans one tender per trade (to the local
+ *  who runs it, else the county), then routes-or-defers (a human PM picks; an AI decides inline). */
 export function applyIncident(state, pm, card) {
-  state.incidents = state.incidents ?? [];
-  state.incidentSeq = (state.incidentSeq ?? 0) + 1;
-  const id = `IN${state.incidentSeq}`;
   const fee = card.pm_fee ?? 3;
   const value = card.value ?? 6; // NPC-paid tender value per trade
   const deadline = card.deadline ?? 4;
-  const contract = { id, pm_id: pm.id, fee, deadline_turn: state.turn + deadline, portions: [], failed: false };
-  const notes = [];
-  const parts = []; // structured allocation for the "contract routed" popup
+  const portions = [];
   for (const trade of card.trades ?? []) {
     const taker = tradePlayer(state, trade, pm);
-    if (taker) {
-      const job = createJob({ id: `${card.id}_${trade}`, name: `${card.name} — ${trade}`, value, work_amount: value, deadline, terms: 1, min_tradesmen: 1, max_tradesmen: 1, required_equipment: null, droppable: false }, state.turn);
-      job.incident_id = id;
-      taker.jobs.push(job);
-      contract.portions.push({ trade, job_id: job.id, sub_id: taker.id, done: false });
-      notes.push(`${trade}→${taker.name}`);
-      parts.push({ trade, who: taker.name, isActor: taker.id === pm.id, kind: "tender", value, note: taker.id === pm.id ? "you run it (NPC-paid)" : "NPC-paid tender" });
-    } else {
-      contract.portions.push({ trade, bank: true, done: true }); // no local trade → the county covers it
-      notes.push(`${trade}→county`);
-      parts.push({ trade, who: "The county", kind: "bank", value, note: "no local trade — county covers" });
-    }
+    if (!taker) portions.push({ trade, role: "county", choosable: false });
+    else if (taker.id === pm.id) portions.push({ trade, role: "self", choosable: false }); // your own crew — no choice
+    else portions.push({ trade, role: "tender", subId: taker.id, subName: taker.name, choosable: true });
+  }
+  const plan = {
+    kind: "incident", actorId: pm.id, actorName: pm.name, cardId: card.id, cardName: card.name,
+    fee, value, deadline, deadlineTurn: state.turn + deadline, portions,
+    deferText: `🚧 ${card.name} — you're PM; choose who runs each tender`,
+  };
+  const r = routeOrDefer(state, plan, buildIncident);
+  return { type: "incident", name: card.name, text: r.text, routing: r.routing ?? null };
+}
+
+/** Create the tenders for a planned incident. `choices[trade] === "bank"` declines that local tender
+ *  (the county covers it — safe, denies the rival). Returns { type, name, text, routing }. */
+export function buildIncident(state, plan, choices = {}) {
+  const pm = state.players.find((p) => p.id === plan.actorId);
+  if (!pm) return { type: "incident", name: plan.cardName, text: "", routing: null };
+  state.incidents = state.incidents ?? [];
+  state.incidentSeq = (state.incidentSeq ?? 0) + 1;
+  const id = `IN${state.incidentSeq}`;
+  const { fee, value, deadline, cardId, cardName } = plan;
+  const contract = { id, pm_id: pm.id, fee, deadline_turn: state.turn + deadline, portions: [], failed: false };
+  const notes = []; const parts = [];
+  const toCounty = (trade, chosen) => {
+    contract.portions.push({ trade, bank: true, done: true });
+    notes.push(`${trade}→county`);
+    parts.push({ trade, who: "The county", kind: "bank", value, note: chosen ? "you kept it off the locals" : "no local trade — county covers" });
+  };
+  const makeTender = (trade, taker, isSelf) => {
+    const job = createJob({ id: `${cardId}_${trade}`, name: `${cardName} — ${trade}`, value, work_amount: value, deadline, terms: 1, min_tradesmen: 1, max_tradesmen: 1, required_equipment: null, droppable: false }, state.turn);
+    job.incident_id = id;
+    taker.jobs.push(job);
+    contract.portions.push({ trade, job_id: job.id, sub_id: taker.id, done: false });
+    notes.push(`${trade}→${taker.name}`);
+    parts.push({ trade, who: taker.name, isActor: isSelf, kind: "tender", value, note: isSelf ? "you run it (NPC-paid)" : "NPC-paid tender" });
+  };
+  for (const por of plan.portions) {
+    const trade = por.trade;
+    if (por.role === "self") makeTender(trade, pm, true);
+    else if (por.role === "tender" && choices[trade] !== "bank") {
+      const taker = state.players.find((p) => p.id === por.subId);
+      if (taker && !taker.bankrupt) makeTender(trade, taker, false);
+      else toCounty(trade, false);
+    } else toCounty(trade, por.choosable);
   }
   state.incidents.push(contract);
   maybeCompleteIncident(state, contract);
@@ -50,7 +80,7 @@ export function applyIncident(state, pm, card) {
     headline: `As PM, ${pm.name} takes a ${w(fee)} fee if every tender lands — let one stall and the fee is lost (sue the no-show).`,
     portions: parts,
   };
-  return { type: "incident", name: card.name, routing, text: `🚧 ${card.name} — ${pm.name} coordinates (${notes.join(", ")}); ${w(fee)} PM fee if it all lands` };
+  return { type: "incident", name: cardName, routing, text: `🚧 ${cardName} — ${pm.name} coordinates (${notes.join(", ")}); ${w(fee)} PM fee if it all lands` };
 }
 
 /** A tender was delivered → mark it; pay the PM fee when the last one lands. */

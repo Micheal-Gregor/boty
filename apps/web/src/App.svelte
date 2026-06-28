@@ -17,6 +17,7 @@
   import ResponseModal from "./components/ResponseModal.svelte";
   import CourtModal from "./components/CourtModal.svelte";
   import DamagesModal from "./components/DamagesModal.svelte";
+  import RoutingModal from "./components/RoutingModal.svelte";
   import SettleModal from "./components/SettleModal.svelte";
   import CardModal from "./components/CardModal.svelte";
   import PoachModal from "./components/PoachModal.svelte";
@@ -63,6 +64,7 @@
   <SettleModal />
   <CourtModal />
   <DamagesModal />
+  <RoutingModal />
   <TargetPicker />
   <ResponseModal />
   <PoachModal />

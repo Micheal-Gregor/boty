@@ -24,46 +24,93 @@ function pickSub(state, gc, trade) {
   ) ?? null;
 }
 
-/** The drawer becomes GC of a 3-trade contract. Returns the feed line. */
+/** Shared: a HUMAN actor with a real choice (≥1 local sub available) DEFERS to a routing modal; an
+ *  AI actor (or a plan with no choices) is resolved inline and DETERMINISTICALLY — the AI denies a
+ *  local sub who is ahead of it in cash (don't fund the front-runner), else shares the work. Inline
+ *  resolution needs no extra recorded move, so replay stays exact. `state.humanIds` lists human seats. */
+export function routeOrDefer(state, plan, builder) {
+  state.pendingRouting = state.pendingRouting ?? [];
+  const isHuman = (state.humanIds ?? []).includes(plan.actorId);
+  if (isHuman && plan.portions.some((p) => p.choosable)) {
+    state.pendingRouting.push(plan);
+    return { text: plan.deferText, routing: null };
+  }
+  const actor = state.players.find((p) => p.id === plan.actorId);
+  // AI: sacrifice your own markup to deny the FRONT-RUNNER (the richest player) — but only if you're
+  // not the leader yourself; share with everyone else (routing locals earns the markup + keeps the
+  // table in the game). Using the single leader (not "anyone richer than me") avoids over-denying off
+  // a momentary post-upkeep cash dip.
+  const leader = state.players.filter((p) => !p.bankrupt).sort((a, b) => b.cash - a.cash)[0];
+  const choices = {};
+  for (const por of plan.portions) {
+    if (!por.choosable) continue;
+    if (leader && actor && por.subId === leader.id && actor.id !== leader.id) choices[por.trade] = "bank";
+  }
+  return builder(state, plan, choices);
+}
+
+/** The drawer becomes GC of a 3-trade contract. Plan the portions, then route-or-defer. */
 export function startRouted(state, gc, card) {
-  state.routed = state.routed ?? [];
-  state.routedSeq = (state.routedSeq ?? 0) + 1;
-  const id = `RT${state.routedSeq}`;
   const subVal = card.sub_value ?? 6;
   const markup = card.markup ?? 2; // per PLAYER portion (bank portions get none)
   const deadline = card.deadline ?? 4;
-  const contract = { id, gc_id: gc.id, deadline_turn: state.turn + deadline, client_value: 0, portions: [], failed: false };
-  const notes = [];
-  const parts = []; // structured allocation for the "contract routed" popup
+  const portions = [];
   for (const trade of card.required_trades ?? []) {
-    if (gc.service === trade) {
-      // GC does this portion — their own job, no AP, base+markup is theirs.
-      const job = createJob({ id: `${card.id}_self`, name: `${card.name} — ${trade} (your part)`, value: 0, work_amount: subVal, deadline, terms: 0, min_tradesmen: 1, max_tradesmen: 2, required_equipment: null, droppable: false }, state.turn);
+    if (gc.service === trade) { portions.push({ trade, role: "self", choosable: false }); continue; }
+    const sub = pickSub(state, gc, trade);
+    if (sub) portions.push({ trade, role: "sub", subId: sub.id, subName: sub.name, choosable: true });
+    else portions.push({ trade, role: "bank", choosable: false });
+  }
+  const plan = {
+    kind: "routed", actorId: gc.id, actorName: gc.name, cardId: card.id, cardName: card.name,
+    subVal, markup, deadline, deadlineTurn: state.turn + deadline, portions,
+    deferText: `🏗️ ${gc.name} takes ${card.name} as GC — choose who runs each trade`,
+  };
+  return routeOrDefer(state, plan, buildRouted);
+}
+
+/** Create the jobs/APs for a planned routed contract. `choices[trade] === "bank"` declines that local
+ *  sub (the bank covers it — safe, no markup, denies the rival). Returns { text, routing }. */
+export function buildRouted(state, plan, choices = {}) {
+  const gc = state.players.find((p) => p.id === plan.actorId);
+  if (!gc) return { text: "", routing: null };
+  state.routed = state.routed ?? [];
+  state.routedSeq = (state.routedSeq ?? 0) + 1;
+  const id = `RT${state.routedSeq}`;
+  const { subVal, markup, deadline, cardId, cardName } = plan;
+  const contract = { id, gc_id: gc.id, deadline_turn: state.turn + deadline, client_value: 0, portions: [], failed: false };
+  const notes = []; const parts = [];
+  const toBank = (trade, chosen) => {
+    contract.client_value += subVal;
+    contract.portions.push({ trade, bank: true, done: true });
+    notes.push(`${trade} → the bank`);
+    parts.push({ trade, who: "The bank", kind: "bank", value: subVal, note: chosen ? "you kept it off the locals" : "no local trade — covered, no markup" });
+  };
+  for (const por of plan.portions) {
+    const trade = por.trade;
+    if (por.role === "self") {
+      const job = createJob({ id: `${cardId}_self`, name: `${cardName} — ${trade} (your part)`, value: 0, work_amount: subVal, deadline, terms: 0, min_tradesmen: 1, max_tradesmen: 2, required_equipment: null, droppable: false }, state.turn);
       job.routed_id = id;
       gc.jobs.push(job);
       contract.portions.push({ trade, job_id: job.id, self: true, done: false });
       contract.client_value += subVal + markup;
       notes.push(`you take ${trade}`);
       parts.push({ trade, who: gc.name, isActor: true, kind: "self", value: subVal + markup, note: "your own crew" });
-      continue;
-    }
-    const sub = pickSub(state, gc, trade);
-    if (sub) {
-      const job = createJob({ id: `${card.id}_${trade}`, name: `${card.name} — ${trade} sub`, value: subVal, work_amount: subVal, deadline, terms: PORTION_TERMS, min_tradesmen: 1, max_tradesmen: 2, required_equipment: null, droppable: false }, state.turn);
-      job.routed_id = id;
-      job.hirer_id = gc.id;
-      sub.jobs.push(job);
-      gc.payables.push(createPayable({ vendor: `${sub.name} — ${card.name} (${trade})`, amount: subVal, dueTurn: null, isNpc: false, creditorId: sub.id, jobId: job.id, pending: true }));
-      contract.portions.push({ trade, job_id: job.id, sub_id: sub.id, done: false });
-      contract.client_value += subVal + markup;
-      notes.push(`${trade} → ${sub.name}`);
-      parts.push({ trade, who: sub.name, kind: "sub", value: subVal, note: "you owe, net-30 on delivery" });
+    } else if (por.role === "sub" && choices[trade] !== "bank") {
+      const sub = state.players.find((p) => p.id === por.subId);
+      if (sub && !sub.bankrupt) {
+        const job = createJob({ id: `${cardId}_${trade}`, name: `${cardName} — ${trade} sub`, value: subVal, work_amount: subVal, deadline, terms: PORTION_TERMS, min_tradesmen: 1, max_tradesmen: 2, required_equipment: null, droppable: false }, state.turn);
+        job.routed_id = id;
+        job.hirer_id = gc.id;
+        sub.jobs.push(job);
+        gc.payables.push(createPayable({ vendor: `${sub.name} — ${cardName} (${trade})`, amount: subVal, dueTurn: null, isNpc: false, creditorId: sub.id, jobId: job.id, pending: true }));
+        contract.portions.push({ trade, job_id: job.id, sub_id: sub.id, done: false });
+        contract.client_value += subVal + markup;
+        notes.push(`${trade} → ${sub.name}`);
+        parts.push({ trade, who: sub.name, kind: "sub", value: subVal, note: "you owe, net-30 on delivery" });
+      } else toBank(trade, false); // the sub vanished between draw and decision → bank covers it
     } else {
-      // No local trade → the bank covers it: base value only (no markup), counts done now.
-      contract.client_value += subVal;
-      contract.portions.push({ trade, bank: true, done: true });
-      notes.push(`${trade} → the bank`);
-      parts.push({ trade, who: "The bank", kind: "bank", value: subVal, note: "no local trade — covered, no markup" });
+      toBank(trade, por.choosable); // a forced bank portion, or a sub you declined
     }
   }
   state.routed.push(contract);
@@ -75,7 +122,7 @@ export function startRouted(state, gc, card) {
     headline: `Bills ${w(contract.client_value)} (net-90) once every portion lands — miss one and the whole contract collapses.`,
     portions: parts,
   };
-  return { text: `🏗️ ${gc.name} takes ${card.name} as GC — ${notes.join(", ")}; bills ${w(contract.client_value)} net-90 when it all lands`, routing };
+  return { text: `🏗️ ${gc.name} takes ${cardName} as GC — ${notes.join(", ")}; bills ${w(contract.client_value)} net-90 when it all lands`, routing };
 }
 
 /** A routed portion was delivered → mark it; bill the client when the last one lands. */

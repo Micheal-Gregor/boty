@@ -262,6 +262,8 @@ export function createGame(economy, playerSeeds, options = {}) {
     pendingPoach: [], // a rival is luring a worker — counter-offer (+roll) or let them go
     pendingMayor: [], // the Mayor's re-election drive — buy a Favor (10W) or pass
     pendingReferral: [], // a brokered job offered to a contractor — they accept (referrer gets a fee) or refuse
+    pendingRouting: [], // a human GC/PM must decide who runs each trade (local subs or the bank/county)
+    humanIds: options.humanIds ?? [], // seats driven by a human — they DEFER routing to a modal; AIs decide inline
     globalEffects: [], // town-wide conditions (levies/booms) from civic jobs — the global card layer
     projects: [], // phased story-projects in flight (deposit + phases + balance) — projects.js
     civics: [], // town-wide civic contracts in flight (one sub-contract per player + PM) — civics.js

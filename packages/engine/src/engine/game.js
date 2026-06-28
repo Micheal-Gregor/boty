@@ -13,6 +13,8 @@ import * as defects from "./defects.js";
 import * as modifiers from "./modifiers.js";
 import * as expansion from "./expansion.js";
 import * as employment from "./employment.js";
+import { buildRouted } from "./routed.js";
+import { buildIncident } from "./incidents.js";
 import { drawFortune } from "./fortune.js";
 import { injectById, pullJobs, womFires } from "./livingdeck.js";
 import { getawayThreshold, rollGetaway, getawayOdds } from "./litigation.js";
@@ -53,6 +55,7 @@ export class Game {
     if (this.state.over) return [];
     if (this.state.pendingSettle.length) throw new GameError("Answer the settlement offer first");
     if (this.state.pendingPoach.length) throw new GameError("Answer the poaching offer first");
+    if (this.state.pendingRouting?.length) throw new GameError("Decide the contract routing first");
     if (this.state.pendingMayor.length) throw new GameError("Answer the Mayor's drive first");
     if (this.state.pendingCourt.length) throw new GameError("Resolve your court case first");
     if (this.state.pendingThreat) throw new GameError("Resolve the pending response window first");
@@ -168,6 +171,7 @@ export class Game {
     if (this.state.over) throw new GameError("The game is over");
     if (this.state.pendingSettle.length) throw new GameError("Answer the settlement offer first");
     if (this.state.pendingPoach.length) throw new GameError("Answer the poaching offer first");
+    if (this.state.pendingRouting?.length) throw new GameError("Decide the contract routing first");
     if (this.state.pendingMayor.length) throw new GameError("Answer the Mayor's drive first");
     if (this.state.pendingCourt.length) throw new GameError("Resolve your court case first");
     if (this.state.pendingThreat) throw new GameError("Resolve the pending response window first");
@@ -338,6 +342,18 @@ export class Game {
   }
 
   // --- Poached: a rival lures a worker; counter (pay + roll) or let them go ---------------------
+  // --- Contract routing: a human GC/PM decides who runs each trade (locals or the bank/county) ----
+  get routingCases() { return this.state.pendingRouting ?? []; }
+  /** Resolve the first pending routing. `choices[trade] === "bank"` declines that local sub/tender
+   *  (the bank/county covers it — safe, no markup, denies the rival). Builds the jobs. */
+  decideRouting(choices = {}) {
+    const plan = (this.state.pendingRouting ?? []).shift();
+    if (!plan) throw new GameError("No contract routing to decide");
+    const r = plan.kind === "incident" ? buildIncident(this.state, plan, choices) : buildRouted(this.state, plan, choices);
+    if (r.text) this.state.log.push(r.text);
+    return r;
+  }
+
   get poachCases() { return this.state.pendingPoach; }
   /** counter 0 = let them go; 1/2/3 = pay that & roll — they stay on d6 ≤ (counter+2). The firing
    *  player rolls (the UI may supply `roll`); else the seeded die. */

@@ -26,7 +26,7 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
  * won't see the change. `rev` bumps on every change. */
 export const ui = writable({
   screen: "loading", game: null, view: null, ctx: null, flavor, economy, error: null, rev: 0,
-  aiActing: null, threat: null, picking: null, reckoning: null, final: null, court: null, damages: null, settle: null,
+  aiActing: null, threat: null, picking: null, reckoning: null, final: null, court: null, damages: null, settle: null, routingDecision: null,
   cardView: null, popups: [], settingsOpen: false, flash: null, entityCard: null, handView: false, rivalView: false,
   rulesOpen: false, confirm: null,
 });
@@ -524,6 +524,7 @@ function buildOnlineGame(row) {
   game = recordable(realGame, pending);
   ai = {};
   realGame.state.players.forEach((p, i) => { ai[p.id] = onlineCfg.seats[i].is_ai ? "balanced" : null; });
+  realGame.state.humanIds = realGame.state.players.filter((p) => !ai[p.id]).map((p) => p.id); // human seats DEFER contract routing to a modal
   mySeat = onlineCfg.seats.findIndex((s) => s.user_id === me?.id);
   isHostClient = row.host_id === me?.id;
   online = true;
@@ -629,6 +630,7 @@ export function newGame(seats, difficulty = "standard") {
   dealTownlife(); // secretly deal this game's 6-of-12-per-season story of Maple Hollow
   lastScanned = 0; lastRoundShown = 0; firstRollShown = false;
   game.state.players.forEach((p, i) => { ai[p.id] = seats[i].strategy ?? null; });
+  game.state.humanIds = game.state.players.filter((p) => !ai[p.id]).map((p) => p.id); // human seats DEFER contract routing to a modal
   const ctx = game.start();
   push({ screen: "board", ctx, error: null, aiActing: null, threat: null, picking: null, reckoning: null, final: null, court: null });
   const fr = buildFirstRoll(); if (fr) enqueuePopup(fr); // the opening "who goes first" dice
@@ -760,6 +762,18 @@ export function skipDamages(jobId) {
   refreshDamages();
 }
 
+// --- Contract routing: the GC/PM decides who runs each trade (locals or the bank/county) ---------
+function surfaceRouting() {
+  push({ routingDecision: game.routingCases.length ? game.routingCases.map((p) => ({ ...p })) : null });
+}
+/** choices: { [trade]: "bank" } to decline that local sub/tender (else it routes to the local). */
+export function decideRoutingUI(choices = {}) {
+  if (online && !myTurn()) return;
+  try { game.decideRouting(choices); } catch (e) { return fail(e?.message ?? String(e)); }
+  surfaceNewOutcomes();
+  surfaceRouting();
+}
+
 /** After any action that might end a player's options (here: just refresh / continue). */
 function afterAct() {
   if (game.state.over) return; // shouldn't be here mid-turn
@@ -776,6 +790,7 @@ export function endTurn() {
   if (game.referralCases.some((r) => r.contractor_id === game.state.players[game.state.activePlayerIndex].id)) return fail("Answer the referral offer first");
   if (game.state.pendingCourt.length) return fail("Resolve your court case first");
   if (game.state.pendingThreat) return fail("Resolve the response window first");
+  if (game.routingCases.length) return fail("Decide who runs each trade on your contract first");
   const proceed = () => {
     const ctx = game.endTurn();
     if (ctx.reckoning) return enterReckoning(ctx.order);
@@ -926,6 +941,7 @@ function surfaceTurnDecisions() {
     poach: game.poachCases.length ? [...game.poachCases] : null,
     mayor: game.mayorCases.length ? [...game.mayorCases] : null,
     referral: myReferrals.length ? myReferrals : null,
+    routingDecision: game.routingCases.length ? game.routingCases.map((p) => ({ ...p })) : null,
   });
 }
 

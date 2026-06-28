@@ -17,6 +17,7 @@ function game(gcTrade) {
   const g = new Game(economy, [{ name: "GC", service: gcTrade }, { name: "P", service: "plumber" }, { name: "E", service: "electrician" }, { name: "W", service: "welder" }], { ...decks, jobprogress: [], seed: 1, difficulty: "standard" });
   g.start();
   for (const pl of g.state.players) pl.tradesmen.push({ id: `T_${pl.name}`, prod_mod: 0, flag: null, assignedJob: null, out_until: null, tool: null });
+  g.state.players[0].cash = 999; // GC is the table leader → the AI shares every portion (deterministic full routing for these mechanics tests; the routing CHOICE is covered in test/routing.js)
   return g;
 }
 function deliver(g, pl) {
