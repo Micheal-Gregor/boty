@@ -262,6 +262,7 @@ export function closeHand() { push({ handView: false }); }
 let lastScanned = 0;
 const ALERTS = [
   [/💀 (.+?) cannot cover/, "💀 Bankruptcy", (m) => `${m[1]} ran out of cash and folded — their shop is out of the game.`],
+  [/🏦 the bank CALLED the loan/, "🏦 The bank called your loan", () => "You leaned on the line of credit once too often — the bank demanded the entire balance back at once. If you can't cover it, the shop folds at upkeep."],
   [/🏛️ (.+?) DELIVERED "(.+?)"/, "🏛️ Project delivered", (m) => `${m[1]} delivered ${m[2]} — collects the balance, favours all round.`],
   [/✗ "(.+?)" COLLAPSED past/, "✗ Project collapsed", (m) => `${m[1]} blew its deadline — the balance is forfeit.`],
   [/🏛️ civic project "(.+?)" delivered/, "🏛️ Civic job delivered", (m) => `${m[1]} was delivered — favours earned.`],
@@ -819,7 +820,7 @@ export function endTurn() {
   const proceed = () => {
     const ctx = game.endTurn();
     if (ctx.reckoning) return enterReckoning(ctx.order);
-    if (ctx.over) { playSfx("chime", 0.5); playMusic("gala", 0.3); return push({ screen: "gala", ctx, final: finalReport() }); }
+    if (ctx.over) { surfaceNewOutcomes(); playSfx("chime", 0.5); playMusic("gala", 0.3); return push({ screen: "gala", ctx, final: finalReport() }); } // fire the bankruptcy/loan-call popup over the gala
     if (online) { push({ aiActing: null }); surfaceNewOutcomes(); maybeDriveAI(); surfaceDecisionsAfterReveal(); } // flush my turn (push fires the round card if the round ticked); host drives the next AI seats
     else advanceUntilHuman(ctx);
   };
@@ -934,7 +935,7 @@ async function advanceUntilHuman(initialCtx) {
 
     const ctx = game.endTurn();
     if (ctx.reckoning) { push({ aiActing: null }); return enterReckoning(ctx.order); }
-    if (ctx.over) { playSfx("chime", 0.5); playMusic("gala", 0.3); return push({ aiActing: null, screen: "gala", ctx, final: finalReport() }); }
+    if (ctx.over) { surfaceNewOutcomes(); playSfx("chime", 0.5); playMusic("gala", 0.3); return push({ aiActing: null, screen: "gala", ctx, final: finalReport() }); } // fire the bankruptcy/loan-call popup over the gala
     push({ aiActing: { name: p.name, drew, lines } }); // recap + the updated table snapshot
     if (!skipAI) await sleep(800);
     lastCtx = ctx;

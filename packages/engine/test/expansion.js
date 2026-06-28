@@ -6,7 +6,7 @@ import { loadEconomy } from "../src/engine/content-fs.js";
 import { Game } from "../src/engine/game.js";
 import { resetIds } from "../src/state/state.js";
 import * as jobs from "../src/engine/jobs.js";
-import { tickExpansion } from "../src/engine/expansion.js";
+import { tickExpansion, onReadyingBotch } from "../src/engine/expansion.js";
 import { balances, ACCT } from "../src/state/ledger.js";
 
 let passed = 0;
@@ -74,6 +74,21 @@ const finishFitout = (g) => { for (const p of g.state.players) p.jobs = p.jobs.f
   jobs.runJobProgress(g.state, rival);
   assert.ok(rival.invoices.some((i) => i.amount === EX.shop.contract_value), "the landlord pays the trade its contract_value");
   ok("expansion contract: your growth puts a rival's crew to work (landlord pays contract_value)");
+}
+
+// A fit-out contract falling through COLLAPSES the move — you don't get the building.
+{
+  const g = game(); const me = g.currentPlayer; me.cash = 60;
+  g.startExpansion("shop");
+  const rival = g.state.players.find((p) => p !== me && p.jobs.some((j) => j.readying && j.readying_for === me.id));
+  const job = rival.jobs.find((j) => j.readying && j.readying_for === me.id);
+  onReadyingBotch(g.state, rival, job); // the rival stalls their fit-out
+  assert.ok(me.pendingExpansion.fitOutFailed, "the move is flagged collapsed");
+  g.state.turn += 1;
+  tickExpansion(g.state, me);
+  assert.equal(me.building, economy.starting_building, "the move collapsed — you did NOT move in");
+  assert.equal(me.pendingExpansion, null, "the move is abandoned (deposit forfeited)");
+  ok("expansion gating: a stalled/unbuilt fit-out collapses the move — no free move-in on expiry");
 }
 
 // Forfeit: can't cover the balance at move-in → deposit written off, stays put.

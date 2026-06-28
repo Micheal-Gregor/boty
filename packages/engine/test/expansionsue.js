@@ -24,13 +24,13 @@ assert.equal(baseRent, here.rent, "before readying: the current (low) rent");
 mover.pendingExpansion = { target: bigger.id, isImprove: false, targetName: bigger.name, readyTurn: g.state.turn + 1 };
 assert.equal(overheadFor(g.state, mover).rent, bigger.rent, "while readying: the NEW building's rent");
 assert.ok(bigger.rent > here.rent, "which is higher than the old shop's");
-mover.pendingExpansion = null;
-
-// Sue a staller: a fit-out portion the plumber holds for the mover, expired.
+// Sue a staller: a fit-out portion the plumber holds for the mover, expired (the move is live again).
+mover.pendingExpansion = { target: bigger.id, isImprove: false, targetName: bigger.name, deposit: 5, readyTurn: g.state.turn + 1 };
 const job = { id: "ready_plumber", name: "Ready the shop — plumber fit-out", value: 6, readying: true, readying_for: mover.id };
 plumber.jobs.push(job);
 const line = onReadyingBotch(g.state, plumber, job);
 assert.ok(line, "a stalled fit-out → the mover may sue");
+assert.ok(mover.pendingExpansion.fitOutFailed, "and the move is flagged to collapse");
 const claim = g.state.pendingDamages.find((c) => c.hirerId === mover.id && c.contractorId === plumber.id);
 assert.ok(claim, "mover gets a damages claim against the staller");
 assert.equal(claim.recipientId, mover.id, "recovers to the mover, not the bank");

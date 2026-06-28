@@ -75,19 +75,34 @@ function spawnContracts(state, mover, targetName, value, work, deadline) {
   return n;
 }
 
-/** A fit-out contractor missed the deadline → the mover (now paying the new rent for an unfinished
- *  building) may sue them for the contract value, recovered (capped). Returns a log line. */
+/** A fit-out contract fell through (yours OR a rival's you depend on) → the building can't be readied,
+ *  so the move COLLAPSES (flagged here, forfeited at the mover's next upkeep). If a RIVAL stalled a
+ *  contract you depend on, you may also sue them for the value (recovered, capped). */
 export function onReadyingBotch(state, contractor, job) {
-  const mover = state.players.find((p) => p.id === job.readying_for);
-  if (!mover || mover.bankrupt || contractor.bankrupt || mover.id === contractor.id) return null;
-  state.pendingDamages.push({ hirerId: mover.id, contractorId: contractor.id, jobId: job.id, jobName: job.name, value: job.value, recipientId: mover.id });
-  return `⚖️ ${mover.name} may sue ${contractor.name} for stalling ${job.name} (${w(job.value)} in damages)`;
+  const moverId = job.readying_for ?? contractor.id; // a rival's fit-out (readying_for) or your own
+  const mover = state.players.find((p) => p.id === moverId);
+  if (!mover || !mover.pendingExpansion) return null;
+  mover.pendingExpansion.fitOutFailed = true; // the move can't complete — a contract didn't deliver
+  if (job.readying_for && contractor.id !== mover.id && !contractor.bankrupt && !mover.bankrupt) {
+    state.pendingDamages.push({ hirerId: mover.id, contractorId: contractor.id, jobId: job.id, jobName: job.name, value: job.value, recipientId: mover.id });
+    return `⚠ ${mover.name}'s move stalls — ${contractor.name} botched the ${job.name}; may sue for ${w(job.value)} in damages`;
+  }
+  return `⚠ ${mover.name}'s ${job.name} fit-out fell through — the move will collapse`;
 }
 
 /** Upkeep hook: once readied, pay the balance + capitalise + move in, or forfeit the deposit. */
 export function tickExpansion(state, player) {
   const pe = player.pendingExpansion;
   if (!pe) return [];
+  // A fit-out contract fell through → the building never got readied. The move collapses: forfeit the
+  // deposit and stay put (you'd have sued any rival who stalled). You DON'T get the new building.
+  if (pe.fitOutFailed) {
+    post(state, player, `Forfeited the ${pe.targetName} readying deposit (fit-out collapsed)`, [
+      { acct: ACCT.REPAIRS, amt: pe.deposit }, { acct: ACCT.PREPAID, amt: -pe.deposit },
+    ]);
+    player.pendingExpansion = null;
+    return [`⚠ ${player.name}'s move to ${pe.targetName} collapsed — a fit-out contract fell through; forfeited the ${w(pe.deposit)} deposit, stays put`];
+  }
   // The move-in is GATED on the fit-out finishing: every readying contract (yours + any rival's you
   // depend on) must clear before you can move. Until then you're already paying the new building's
   // higher rent (overheadFor) on a shop you can't use — so dragging the fit-out, or a stalling rival,
