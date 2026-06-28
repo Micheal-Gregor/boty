@@ -71,12 +71,19 @@ export function tickCivics(state) {
   const lines = [];
   for (const civic of [...(state.civics ?? [])]) {
     if (state.turn <= civic.deadline_turn) continue;
+    const pm = state.players.find((x) => x.id === civic.pm_id);
     for (const c of civic.contracts) {
       if (c.done) continue;
       const p = state.players.find((x) => x.id === c.player_id);
       const job = p?.jobs.find((j) => j.id === c.job_id);
       if (job) for (const tid of job.assigned_tradesmen) { const t = p.tradesmen.find((x) => x.id === tid); if (t) t.assignedJob = null; }
       if (p) p.jobs = p.jobs.filter((j) => j.id !== c.job_id);
+      // The PM lost their (sizable) bonus because this contractor defaulted → may sue them for the
+      // share value, recovered to the PM (capped at what they can pay). Not against the PM's own slot.
+      if (pm && !pm.bankrupt && p && !p.bankrupt && c.player_id !== civic.pm_id) {
+        state.pendingDamages.push({ hirerId: civic.pm_id, contractorId: c.player_id, jobId: `${civic.id}_${c.player_id}`, jobName: `${civic.name} (defaulted share)`, value: c.value, recipientId: civic.pm_id });
+        lines.push(`⚖️ ${pm.name} may sue ${p.name} for defaulting on ${civic.name} (${w(c.value)} in damages)`);
+      }
     }
     lines.push(applyGlobal(state, civic.global_penalty, civic.name));
     state.civics = state.civics.filter((x) => x.id !== civic.id);

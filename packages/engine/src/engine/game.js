@@ -557,7 +557,8 @@ export class Game {
     this.state.pendingDamages = this.state.pendingDamages.filter((c) => c !== claim);
     this.state.pendingThreat = {
       type: "damages", jobId, hirerId: hirer.id, contractorId: claim.contractorId,
-      value: claim.value, jobName: claim.jobName, accuserLawyers: hirerLawyers, counterableBy: ["slick_lawyer"],
+      value: claim.value, jobName: claim.jobName, recipientId: claim.recipientId ?? null,
+      accuserLawyers: hirerLawyers, counterableBy: ["slick_lawyer"],
     };
     const contractor = this.#playerById(claim.contractorId);
     const msg = `⚖️ ${hirer.name} sues ${contractor.name} for botching ${claim.jobName} — ${w(claim.value)} in damages${hirerLawyers ? ", slick lawyer in tow" : ""}. ${contractor.name} may defend.`;
@@ -569,9 +570,16 @@ export class Game {
     const e = this.state.economy;
     const hirer = this.#playerById(t.hirerId);
     const contractor = this.#playerById(t.contractorId);
+    // recipientId set (e.g. a civic PM suing a defaulter) → damages are RECOVERED by that player,
+    // capped at what the loser can cover (no money creation). Otherwise they're a sink to the bank.
+    const recipient = t.recipientId ? this.#playerById(t.recipientId) : null;
+    const payout = (loser) => (recipient ? Math.max(0, Math.min(t.value, loser.cash)) : t.value);
+    const toWhom = recipient ? recipient.name : "the bank";
     if (!contest) {
-      cashOut(this.state, contractor, ACCT.LEGAL, t.value, "Damages — conceded");
-      return `🏳️ ${contractor.name} concedes — ${w(t.value)} in damages to the bank.`;
+      const paid = payout(contractor);
+      cashOut(this.state, contractor, ACCT.LEGAL, paid, "Damages — conceded");
+      if (recipient) cashIn(this.state, recipient, ACCT.OTHER_INCOME, paid, `Damages from ${contractor.name}`);
+      return `🏳️ ${contractor.name} concedes — ${w(paid)} in damages to ${toWhom}.`;
     }
     let defLawyers = 0;
     if (ownLawyer) {
@@ -587,8 +595,10 @@ export class Game {
     if (res.getsAway) {
       return `⚖️ ${contractor.name} WALKS the damages suit (rolled ${res.roll} ≤ ${g}, ${getawayOdds(g)}) — no damages; ${w(FEE)} fee each.`;
     }
-    cashOut(this.state, contractor, ACCT.LEGAL, t.value, "Damages — lost");
-    return `⚖️ ${hirer.name} WINS — ${contractor.name} pays ${w(t.value)} in damages to the bank (rolled ${res.roll} > ${g}); ${w(FEE)} fee each.`;
+    const paid = payout(contractor);
+    cashOut(this.state, contractor, ACCT.LEGAL, paid, "Damages — lost");
+    if (recipient) cashIn(this.state, recipient, ACCT.OTHER_INCOME, paid, `Damages from ${contractor.name}`);
+    return `⚖️ ${hirer.name} WINS — ${contractor.name} pays ${w(paid)} in damages to ${toWhom} (rolled ${res.roll} > ${g}); ${w(FEE)} fee each.`;
   }
 
   /** Auto-resolve pending damages claims for AI/CLI/harness: the hirer sues if it can spare a fee. */

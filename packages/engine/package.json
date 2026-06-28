@@ -22,7 +22,7 @@
   ],
   "scripts": {
     "start": "node bin/cli.js",
-    "test": "node test/smoke.js && node test/stage2.js && node test/stage3.js && node test/stage4.js && node test/ledger.js && node test/modifiers.js && node test/crew.js && node test/incidents.js && node test/subcontract.js && node test/routed.js && node test/expansion.js && node test/global.js && node test/projects.js && node test/equipment.js && node test/employment.js && node test/livingdeck.js && node test/poach_mayor.js && node test/jobladder.js && node test/wordofmouth.js && node test/civics.js && node test/referral.js && node test/defectsue.js && node test/difficulty.js && node test/replay.js",
+    "test": "node test/smoke.js && node test/stage2.js && node test/stage3.js && node test/stage4.js && node test/ledger.js && node test/modifiers.js && node test/crew.js && node test/incidents.js && node test/subcontract.js && node test/routed.js && node test/expansion.js && node test/global.js && node test/projects.js && node test/equipment.js && node test/employment.js && node test/livingdeck.js && node test/poach_mayor.js && node test/jobladder.js && node test/wordofmouth.js && node test/civics.js && node test/civicsue.js && node test/referral.js && node test/defectsue.js && node test/difficulty.js && node test/replay.js",
     "tune": "node tools/tune.js"
   },
   "license": "UNLICENSED"
