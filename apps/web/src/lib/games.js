@@ -5,6 +5,12 @@
 import { writable, get } from "svelte/store";
 import { supabase, supabaseReady } from "./supabase.js";
 import { user } from "./auth.js";
+import economy from "@boty/engine/data/economy.json";
+
+const TRADES = economy.services ?? [];
+// The first trade no seat has taken — so a joining human starts with a trade (never "unassigned"),
+// which they can still switch in the lobby.
+const firstFreeTrade = (seats) => TRADES.find((t) => !(seats ?? []).some((s) => s.trade === t)) ?? null;
 
 export const onlineGame = writable(null);   // the current games row (or null)
 export const onlineSeats = writable([]);    // game_seats rows for it, ordered by seat
@@ -36,7 +42,7 @@ export async function hostGame(difficulty = "standard") {
     else if (!/duplicate|unique/i.test(error.message)) return fail(error);
   }
   if (!game) return fail("Couldn't reserve a game code — try again.");
-  const { error: se } = await supabase.from("game_seats").insert({ game_id: game.id, seat: 0, user_id: me.id, display_name: nameOf(me) });
+  const { error: se } = await supabase.from("game_seats").insert({ game_id: game.id, seat: 0, user_id: me.id, display_name: nameOf(me), trade: firstFreeTrade([]) });
   if (se) return fail(se);
   await enterGame(game);
   lobbyBusy.set(false);
@@ -56,7 +62,7 @@ export async function joinByCode(rawCode) {
   if (!(seats ?? []).some((s) => s.user_id === me.id)) { // not already seated
     const seat = firstOpenSeat(seats ?? []);
     if (seat >= MAX_SEATS) return fail("That game is full.");
-    const { error: se } = await supabase.from("game_seats").insert({ game_id: game.id, seat, user_id: me.id, display_name: nameOf(me) });
+    const { error: se } = await supabase.from("game_seats").insert({ game_id: game.id, seat, user_id: me.id, display_name: nameOf(me), trade: firstFreeTrade(seats ?? []) });
     if (se) return fail(se);
   }
   await enterGame(game);
