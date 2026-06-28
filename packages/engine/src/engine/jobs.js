@@ -64,6 +64,18 @@ function hasToolPerWorker(player, job) {
   return !job.equipment_per_tradesman || job.assigned_tradesmen.every((tid) => player.equipment.some((e) => e.assigned_to === tid));
 }
 
+/** Hand any IDLE owned/rented tool to a working tool-less worker — best (fastest) first. Never moves
+ *  a tool already assigned to someone, so deliberate allocation still holds; this just stops your gear
+ *  sitting in the cupboard while a worker swings bare-handed. Owned tools are free and rented tools
+ *  cost their rent whether used or not, so using an idle one is always strictly better. */
+function autoEquip(state, player, tradesmanId) {
+  if (player.equipment.some((e) => e.assigned_to === tradesmanId)) return; // already geared
+  const idle = player.equipment
+    .filter((e) => e.assigned_to == null)
+    .sort((a, b) => findEquipment(state.economy, b.defId).speed - findEquipment(state.economy, a.defId).speed)[0];
+  if (idle) idle.assigned_to = tradesmanId;
+}
+
 /** One worker's work rate = their tool's speed (else base_hand_speed) ± their performance-review
  *  modifier (model A). Floored at 0 — a poor bare-handed worker just spins their wheels. */
 export function workerProductivity(economy, player, tradesmanId) {
@@ -124,6 +136,7 @@ export function assign(state, player, jobId, tradesmanId) {
 
   t.assignedJob = job.id;
   job.assigned_tradesmen.push(t.id);
+  autoEquip(state, player, t.id); // hand them an idle tool so owned gear actually gets used
   refreshState(state, player, job);
   return `${player.name} assigned ${t.id} to ${job.name} (${job.id}) — now ${job.state}`;
 }
@@ -249,6 +262,9 @@ export function expireOverdue(state, player) {
  */
 export function runJobProgress(state, player) {
   const lines = [];
+  // Heal any worker left bare-handed while a tool sits idle (e.g. gear freed by a retirement, or
+  // bought before the worker was hired) — so existing jobs pick up your gear too, not just new ones.
+  for (const job of player.jobs) for (const tid of job.assigned_tradesmen) autoEquip(state, player, tid);
   // Re-evaluate states first: a job auto-held for missing tools/shop earlier this turn (its
   // crew is still assigned) promotes to Active now that you've geared up or relocated.
   for (const job of player.jobs) refreshState(state, player, job);
