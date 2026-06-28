@@ -59,6 +59,7 @@ export function botActions(game, strategy = "balanced", opts = {}) {
   //    delivered player contracts alike (an honest debtor pays the trades; floating only invites
   //    a collections agency). Pending contracts (job still in progress) aren't due yet.
   for (const ap of [...p.payables]) {
+    if (opts.dodge && !ap.is_npc) continue; // a dodge-GC stiffs its subs (still pays NPC bills to avoid NPC court) — for the balance gate
     if (!ap.pending && state.turn >= ap.due_turn && p.cash >= ap.amount + over()) tryDo(() => game.payPayable(ap.id));
   }
 

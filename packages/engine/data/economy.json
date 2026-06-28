@@ -83,7 +83,8 @@
     "lawyer_shift": 2,
     "min_getaway": 1,
     "max_getaway": 5,
-    "legal_fee": 1
+    "legal_fee": 1,
+    "sue_loss_penalty": 3
   },
 
   "npc_demand": {

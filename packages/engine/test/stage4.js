@@ -311,8 +311,8 @@ function suableGame() {
   g.sue(debtor.id, debtor.payables[0].id);
   g.state.die = scriptedDie([4]);
   g.respondToThreat({ contest: true });
-  assert.equal(creditor.cash, c0 - FEE + 5, "creditor collects the 5 W debt, less the fee");
-  assert.equal(debtor.cash, d0 - FEE - 5, "debtor pays the debt + the fee");
+  assert.equal(creditor.cash, c0 - FEE + 5 + 3, "creditor collects the 5 W debt + 3 W punitive, less the fee");
+  assert.equal(debtor.cash, d0 - FEE - 5 - 3, "debtor pays the debt + 3 W punitive + the fee");
   assert.equal(debtor.payables.length, 0, "debt collected");
   ok("sue: defendant rolls above the line → creditor WINS, collects the debt");
 }

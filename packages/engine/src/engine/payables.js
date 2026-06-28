@@ -168,6 +168,7 @@ function tickPlayerWindow(state, player, ap) {
     return [`${player.name} is late paying ${ap.vendor} — a ${ap.sue_window_remaining}-turn sue window opens`];
   }
   ap.sue_window_remaining -= 1;
+  ap.turns_dodged = (ap.turns_dodged ?? 0) + 1; // a stalled player debt accrues dodge-count (mirrors NPC bills; cues a creditor to sue)
   if (ap.sue_window_remaining <= 0) {
     removeAp(player, ap);
     return [`${player.name}'s creditor never sued — ${ap.vendor} debt of ${w(ap.amount)} is forgiven`];

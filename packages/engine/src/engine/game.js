@@ -658,9 +658,14 @@ export class Game {
     if (res.getsAway) {
       return `⚖️ ${debtor.name} WALKS (rolled ${res.roll} ≤ ${g}, ${getawayOdds(g)}) — debt stands; ${w(FEE)} legal fee each.`;
     }
-    cashOut(this.state, debtor, ACCT.COGS_SUB, collectible, "Lost the suit — paid");
-    cashIn(this.state, creditor, ACCT.REVENUE, collectible, `Won suit vs ${debtor.name}`);
+    // Losing a suit over delivered work is reputational: beyond the debt you owe the stiffed
+    // tradesperson PUNITIVE damages (capped by what you can cover). This makes stalling a gamble
+    // that doesn't pay on average — crime can't out-earn paying on time (the A balance gate).
+    const punitive = Math.min(Math.max(0, debtor.cash - collectible), e.civil.sue_loss_penalty ?? 0);
+    cashOut(this.state, debtor, ACCT.COGS_SUB, collectible + punitive, "Lost the suit — paid + damages");
+    cashIn(this.state, creditor, ACCT.REVENUE, collectible + punitive, `Won suit vs ${debtor.name}`);
     settle();
-    return `⚖️ ${creditor.name} WINS (${debtor.name} rolled ${res.roll} > ${g}) — collects ${w(collectible)}${shortNote}; ${w(FEE)} legal fee each.`;
+    const punNote = punitive > 0 ? ` + ${w(punitive)} punitive` : "";
+    return `⚖️ ${creditor.name} WINS (${debtor.name} rolled ${res.roll} > ${g}) — collects ${w(collectible)}${punNote}${shortNote}; ${w(FEE)} legal fee each.`;
   }
 }
