@@ -6,6 +6,7 @@
   import { money } from "../lib/money.js";
   import { findEquipment } from "@boty/engine";
   import { crewIdentity } from "../lib/crew.js";
+  import { settings } from "../lib/settings.js";
   import Art from "./Art.svelte";
 
   const econ = $derived($ui.economy);
@@ -30,8 +31,8 @@
     if (show.equip) for (const e of me.equipment) out.push({ kind: "equipment", id: e.id, type: "Equipment", title: gearName(e), sub: e.assigned_to ? `→ ${crewIdentity(e.assigned_to).name}` : "💤 idle", art: ["equipment", equipArtId(e), e.id] });
     if (show.jobs) for (const j of me.jobs) out.push({ kind: "job", id: j.id, type: "Job", title: j.name, sub: `${j.work_done}/${j.work_amount} · ${$money(j.value)}`, art: ["card", j.art ?? j.card] });
     if (show.persistent) for (const m of me.modifiers ?? []) out.push({ kind: "mod", type: "Persistent", title: m.name, sub: m.positive ? "🛡️ standing" : "⚠️ standing", icon: m.positive ? "🛡️" : "⚠️" });
-    if (show.playable) for (const c of me.hand ?? []) out.push({ kind: "play", type: "Playable", title: c.name, sub: "🃏 hand card", icon: "🃏" });
-    if (show.global) for (const g of view.globalEffects ?? []) out.push({ kind: "global", id: g.id, type: "Global", title: g.name, sub: g.kind === "union" ? "until busted" : `${g.turnsLeft} round(s) left`, icon: "🌐" });
+    if (show.playable) for (const c of me.hand ?? []) out.push({ kind: "play", type: "Playable", title: c.name, sub: "🃏 hand card", icon: "🃏", art: ["card", c.art ?? c.id ?? c.type] });
+    if (show.global) for (const g of view.globalEffects ?? []) out.push({ kind: "global", id: g.id, type: "Global", title: g.name, sub: g.kind === "union" ? "until busted" : `${g.turnsLeft} round(s) left`, icon: "🌐", art: ["card", g.art ?? (g.kind === "union" ? "union_drive" : g.kind === "boom" ? "county_fair" : "downtown_storm")] });
     return out;
   });
 
@@ -57,7 +58,7 @@
       <div class="cc-scroll" bind:this={scroller} onscroll={onScroll}>
         {#each items as it, i (it.kind + (it.id ?? it.title))}
           <button class="cc" class:active={i === activeIdx} class:near={Math.abs(i - activeIdx) === 1} class:flat={!openable(it.kind)} onclick={() => clickCard(it)}>
-            <div class="cc-art">{#if it.art}<Art kind={it.art[0]} id={it.art[1]} seed={it.art[2] ?? ""} label={it.title} />{:else}<div class="cc-icon">{it.icon}</div>{/if}</div>
+            <div class="cc-art">{#if it.art}<Art kind={it.art[0]} id={it.art[1]} seed={it.art[2] ?? ""} label={it.title} autoplay={i === activeIdx && $settings.animateCards} />{:else}<div class="cc-icon">{it.icon}</div>{/if}</div>
             <div class="cc-type">{it.type}</div>
             <div class="cc-title">{it.title}</div>
             <div class="cc-sub muted">{it.sub}</div>

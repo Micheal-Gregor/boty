@@ -200,7 +200,7 @@ export class Game {
   fire(tradesmanId, opts = {}) {
     return this.#act((p) => {
       let ownLawyer = false;
-      if (opts.ownLawyer && cards.hasCardType(p, "slick_lawyer")) { cards.takeFromHand(p, cards.findHandCard(p, "slick_lawyer").index); ownLawyer = true; }
+      if (opts.ownLawyer && cards.hasCardType(p, "slick_lawyer")) { cards.playLawyer(this.state, p); ownLawyer = true; }
       return employment.fireWorker(this.state, p, tradesmanId, { ownLawyer, rolls: opts.rolls ?? null });
     });
   }
@@ -515,7 +515,7 @@ export class Game {
     if (!ap.sue_window_remaining || ap.sue_window_remaining <= 0) throw new GameError(`The sue window on ${payableId} is closed`);
 
     let creditorLawyers = 0;
-    if (opts.slick) { const f = cards.findHandCard(creditor, "slick_lawyer"); cards.takeFromHand(creditor, f.index); creditorLawyers = 1; }
+    if (opts.slick) { cards.playLawyer(this.state, creditor); creditorLawyers = 1; }
 
     this.state.pendingThreat = {
       type: "sue", creditorId: creditor.id, debtorId, payableId, creditorLawyers,
@@ -553,7 +553,7 @@ export class Game {
     const claim = this.state.pendingDamages.find((c) => c.jobId === jobId && c.hirerId === hirer.id);
     if (!claim) throw new GameError(`No damages claim for "${jobId}"`);
     let hirerLawyers = 0;
-    if (opts.slick) { const f = cards.findHandCard(hirer, "slick_lawyer"); cards.takeFromHand(hirer, f.index); hirerLawyers = 1; }
+    if (opts.slick) { cards.playLawyer(this.state, hirer); hirerLawyers = 1; }
     this.state.pendingDamages = this.state.pendingDamages.filter((c) => c !== claim);
     this.state.pendingThreat = {
       type: "damages", jobId, hirerId: hirer.id, contractorId: claim.contractorId,
@@ -576,7 +576,7 @@ export class Game {
     let defLawyers = 0;
     if (ownLawyer) {
       if (!cards.hasCardType(contractor, "slick_lawyer")) throw new GameError(`${contractor.name} has no Slick Lawyer`);
-      cards.takeFromHand(contractor, cards.findHandCard(contractor, "slick_lawyer").index);
+      cards.playLawyer(this.state, contractor);
       defLawyers = 1;
     }
     const g = getawayThreshold(e, e.civil.getaway_dispute, defLawyers, t.accuserLawyers);
@@ -645,7 +645,7 @@ export class Game {
     let defLawyers = 0;
     if (ownLawyer) {
       if (!cards.hasCardType(debtor, "slick_lawyer")) throw new GameError(`${debtor.name} has no Slick Lawyer to play`);
-      cards.takeFromHand(debtor, cards.findHandCard(debtor, "slick_lawyer").index);
+      cards.playLawyer(this.state, debtor);
       defLawyers = 1;
     }
     // Refusing to pay for delivered work is the clearly-wrong case → owed base (walk on 1–2).

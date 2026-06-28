@@ -29,6 +29,15 @@ export function hasCardType(player, type) {
   return player.hand.some((c) => c.type === type);
 }
 
+/** Spend a held Slick Lawyer and log a distinct line every client surfaces (the showcase reveal). */
+export function playLawyer(state, player) {
+  const i = player.hand.findIndex((c) => c.type === "slick_lawyer");
+  if (i < 0) return false;
+  takeFromHand(player, i);
+  state.log.push(`🧑‍⚖️ ${player.name} plays a Slick Lawyer`);
+  return true;
+}
+
 // --- Effects ----------------------------------------------------------------------------
 
 /** Sabotage lands: shrink the job's runway by pulling its deadline earlier. */

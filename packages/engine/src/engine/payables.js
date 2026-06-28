@@ -146,7 +146,7 @@ export function resolveCourt(state, caseEntry, useLawyer, accuserLawyers = 0, ro
   let defLawyers = 0;
   if (useLawyer) {
     const idx = player.hand.findIndex((c) => c.type === "slick_lawyer");
-    if (idx >= 0) { player.hand.splice(idx, 1); defLawyers = 1; }
+    if (idx >= 0) { player.hand.splice(idx, 1); defLawyers = 1; state.log.push(`🧑‍⚖️ ${player.name} plays a Slick Lawyer`); }
   }
   // A collections case carries the agency's guaranteed lawyer on the accuser's side.
   const accLawyers = accuserLawyers + (caseEntry.agencyLawyer ? 1 : 0);

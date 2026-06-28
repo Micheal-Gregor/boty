@@ -286,6 +286,9 @@ function surfaceNewOutcomes() {
   if (!game) return;
   const log = game.state.log;
   for (let i = lastScanned; i < log.length; i++) {
+    // The Slick Lawyer showcase: whoever plays one, EVERY client reveals the (forced) animation.
+    const law = /🧑‍⚖️ (.+?) plays a Slick Lawyer/.exec(log[i]);
+    if (law) { enqueuePopup({ kind: "card", cardId: "slick_lawyer", art: "slick_lawyer", name: "Slick Lawyer", forceAnim: true, flavor: "Objection!", text: `${law[1]} brings in the Slick Lawyer.` }); playSfx("gavel", 0.5); }
     for (const [re, title, body] of ALERTS) { const m = re.exec(log[i]); if (m) { enqueuePopup({ kind: "alert", title, body: body(m) }); break; } }
     for (const [re, id, sting] of SOUND_CUES) { if (re.test(log[i])) { sting ? playSting(id) : playSfx(id, 0.5); break; } }
   }

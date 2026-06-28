@@ -81,7 +81,7 @@
 
       {:else if p.kind === "card"}
         {#if p.who}<div class="pop-rival">{p.isAi ? "🤖" : "👤"} {p.who} drew — not your card:</div>{:else if p.rival}<div class="pop-rival">🤖 {p.rival} drew:</div>{/if}
-        <div class="pop-art" class:others={p.who}><Art kind="card" id={p.art ?? p.cardId} label={p.name} autoplay={!p.rival && !p.who && $settings.animateCards} /></div>
+        <div class="pop-art" class:others={p.who}><Art kind="card" id={p.art ?? p.cardId} label={p.name} autoplay={p.forceAnim || $settings.animateCards} /></div>
         <h2>{p.name}</h2>
         {#if p.flavor}<p class="pop-flavor">“{$cashText(p.flavor)}”</p>{/if}
         <p class="pop-effect" class:hit={p.text?.includes("⚡")} class:gain={p.text?.includes("💰")}>{$cashText(p.text)}</p>

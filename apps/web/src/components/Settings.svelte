@@ -71,7 +71,7 @@
 
 <style>
   .pop-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.55); display: flex; align-items: center; justify-content: center; z-index: 70; padding: 16px; }
-  .pop { background: var(--panel, #161a22); border: 1px solid var(--accent, #e0b341); border-radius: 14px; padding: 18px 20px; max-width: 380px; width: 100%; }
+  .pop { background: var(--panel, #161a22); border: 1px solid var(--accent, #e0b341); border-radius: 14px; padding: 18px 20px; max-width: 380px; width: 100%; max-height: 85vh; overflow-y: auto; }
   .pop h2 { margin: 0 0 12px; }
   .pop h3 { margin: 16px 0 8px; font-size: 0.92em; }
   .set-row { display: flex; justify-content: space-between; align-items: center; padding: 8px 0; border-bottom: 1px solid var(--line, #2a2f3a); }
