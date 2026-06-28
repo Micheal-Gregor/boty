@@ -280,6 +280,7 @@ const SOUND_CUES = [
   [/COLLAPSED past deadline/, "sting_collapse", true], // a project/civic blows its deadline — balance forfeit
   [/⚖️.*(WINS|WALKS|SUED AND WON|lost in court)/, "sting_verdict", true], // a lawsuit is decided — the gavel falls
   [/✔ .* completed/, "job_done", false],
+  [/a \d+-turn sue window opens/i, "gavel", false], // a player debt just went past due → you can sue (the AR view shows ⚖️ Sue)
   [/collects .* in receivables|settles up|paid in full/i, "cash_register", false],
   [/walks anyway|poached|🚪|let .* go|fired/i, "worker_leaves", false],
 ];
