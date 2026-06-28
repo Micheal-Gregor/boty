@@ -627,9 +627,23 @@ export class Game {
     // loses any AR from it, and a forced job hands its client a suable deposit debt.
     if (this.state.phase === "reckoning") {
       const owed = jobs.abandonJob(this.state, owner, job);
-      return `💥 At the buzzer, ${owner.name}'s ${job.name} is sunk for good${owed ? ` — ${owed}` : " — no payday there"}.`;
+      return `💥 At the buzzer, ${owner.name}'s ${job.name} is sunk for good${owed ? ` — ${owed}` : " — no payday there"}.${this.#sabotageCaught(t, job)}`;
     }
-    return `💥 Word gets around the Hollow: ${owner.name}'s ${job.name} slips toward the wire — ${cards.applySabotage(this.state.economy, job)}.`;
+    const sab = cards.applySabotage(this.state.economy, job);
+    return `💥 Word gets around the Hollow: ${owner.name}'s ${job.name} slips toward the wire — ${sab}.${this.#sabotageCaught(t, job)}`;
+  }
+
+  /** G: a landed sabotage rolls a CAUGHT die. Caught (d6 ≤ threshold) → the victim may sue the
+   *  saboteur for damages (recovered, capped). Private security will later raise the catch odds. */
+  #sabotageCaught(t, job) {
+    const c = this.state.economy.cards;
+    if (this.state.die() > (c.sabotage_caught ?? 2)) return ""; // got away clean
+    const victim = this.#playerById(t.ownerId);
+    const attacker = this.#playerById(t.attackerId);
+    if (!victim || !attacker || victim.bankrupt || attacker.bankrupt) return "";
+    const value = c.sabotage_damages ?? 4;
+    this.state.pendingDamages.push({ hirerId: victim.id, contractorId: attacker.id, jobId: `sab_${job.id}`, jobName: job.name, value, recipientId: victim.id });
+    return ` — but ${attacker.name} is CAUGHT red-handed; ${victim.name} may sue for ${w(value)} damages`;
   }
 
   #resolveSue(t, { contest = true, ownLawyer = false, roll = null }) {

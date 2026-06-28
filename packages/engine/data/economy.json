@@ -73,7 +73,9 @@
   "cards": {
     "sabotage_delay": 2,
     "rush_work": 3,
-    "buy_time_turns": 2
+    "buy_time_turns": 2,
+    "sabotage_caught": 2,
+    "sabotage_damages": 4
   },
 
   "civil": {
