@@ -525,15 +525,10 @@
         "electrician",
         "HVAC technician"
       ],
-      "value": 10,
-      "work_amount": 6,
+      "value": 6,
+      "pm_fee": 3,
       "deadline": 4,
-      "terms": 1,
-      "min_tradesmen": 1,
-      "max_tradesmen": 2,
-      "required_equipment": null,
-      "droppable": true,
-      "flavor": "A water main bursts under the Grange hall and floods the basement — a plumber to cap the line, an electrician for the drowned panel, and HVAC to dry the place out."
+      "flavor": "A water main bursts under the Grange hall and floods the basement — a plumber to cap the line, an electrician for the drowned panel, and HVAC to dry the place out. You round up the crews."
     },
     {
       "type": "civic",
@@ -567,15 +562,70 @@
         "pipefitter",
         "mechanic"
       ],
-      "value": 10,
-      "work_amount": 6,
+      "value": 6,
+      "pm_fee": 3,
       "deadline": 4,
-      "terms": 2,
-      "min_tradesmen": 1,
-      "max_tradesmen": 2,
-      "required_equipment": "basic",
-      "droppable": true,
-      "flavor": "The old mill grinds to a halt — steel cracked, pipe split, machinery seized. The Hollises need it running by week's end."
+      "flavor": "The old mill grinds to a halt — steel cracked, pipe split, machinery seized. The Hollises need it running by week's end, and you're coordinating the crews."
+    },
+    {
+      "type": "incident",
+      "copies": 1,
+      "id": "rail_depot",
+      "name": "Fire at the rail depot",
+      "trades": [
+        "mechanic",
+        "plumber",
+        "welder"
+      ],
+      "value": 6,
+      "pm_fee": 3,
+      "deadline": 4,
+      "flavor": "A fire guts the rail depot — seized machinery, burst sprinkler mains, and warped steel framing. Three trades, one coordinator: you."
+    },
+    {
+      "type": "incident",
+      "copies": 1,
+      "id": "bijou",
+      "name": "The Bijou theater goes dark",
+      "trades": [
+        "electrician",
+        "pipefitter",
+        "HVAC technician"
+      ],
+      "value": 6,
+      "pm_fee": 3,
+      "deadline": 4,
+      "flavor": "Opening night at the Bijou and the power, the boiler lines, and the air handling all quit at once. Round up the trades before the curtain."
+    },
+    {
+      "type": "incident",
+      "copies": 1,
+      "id": "grain_elevator",
+      "name": "Grain elevator emergency",
+      "trades": [
+        "mechanic",
+        "electrician",
+        "pipefitter"
+      ],
+      "value": 6,
+      "pm_fee": 3,
+      "deadline": 4,
+      "flavor": "The grain elevator's conveyor jams, the wiring shorts, and the dust-suppression piping fails — all before harvest. You pull the crews together."
+    },
+    {
+      "type": "incident",
+      "copies": 1,
+      "id": "market_hall",
+      "name": "Market hall roof collapse",
+      "trades": [
+        "plumber",
+        "welder",
+        "HVAC technician"
+      ],
+      "value": 6,
+      "pm_fee": 3,
+      "deadline": 4,
+      "flavor": "Snow load caves part of the market hall roof — sprinkler lines sheared, steel trusses down, the vents crushed. You take point on the repair."
     },
     {
       "type": "windfall",

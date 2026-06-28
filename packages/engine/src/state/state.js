@@ -267,6 +267,9 @@ export function createGame(economy, playerSeeds, options = {}) {
     civics: [], // town-wide civic contracts in flight (one sub-contract per player + PM) — civics.js
     routed: [], // 3-trade GC contracts in flight (routed.js): bill the client net-90 when all portions land
     routedSeq: 0, // per-game counter for routed-contract ids (lockstep-safe; reset with the state)
+    incidents: [], // "light civic" incident contracts in flight (incidents.js): mini-PM fee on all-deliver
+    incidentSeq: 0, // per-game counter for incident-contract ids
+    civicSeq: 0, projectSeq: 0, globalSeq: 0, // per-state id counters (lockstep-safe; module counters retired)
     turn: 1, // 1-based round counter; game ends after round === max_turns completes
     activePlayerIndex: firstSeat, // round-1 lead-off (0 unless rotateFirst rolled otherwise)
     over: false,

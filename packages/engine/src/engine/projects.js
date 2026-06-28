@@ -12,8 +12,7 @@ import { createJob, createPayable } from "../state/state.js";
 import { cashIn, accrue, ACCT } from "../state/ledger.js";
 import { applyGlobal } from "./globals.js";
 
-let counter = 0;
-export function resetProjects() { counter = 0; }
+export function resetProjects() {} // ids are now per-state (state.projectSeq) — lockstep-safe
 const byId = (state, id) => state.players.find((p) => p.id === id);
 const favorCard = () => ({ id: "favor", type: "favor", name: "Favor" });
 
@@ -22,8 +21,9 @@ export function startProject(state, lead, card) {
   const value = card.value;
   const deposit = Math.round(value * (card.deposit_fraction ?? 0.5));
   const balance = value - deposit;
+  state.projectSeq = (state.projectSeq ?? 0) + 1;
   const project = {
-    id: `${card.id}#${++counter}`, name: card.name, leadId: lead.id, value, deposit, balance,
+    id: `${card.id}#${state.projectSeq}`, name: card.name, leadId: lead.id, value, deposit, balance,
     deadlineTurn: state.turn + (card.deadline ?? 6),
     political: card.political ?? false, favor_reward: card.favor_reward ?? 0, global_penalty: card.global_penalty ?? null,
     phases: [],

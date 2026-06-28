@@ -1,35 +1,77 @@
-// Building incidents (WORLD.md §C) — the work engine reframed. A drawn incident at a town building
-// spawns one TENDER per trade the building needs, each handed to the player who runs that trade as
-// their own NPC-paid job (the building owner is the customer — the drawer isn't on the hook). It's
-// how "the community" puts work on the table: everyone picks up the tenders matching their trade.
+// Building incidents (Build E) — "light civics". A drawn incident at a town building spawns one
+// NPC-paid TENDER per trade it needs, handed to the player who runs that trade. The drawer is a
+// mini-PM: coordinate it (every tender delivered) and take a small PM fee; let a contractor stall
+// and you LOSE the fee and may sue the defaulter (the recipient-damages path from C). Lighter than a
+// civic — no town-wide levy, just the PM's fee at stake. The contractors are paid by the building
+// owner (NPC) either way, so this is the "community puts work on the table" stream.
 
 import { createJob } from "../state/state.js";
+import { cashIn, ACCT } from "../state/ledger.js";
 import { w } from "./economy.js";
 
-/** The solvent player who runs a trade (prefer the drawer when they match it). */
-function tradePlayer(state, trade, drawer) {
-  const who = state.players.filter((p) => !p.bankrupt && p.service === trade);
-  if (drawer && who.includes(drawer)) return drawer;
-  return who[0] ?? null;
+/** The solvent player who runs a trade (prefer the PM/drawer when they match it). */
+function tradePlayer(state, trade, pm) {
+  if (pm && !pm.bankrupt && pm.service === trade) return pm;
+  return state.players.find((p) => !p.bankrupt && p.service === trade) ?? null;
 }
 
-/**
- * Resolve a building incident: for each trade the building needs, spawn a tender into the matching
- * trade-player's queue. Trades nobody runs are handled by an NPC off-screen (no tender). Returns a
- * summary of who got what.
- */
-export function applyIncident(state, drawer, card) {
-  const tenders = [];
+/** Resolve a building incident as a mini-PM contract. Returns a Fortune-feed summary. */
+export function applyIncident(state, pm, card) {
+  state.incidents = state.incidents ?? [];
+  state.incidentSeq = (state.incidentSeq ?? 0) + 1;
+  const id = `IN${state.incidentSeq}`;
+  const fee = card.pm_fee ?? 3;
+  const value = card.value ?? 6; // NPC-paid tender value per trade
+  const deadline = card.deadline ?? 4;
+  const contract = { id, pm_id: pm.id, fee, deadline_turn: state.turn + deadline, portions: [], failed: false };
+  const notes = [];
   for (const trade of card.trades ?? []) {
-    const who = tradePlayer(state, trade, drawer);
-    if (!who) continue; // no local trade for it → the NPC sorts it out
-    const job = createJob({ ...card, required_trade: null }, state.turn); // a plain NPC-paid job
-    job.name = `${card.name} — ${trade}`;
-    who.jobs.push(job);
-    tenders.push({ trade, playerId: who.id, jobId: job.id, value: job.value, name: who.name });
+    const taker = tradePlayer(state, trade, pm);
+    if (taker) {
+      const job = createJob({ id: `${card.id}_${trade}`, name: `${card.name} — ${trade}`, value, work_amount: value, deadline, terms: 1, min_tradesmen: 1, max_tradesmen: 1, required_equipment: null, droppable: false }, state.turn);
+      job.incident_id = id;
+      taker.jobs.push(job);
+      contract.portions.push({ trade, job_id: job.id, sub_id: taker.id, done: false });
+      notes.push(`${trade}→${taker.name}`);
+    } else {
+      contract.portions.push({ trade, bank: true, done: true }); // no local trade → the county covers it
+      notes.push(`${trade}→county`);
+    }
   }
-  const summary = tenders.length
-    ? tenders.map((t) => `${t.trade}→${t.name}`).join(", ")
-    : "no local trade could take it";
-  return { type: "incident", name: card.name, tenders, text: `incident at ${card.name}: ${tenders.length} tender(s) — ${summary}` };
+  state.incidents.push(contract);
+  maybeCompleteIncident(state, contract);
+  return { type: "incident", name: card.name, text: `🚧 ${card.name} — ${pm.name} coordinates (${notes.join(", ")}); ${w(fee)} PM fee if it all lands` };
+}
+
+/** A tender was delivered → mark it; pay the PM fee when the last one lands. */
+export function onIncidentTenderComplete(state, job) {
+  const c = (state.incidents ?? []).find((x) => x.id === job.incident_id);
+  if (!c || c.failed) return;
+  const p = c.portions.find((x) => x.job_id === job.id);
+  if (p) p.done = true;
+  maybeCompleteIncident(state, c);
+}
+
+function maybeCompleteIncident(state, c) {
+  if (c.failed || !c.portions.every((p) => p.done)) return;
+  const pm = state.players.find((p) => p.id === c.pm_id);
+  if (pm && !pm.bankrupt) {
+    cashIn(state, pm, ACCT.OTHER_INCOME, c.fee, `Incident PM fee (${c.id})`);
+    state.log.push(`🚧 ${pm.name} coordinated the incident in full — takes a ${w(c.fee)} PM fee`);
+  }
+  state.incidents = state.incidents.filter((x) => x.id !== c.id);
+}
+
+/** A tender fell through → the PM loses the fee and may sue the defaulter (recovered, capped). */
+export function onIncidentTenderBotch(state, contractor, job) {
+  const c = (state.incidents ?? []).find((x) => x.id === job.incident_id);
+  if (!c || c.failed) return null;
+  c.failed = true;
+  state.incidents = state.incidents.filter((x) => x.id !== c.id);
+  const pm = state.players.find((p) => p.id === c.pm_id);
+  if (pm && !pm.bankrupt && contractor && !contractor.bankrupt && contractor.id !== pm.id) {
+    state.pendingDamages.push({ hirerId: pm.id, contractorId: contractor.id, jobId: `inc_${job.id}`, jobName: job.name, value: job.value, recipientId: pm.id });
+    return `⚖️ ${pm.name} may sue ${contractor.name} for stalling ${job.name} (${w(job.value)} damages) — and loses the PM fee`;
+  }
+  return `🚧 ${pm?.name ?? "the coordinator"} loses the PM fee — ${job.name} fell through`;
 }

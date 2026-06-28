@@ -10,15 +10,15 @@ import { applyGlobal } from "./globals.js";
 import { findBuilding, w } from "./economy.js";
 import { seasonName } from "./season.js";
 
-let counter = 0;
-export function resetCivics() { counter = 0; }
+export function resetCivics() {} // ids are now per-state (state.civicSeq) — reset with the state, lockstep-safe
 
 // Contract size by the player's building tier.
 const CONTRACT = { 1: { crew: 2, value: 8 }, 2: { crew: 3, value: 12 }, 3: { crew: 4, value: 16 } };
 
 /** One sub-contract per solvent player; the drawer is PM. Returns the announcement line. */
 export function startCivic(state, drawer, card) {
-  const id = `CV${++counter}`;
+  state.civicSeq = (state.civicSeq ?? 0) + 1;
+  const id = `CV${state.civicSeq}`;
   // Match fortune.js's art keying: a seasonal storm follows the season; everything else is by id.
   const art = card.art ?? (card.seasonal_storm ? `civic/storm/${seasonName(state).toLowerCase()}` : `civic/${card.id}`);
   const penalty = card.global_penalty ?? { name: `${card.name} overrun`, kind: "levy", magnitude: 1, turns: 3 };
