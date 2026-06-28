@@ -247,9 +247,10 @@ function resolveCard(state, player, card) {
     }
     case "windfall":
     case "shock": {
-      if (card.work) { // a weather/storm shock: lost work, not cash
+      if (card.work) { // a setback that costs WORK, not cash (weather, a broken rig, …)
+        const icon = card.icon ?? "⛈️";
         const lost = workSetback(player, card.work);
-        const text = lost > 0 ? `⛈️ −${lost} work` : "⛈️ a wash — no work underway to lose";
+        const text = lost > 0 ? `${icon} −${lost} work` : `${icon} a wash — no work underway to lose`;
         return { type: card.type, name: card.name, work: -lost, text };
       }
       const amount = cashEffect(state, player, card);

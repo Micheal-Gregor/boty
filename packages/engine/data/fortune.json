@@ -251,7 +251,8 @@
       "copies": 2,
       "id": "equipment_breakdown",
       "name": "Equipment breakdown",
-      "cash": -3,
+      "work": 2,
+      "icon": "🔧",
       "flavor": "Your good compressor gives up the ghost — naturally, on a Friday afternoon.",
       "flavor_by_season": {
         "Winter": "The cold cracks a hydraulic line clean through — your good rig's down till the thaw."
