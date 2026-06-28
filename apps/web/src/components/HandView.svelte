@@ -31,7 +31,7 @@
     if (show.equip) for (const e of me.equipment) out.push({ kind: "equipment", id: e.id, type: "Equipment", title: gearName(e), sub: e.assigned_to ? `→ ${crewIdentity(e.assigned_to).name}` : "💤 idle", art: ["equipment", equipArtId(e), e.id] });
     if (show.jobs) for (const j of me.jobs) out.push({ kind: "job", id: j.id, type: "Job", title: j.name, sub: `${j.work_done}/${j.work_amount} · ${$money(j.value)}`, art: ["card", j.art ?? j.card] });
     if (show.persistent) for (const m of me.modifiers ?? []) out.push({ kind: "mod", type: "Persistent", title: m.name, sub: m.positive ? "🛡️ standing" : "⚠️ standing", icon: m.positive ? "🛡️" : "⚠️", art: ["card", m.art ?? (m.kind === "union" ? "union_drive" : m.kind)] });
-    if (show.playable) for (const c of me.hand ?? []) out.push({ kind: "play", type: "Playable", title: c.name, sub: "🃏 hand card", icon: "🃏", art: ["card", c.art ?? c.id ?? c.type] });
+    if (show.playable) for (const c of me.hand ?? []) out.push({ kind: "play", type: "Playable", title: c.name, sub: c.type === "favor" ? "🪙 political currency" : "🃏 hand card", icon: c.type === "favor" ? "🪙" : "🃏", art: ["card", c.art ?? c.id ?? c.type] });
     if (show.global) for (const g of view.globalEffects ?? []) out.push({ kind: "global", id: g.id, type: "Global", title: g.name, sub: g.kind === "union" ? "until busted" : `${g.turnsLeft} round(s) left`, icon: "🌐", art: ["card", g.art ?? (g.kind === "union" ? "union_drive" : g.kind === "boom" ? "county_fair" : "downtown_storm")] });
     return out;
   });

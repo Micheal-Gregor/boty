@@ -113,7 +113,7 @@
 
 <style>
   .pop-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.55); display: flex; align-items: center; justify-content: center; z-index: 60; padding: 16px; }
-  .pop { background: var(--panel, #161a22); border: 1px solid var(--accent, #e0b341); border-radius: 14px; padding: 18px 20px; max-width: 420px; width: 100%; box-shadow: 0 12px 40px rgba(0,0,0,0.5); }
+  .pop { background: var(--panel, #161a22); border: 1px solid var(--accent, #e0b341); border-radius: 14px; padding: 18px 20px; max-width: 420px; width: 100%; max-height: 90vh; overflow-y: auto; box-shadow: 0 12px 40px rgba(0,0,0,0.5); }
   .pop h2 { margin: 0 0 6px; }
   .pop h3 { margin: 14px 0 6px; font-size: 0.95em; }
   .pop-art { margin-bottom: 10px; border-radius: 10px; overflow: hidden; text-align: center; }

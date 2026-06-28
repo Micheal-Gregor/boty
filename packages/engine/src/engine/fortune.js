@@ -385,7 +385,9 @@ export function resolveCard(state, player, card) {
       const event = state.civilEventDeck.draw();
       if (!event) return { type: "summons", name: card.name, text: "courthouse closed (no event)" };
       const lines = resolveCivilEvent(state, player, event);
-      return { type: "summons", name: card.name, event: event.name, text: lines.join("; ") };
+      // Lead with the drawn event's name so it reads as "the docket called THIS" — not as if the
+      // Courthouse-day card itself were a beauty pageant (the civil deck holds one windfall among the suits).
+      return { type: "summons", name: card.name, event: event.name, text: `📋 The docket calls — “${event.name}”: ${lines.join("; ")}` };
     }
     default:
       return { type: card.type ?? "unknown", name: card.name ?? "?", text: "(unhandled card type)" };

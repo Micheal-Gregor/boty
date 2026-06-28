@@ -677,13 +677,36 @@ export function playFavor(targetId, modId) {
   push({ error: null });
 }
 
-/** If the threatened player is AI, auto-respond; otherwise surface a modal for the human. */
+/** Resolve the response to a threat I just raised. A human target defends via the modal. An AI target:
+ *  sabotage → it just rushes-or-eats it; a sue/damages → if it can't afford the fee it folds, otherwise
+ *  it FIGHTS and we roll the verdict die in the court pop-up (you watch the rival try to wriggle out). */
 function resolveThreat() {
   const t = game.state.pendingThreat;
   if (!t) return push({ error: null });
   const targetId = t.type === "sabotage" ? t.ownerId : t.type === "damages" ? t.contractorId : t.debtorId;
-  if (ai[targetId]) { aiRespond(t, targetId); push({ error: null, threat: null }); surfaceNewOutcomes(); refreshDamages(); } // AI auto-defends → surface the court verdict
-  else { playSfx("gavel", 0.5); push({ error: null, threat: viewThreat(t) }); }
+  if (!ai[targetId]) { playSfx("gavel", 0.5); return push({ error: null, threat: viewThreat(t) }); } // human defends via modal
+  const target = player(targetId);
+  if (t.type === "sabotage") { aiRespond(t, targetId); push({ error: null, threat: null }); surfaceNewOutcomes(); refreshDamages(); return; }
+  const canFight = target.cash >= economy.civil.legal_fee;
+  const ownLawyer = handHas(target, "slick_lawyer");
+  if (!canFight) { // can't cover the fee → folds, you win outright (no roll)
+    try { game.respondToThreat({ contest: false, ownLawyer: false }); } catch (e) { return fail(e?.message ?? String(e)); }
+    push({ error: null, threat: null }); surfaceNewOutcomes(); refreshDamages(); return;
+  }
+  const thr = game.threatThreshold(ownLawyer);
+  push({ threat: null }); playSfx("gavel", 0.5);
+  openDice({
+    title: t.type === "damages" ? `${target.name} defends — damages suit` : `${target.name} fights your suit`,
+    noCancel: true,
+    sub: `They walk on ${thr}-or-under${ownLawyer ? " · their Slick Lawyer's in" : ""} — roll the verdict die`,
+    steps: [{ prompt: "Roll the verdict", resolve: (v) => v <= thr
+      ? { text: `🛡️ Rolled ${v} — ${target.name} WALKS (${thr}-or-under). The claim's dismissed.`, stop: true, tone: "bad" }
+      : { text: `⚖️ Rolled ${v} — over ${thr}. ${target.name} LOSES — they pay up.`, stop: true, tone: "good" } }],
+    onDone: ([roll]) => {
+      try { game.respondToThreat({ contest: true, ownLawyer, roll }); } catch (e) { return fail(e?.message ?? String(e)); }
+      push({ threat: null }); surfaceNewOutcomes(); refreshDamages();
+    },
+  });
 }
 
 function aiRespond(t, targetId) {
