@@ -540,7 +540,7 @@ function buildOnlineGame(row) {
   push({ screen: "board", error: null, aiActing: null, threat: null, picking: null, reckoning: null, final: null, court: null }); // push fires the round-1 dice + townfolk card
   surfaceNewOutcomes();
   maybeDriveAI();
-  surfaceTurnDecisions(); // if the game opens on my turn, surface any pending decisions
+  surfaceDecisionsAfterReveal(); // if the game opens on my turn, surface decisions AFTER the reveals
 }
 
 function syncFromRow(row) {
@@ -554,7 +554,7 @@ function syncFromRow(row) {
     if (realGame.state.over) { playSfx("chime", 0.5); playMusic("gala", 0.3); return push({ screen: "gala", final: finalReport() }); }
   }
   maybeDriveAI();
-  surfaceTurnDecisions(); // a remote update advanced the turn to me → surface my decisions
+  surfaceDecisionsAfterReveal(); // a remote update advanced the turn to me → surface decisions after the reveals
 }
 
 // Write my freshly-recorded moves to the room. RLS admits the active player (or the host) only.
@@ -776,7 +776,7 @@ export function endTurn() {
     const ctx = game.endTurn();
     if (ctx.reckoning) return enterReckoning(ctx.order);
     if (ctx.over) { playSfx("chime", 0.5); playMusic("gala", 0.3); return push({ screen: "gala", ctx, final: finalReport() }); }
-    if (online) { push({ aiActing: null }); surfaceNewOutcomes(); maybeDriveAI(); surfaceTurnDecisions(); } // flush my turn (push fires the round card if the round ticked); host drives the next AI seats
+    if (online) { push({ aiActing: null }); surfaceNewOutcomes(); maybeDriveAI(); surfaceDecisionsAfterReveal(); } // flush my turn (push fires the round card if the round ticked); host drives the next AI seats
     else advanceUntilHuman(ctx);
   };
   if (!get(settings).confirmEndTurn) return proceed(); // quick-end mode
@@ -888,7 +888,7 @@ async function advanceUntilHuman(initialCtx) {
   // Online: the host has only been DRIVING the AI. The human now up runs their own turn — surface
   // their decisions on THEIR client (this one if it's the host's turn; otherwise the remote client
   // does it via syncFromRow). Stop here; no host-side turn-start ceremony for a remote player.
-  if (online) { push({ aiActing: null }); surfaceTurnDecisions(); return; }
+  if (online) { push({ aiActing: null }); surfaceDecisionsAfterReveal(); return; }
   enqueueTurnStart(lastCtx); // the human is up — round intro + summary + card reveals
   push({ aiActing: null, ctx: lastCtx, error: null });
   // STACK RULES: read every card you drew FIRST (the Resolve reveals), THEN the response windows
@@ -913,6 +913,12 @@ function surfaceTurnDecisions() {
     referral: myReferrals.length ? myReferrals : null,
   });
 }
+
+// STACK RULES online: a decision modal must never pop over a card you haven't read yet. Wait for the
+// turn-start reveal queue (round card + your draws) to clear, THEN surface the decisions — matching
+// the local path's `await waitForPopups()`. (surfaceTurnDecisions re-checks myTurn, so a turn that
+// moved on while you were reading harmlessly no-ops.)
+function surfaceDecisionsAfterReveal() { waitForPopups().then(surfaceTurnDecisions); }
 
 // --- Referral: a rival brokered a job your trade can do — accept it (they earn a fee) or refuse ---
 export function resolveReferralUI(id, accept) {

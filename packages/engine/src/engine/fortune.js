@@ -204,7 +204,7 @@ function tailorJob(economy, card, trade) {
   };
 }
 
-function resolveCard(state, player, card) {
+export function resolveCard(state, player, card) {
   switch (card.type) {
     case "job": {
       // The tailored ladder: a generic j1–j6 card skins to the drawer's trade (always their own
