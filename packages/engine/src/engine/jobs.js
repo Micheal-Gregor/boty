@@ -22,6 +22,7 @@ import { accrue, cashIn, cashOut, ACCT } from "../state/ledger.js";
 import { injectById, womFires } from "./livingdeck.js";
 import { onCivicContractComplete } from "./civics.js";
 import { onRoutedPortionComplete, onRoutedPortionBotch } from "./routed.js";
+import { onReadyingBotch } from "./expansion.js";
 
 const PROGRESSING = new Set(["Queued", "Active", "OnHold"]);
 
@@ -222,6 +223,7 @@ export function expireOverdue(state, player) {
       const owed = botchRoutedJob(state, player, job);
       if (owed) lines.push(owed);
       if (job.routed_id) onRoutedPortionBotch(state, job); // a portion fell through → the GC contract collapses
+      if (job.readying_for) { const r = onReadyingBotch(state, player, job); if (r) lines.push(r); } // a fit-out stalled → the mover may sue
       const town = failPolitical(state, job);
       if (town) lines.push(town);
     }
@@ -293,6 +295,7 @@ export function runJobProgress(state, player) {
         const owed = botchRoutedJob(state, player, job);
         if (owed) lines.push(owed);
         if (job.routed_id) onRoutedPortionBotch(state, job); // a portion fell through → the GC contract collapses
+        if (job.readying_for) { const r = onReadyingBotch(state, player, job); if (r) lines.push(r); } // a fit-out stalled → the mover may sue
         const town = failPolitical(state, job);
         if (town) lines.push(town);
         continue;

@@ -21,8 +21,11 @@ import { post, balances, ACCT } from "../state/ledger.js";
 
 /** Total recurring overhead a player owes each turn: rent + wages + rented-equipment fees. */
 export function overheadFor(state, player) {
-  const building = findBuilding(state.economy, player.building);
-  const rent = building.rent;
+  // While readying a MOVE you pay the NEW building's (higher) rent immediately — so dragging out the
+  // fit-out really bites. Capacity stays the old shop's until you actually move in.
+  const pe = player.pendingExpansion;
+  const rentBuilding = pe && !pe.isImprove && pe.target ? findBuilding(state.economy, pe.target) : findBuilding(state.economy, player.building);
+  const rent = rentBuilding.rent;
   const wages = player.tradesmen.length * state.economy.wage_per_turn;
   const equipmentFees = player.equipment
     .filter((e) => !e.owned)

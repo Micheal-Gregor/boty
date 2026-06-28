@@ -54,7 +54,7 @@ export function startExpansion(state, player, target) {
     target, isImprove, targetName, fee: spec.fee, deposit, balance: spec.fee - deposit,
     capacity: spec.capacity ?? 0, readyTurn: state.turn + 1,
   };
-  return `🏗️ ${player.name} starts readying ${targetName}: ${w(deposit)} deposit + ${w(ex.insurance)} insurance down, ${tenders} trade contract(s) (${w(spec.contract_value)} each) out to the town — keeps the old shop until move-in`;
+  return `🏗️ ${player.name} starts readying ${targetName}: ${w(deposit)} deposit + ${w(ex.insurance)} insurance down, ${tenders} trade contract(s) (${w(spec.contract_value)} each) out to the town — you pay ${targetName}'s higher rent NOW until move-in, so a stalling contractor costs you (sue them)`;
 }
 
 /** One NPC contract per trade, to the player who runs it (the mover takes their own trade's). */
@@ -68,10 +68,20 @@ function spawnContracts(state, mover, targetName, value, work, deadline) {
       state.turn,
     );
     job.readying = true;
+    if (taker !== mover) job.readying_for = mover.id; // a rival's fit-out you depend on → suable if they stall
     taker.jobs.push(job);
     n++;
   }
   return n;
+}
+
+/** A fit-out contractor missed the deadline → the mover (now paying the new rent for an unfinished
+ *  building) may sue them for the contract value, recovered (capped). Returns a log line. */
+export function onReadyingBotch(state, contractor, job) {
+  const mover = state.players.find((p) => p.id === job.readying_for);
+  if (!mover || mover.bankrupt || contractor.bankrupt || mover.id === contractor.id) return null;
+  state.pendingDamages.push({ hirerId: mover.id, contractorId: contractor.id, jobId: job.id, jobName: job.name, value: job.value, recipientId: mover.id });
+  return `⚖️ ${mover.name} may sue ${contractor.name} for stalling ${job.name} (${w(job.value)} in damages)`;
 }
 
 /** Upkeep hook: once readied, pay the balance + capitalise + move in, or forfeit the deposit. */
