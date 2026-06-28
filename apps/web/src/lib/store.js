@@ -127,10 +127,14 @@ export function confirmDispose(equipId, name) {
 // Borrowing means looking Dwight Folsom in the eye first — a beat to think twice before taking on debt.
 export function borrowCredit() {
   const loc = economy.line_of_credit;
+  const callRisk = Math.round(game.creditCallRisk() * 100); // chance the bank calls the whole loan after THIS draw
+  const warn = callRisk > 0
+    ? ` ⚠ You're already carrying debt — after this draw there's about a ${callRisk}% chance Folsom CALLS the whole loan back at once (and that risk climbs every time you go back to the well; can't cover it and you fold).`
+    : "";
   openConfirm({
     npc: "folsom",
     title: "Dwight Folsom · First Hollow Bank",
-    body: `Folsom will advance you ${loc.draw} W against your line — but it's a liability at ${Math.round(loc.interest * 100)}% interest, and the bank gets paid back at year-end before you count any winnings. Sure you want to borrow?`,
+    body: `Folsom will advance you ${loc.draw} W against your line — a liability at ${Math.round(loc.interest * 100)}% interest, repaid at year-end before you count any winnings.${warn} Sure you want to borrow?`,
     yes: `Borrow ${loc.draw} W`,
   }, () => act((g) => g.drawCredit()));
 }
@@ -261,7 +265,7 @@ export function closeHand() { push({ handView: false }); }
 // Scan new log lines for the big "calculated" results and surface each as an acknowledge popup.
 let lastScanned = 0;
 const ALERTS = [
-  [/💀 (.+?) cannot cover/, "💀 Bankruptcy", (m) => `${m[1]} ran out of cash and folded — their shop is out of the game.`],
+  [/💀 (.+?) cannot cover/, "💀 Bankruptcy", (m) => `${m[1]} ran out of cash and folded — their shop is out of the game.`, "bankrupt"],
   [/🏦 the bank CALLED the loan/, "🏦 The bank called your loan", () => "You leaned on the line of credit once too often — the bank demanded the entire balance back at once. If you can't cover it, the shop folds at upkeep."],
   [/🏛️ (.+?) DELIVERED "(.+?)"/, "🏛️ Project delivered", (m) => `${m[1]} delivered ${m[2]} — collects the balance, favours all round.`],
   [/✗ "(.+?)" COLLAPSED past/, "✗ Project collapsed", (m) => `${m[1]} blew its deadline — the balance is forfeit.`],
@@ -294,7 +298,7 @@ function surfaceNewOutcomes() {
     // The Slick Lawyer showcase: whoever plays one, EVERY client reveals the (forced) animation.
     const law = /🧑‍⚖️ (.+?) plays a Slick Lawyer/.exec(log[i]);
     if (law) { enqueuePopup({ kind: "card", cardId: "slick_lawyer", art: "slick_lawyer", name: "Slick Lawyer", forceAnim: true, flavor: "Objection!", text: `${law[1]} brings in the Slick Lawyer.` }); playSfx("gavel", 0.5); }
-    for (const [re, title, body] of ALERTS) { const m = re.exec(log[i]); if (m) { enqueuePopup({ kind: "alert", title, body: body(m) }); break; } }
+    for (const [re, title, body, art] of ALERTS) { const m = re.exec(log[i]); if (m) { enqueuePopup({ kind: "alert", title, body: body(m), art: art ?? null }); break; } }
     for (const [re, id, sting] of SOUND_CUES) { if (re.test(log[i])) { sting ? playSting(id) : playSfx(id, 0.5); break; } }
   }
   lastScanned = log.length;
@@ -884,10 +888,17 @@ function waitForPopups() {
  */
 async function advanceUntilHuman(initialCtx) {
   skipAI = false;
+  // Observer mode: every human seat has folded → the human(s) are OUT. Show the fold popup once, then
+  // race to game-over with no rival-turn ceremony and no further pop-ups (the player is done).
+  const humansAllOut = () => {
+    const humans = game.state.humanIds ?? [];
+    return humans.length > 0 && humans.every((id) => game.state.players.find((p) => p.id === id)?.bankrupt);
+  };
   let lastCtx = initialCtx;
   while (!game.state.over) {
     const p = game.currentPlayer;
     if (!ai[p.id]) break; // human is up
+    if (!skipAI && humansAllOut()) { surfaceNewOutcomes(); skipAI = true; } // fold popup, then fast-forward
     if (maybeShowRoundCard()) await waitForPopups(); // round kicks off for everyone BEFORE the lead (even an AI) plays
     if (game.state.over) return;
     const drew = (lastCtx?.drawn ?? []).map((d) => d.name); // what the deck just dealt this rival

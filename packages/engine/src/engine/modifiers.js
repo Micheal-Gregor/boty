@@ -85,6 +85,13 @@ export function trainingSpeedBonus(player) {
  *  on the bank, the likelier it CALLS the loan — ~5% per 20 W outstanding. A called loan must be
  *  repaid in full on the spot; a player surviving on credit can't, and the shortfall sinks them at
  *  the next upkeep. Closes the "borrow forever to outlast the clock" exploit. */
+/** The chance the bank CALLS the whole loan on the next draw — 5% per full draw-unit owed (after that
+ *  draw). Rises each time you go back to the well. `additionalDraw` previews a not-yet-taken draw. */
+export function creditCallRisk(state, player, additionalDraw = 0) {
+  const owed = -(balances(player)[ACCT.LOC] || 0) + additionalDraw;
+  return 0.05 * Math.floor(owed / state.economy.line_of_credit.draw);
+}
+
 export function drawCredit(state, player, amount) {
   if (amount <= 0) throw new GameError("Nothing to draw");
   post(state, player, "Line of credit — draw", [
@@ -93,7 +100,7 @@ export function drawCredit(state, player, amount) {
   ]);
   let line = `${player.name} drew ${w(amount)} on the line of credit`;
   const owed = -(balances(player)[ACCT.LOC] || 0);
-  const risk = 0.05 * Math.floor(owed / 20);
+  const risk = creditCallRisk(state, player); // owed already includes this draw
   if (risk > 0 && (state.rng?.() ?? 1) < risk) {
     // The bank calls the loan: repay it ALL now, even into the red (→ bankruptcy at upkeep if uncovered).
     post(state, player, "Line of credit — CALLED", [

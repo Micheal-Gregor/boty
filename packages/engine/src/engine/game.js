@@ -228,6 +228,8 @@ export class Game {
   cancelService(kind) { return this.#act((p) => modifiers.cancelService(this.state, p, kind)); }
   #requireBBB(p) { if (!p.bbbThisTurn) throw new GameError("The BBB vendor fair isn't in town — wait for a BBB Special"); }
   drawCredit() { return this.#act((p) => modifiers.drawCredit(this.state, p, this.state.economy.line_of_credit.draw), true); }
+  /** % chance the bank calls the loan if the current player draws again (for the borrow warning). */
+  creditCallRisk() { return modifiers.creditCallRisk(this.state, this.currentPlayer, this.state.economy.line_of_credit.draw); }
   repayCredit(amount) { return this.#act((p) => modifiers.repayCredit(this.state, p, amount ?? this.state.economy.line_of_credit.draw), true); }
   playFavor(targetId, modId) {
     return this.#act((p) => {
