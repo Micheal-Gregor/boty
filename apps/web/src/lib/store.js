@@ -244,6 +244,7 @@ const RULES = {
   bbb_special: "The BBB vendor fair is in town THIS turn only — buy services and shop upgrades while it lasts.",
 };
 function ruleFor(def) {
+  if (!def) return null; // a card not in the master pool (a tailored job, a civic share) → no rule line
   if (def.subcontract && def.political) return RULES.civic;
   if (def.subcontract) return RULES.subcontract;
   if (def.type === "project") return RULES.project;
