@@ -130,3 +130,14 @@ for (const r of rows) {
 const failed = rows.filter((r) => r.fails.length);
 console.log(`\n${rows.length - failed.length}/${rows.length} cards pass.${failed.length ? ` FAILURES: ${failed.map((r) => r.id).join(", ")}` : " ✅ all good."}`);
 if (failed.length) process.exitCode = 1;
+
+// ── Trade balance: incidents route NPC-paid work to SPECIFIC trades, so any trade left out (or
+// over-served) is a standing advantage. Every trade should get comparable incident work. ──
+const tradeVal = Object.fromEntries(S.map((t) => [t, 0]));
+for (const c of cards) if (c.type === "incident") for (const t of c.trades ?? []) tradeVal[t] += (c.copies ?? 1) * (c.value ?? 0);
+console.log("\n=== Incident trade balance (NPC work routed per trade) ===");
+for (const t of S) console.log(`  ${t.padEnd(18)} ${tradeVal[t]}`);
+const vals = S.map((t) => tradeVal[t]);
+const excluded = S.filter((t) => tradeVal[t] === 0);
+if (excluded.length) { console.log(`  ⚠ FAIL — these trades get NO incident work: ${excluded.join(", ")}`); process.exitCode = 1; }
+else console.log(`  ✅ every trade gets incident work (spread ${Math.min(...vals)}–${Math.max(...vals)}).`);

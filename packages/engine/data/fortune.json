@@ -455,9 +455,11 @@
       "id": "grange_main",
       "name": "Burst main at the Grange Hall",
       "trades": [
-        "plumber"
+        "plumber",
+        "electrician",
+        "HVAC technician"
       ],
-      "value": 11,
+      "value": 10,
       "work_amount": 6,
       "deadline": 4,
       "terms": 1,
@@ -465,7 +467,7 @@
       "max_tradesmen": 2,
       "required_equipment": null,
       "droppable": true,
-      "flavor": "A water main lets go under the Grange hall — the town needs a plumber, today."
+      "flavor": "A water main bursts under the Grange hall and floods the basement — a plumber to cap the line, an electrician for the drowned panel, and HVAC to dry the place out."
     },
     {
       "type": "civic",
