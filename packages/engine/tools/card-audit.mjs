@@ -142,6 +142,17 @@ const excluded = S.filter((t) => tradeVal[t] === 0);
 if (excluded.length) { console.log(`  ⚠ FAIL — these trades get NO incident work: ${excluded.join(", ")}`); process.exitCode = 1; }
 else console.log(`  ✅ every trade gets incident work (spread ${Math.min(...vals)}–${Math.max(...vals)}).`);
 
+// Routed-job trades — the 3-trade GC contracts must spread evenly too, so no trade is forever the
+// sub (or the one being sued). Each routed card lists its required_trades.
+const routedVal = Object.fromEntries(S.map((t) => [t, 0]));
+for (const c of cards) if (c.type === "routed") for (const t of c.required_trades ?? []) routedVal[t] += (c.copies ?? 1);
+console.log("\n=== Routed-job trade balance (portions per trade) ===");
+for (const t of S) console.log(`  ${t.padEnd(18)} ${routedVal[t]}`);
+const rVals = S.map((t) => routedVal[t]);
+const rExcluded = S.filter((t) => routedVal[t] === 0);
+if (rExcluded.length) { console.log(`  ⚠ FAIL — no routed portions for: ${rExcluded.join(", ")}`); process.exitCode = 1; }
+else console.log(`  ✅ every trade appears in routed contracts (spread ${Math.min(...rVals)}–${Math.max(...rVals)}).`);
+
 // ── Referral routing balance: the referred trade is ROLLED per draw, so it should land on each of
 // the drawer's 5 non-trades roughly evenly (no trade over-referred). Monte-Carlo it. ──
 const refCard = cards.find((c) => c.type === "referral");

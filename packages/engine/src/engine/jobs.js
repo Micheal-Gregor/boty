@@ -21,6 +21,7 @@ import { onPhaseComplete, onPhaseFailed } from "./projects.js";
 import { accrue, cashIn, cashOut, ACCT } from "../state/ledger.js";
 import { injectById, womFires } from "./livingdeck.js";
 import { onCivicContractComplete } from "./civics.js";
+import { onRoutedPortionComplete, onRoutedPortionBotch } from "./routed.js";
 
 const PROGRESSING = new Set(["Queued", "Active", "OnHold"]);
 
@@ -220,6 +221,7 @@ export function expireOverdue(state, player) {
       );
       const owed = botchRoutedJob(state, player, job);
       if (owed) lines.push(owed);
+      if (job.routed_id) onRoutedPortionBotch(state, job); // a portion fell through → the GC contract collapses
       const town = failPolitical(state, job);
       if (town) lines.push(town);
     }
@@ -290,6 +292,7 @@ export function runJobProgress(state, player) {
         if (job.project_id) { lines.push(...onPhaseFailed(state, job)); continue; } // a phase fails → the project collapses now
         const owed = botchRoutedJob(state, player, job);
         if (owed) lines.push(owed);
+        if (job.routed_id) onRoutedPortionBotch(state, job); // a portion fell through → the GC contract collapses
         const town = failPolitical(state, job);
         if (town) lines.push(town);
         continue;
@@ -340,6 +343,17 @@ function completeJob(state, player, job) {
   freeTradesmen(player, job);
   player.jobs = player.jobs.filter((j) => j.id !== job.id);
   const terms = job.terms ?? state.economy.invoice_terms; // payment terms (longer = paid later)
+  if (job.routed_id) {
+    // A portion of a 3-trade GC contract: a routed (rival) portion's AP comes due net-30; the
+    // CONTRACT bills the client net-90 when every portion lands — no per-portion invoice here.
+    if (job.hirer_id) {
+      const hirer = state.players.find((p) => p.id === job.hirer_id);
+      const ap = hirer?.payables.find((a) => a.job_id === job.id);
+      if (ap) { ap.pending = false; ap.due_turn = state.turn + terms; }
+    }
+    onRoutedPortionComplete(state, job);
+    return;
+  }
   if (job.project_id) {
     // A phase of a larger project. Pay the sub if it was subbed out; the PROJECT books the customer
     // money (deposit + balance), not a per-phase invoice.

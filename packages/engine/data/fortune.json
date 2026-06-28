@@ -98,7 +98,7 @@
     {
       "type": "job",
       "size": "j3",
-      "copies": 3,
+      "copies": 2,
       "id": "j3",
       "name": "Tooled job",
       "droppable": true,
@@ -107,7 +107,7 @@
     {
       "type": "job",
       "size": "j4",
-      "copies": 3,
+      "copies": 2,
       "id": "j4",
       "name": "Pro job",
       "droppable": true,
@@ -116,7 +116,7 @@
     {
       "type": "job",
       "size": "j5",
-      "copies": 2,
+      "copies": 1,
       "id": "j5",
       "name": "Major job",
       "droppable": true,
@@ -130,6 +130,72 @@
       "name": "Marquee job",
       "droppable": true,
       "flavor": "The crown jewel — the biggest payday in town, if youve built for it."
+    },
+    {
+      "type": "routed",
+      "copies": 1,
+      "id": "rt_townhall",
+      "name": "Town Hall renovation",
+      "required_trades": ["mechanic", "plumber", "electrician"],
+      "sub_value": 6,
+      "markup": 2,
+      "deadline": 5,
+      "flavor": "The town hall's overdue for a gut reno — the council hands the whole job to one shop to coordinate. Net-90 on completion, and you carry the subs till then."
+    },
+    {
+      "type": "routed",
+      "copies": 1,
+      "id": "rt_depot",
+      "name": "Old depot conversion",
+      "required_trades": ["pipefitter", "welder", "HVAC technician"],
+      "sub_value": 6,
+      "markup": 2,
+      "deadline": 5,
+      "flavor": "The disused rail depot's becoming a market hall — steel, pipe, and climate work, all on one contract you front."
+    },
+    {
+      "type": "routed",
+      "copies": 1,
+      "id": "rt_school",
+      "name": "Schoolhouse retrofit",
+      "required_trades": ["mechanic", "plumber", "pipefitter"],
+      "sub_value": 6,
+      "markup": 2,
+      "deadline": 5,
+      "flavor": "The old schoolhouse needs everything brought up to code before fall term — you GC it and bill the district net-90."
+    },
+    {
+      "type": "routed",
+      "copies": 1,
+      "id": "rt_library",
+      "name": "Library modernization",
+      "required_trades": ["electrician", "welder", "HVAC technician"],
+      "sub_value": 6,
+      "markup": 2,
+      "deadline": 5,
+      "flavor": "The Carnegie library's getting wired, reinforced, and climate-controlled — one contract, three trades, your spread."
+    },
+    {
+      "type": "routed",
+      "copies": 1,
+      "id": "rt_firehouse",
+      "name": "Firehouse overhaul",
+      "required_trades": ["mechanic", "electrician", "welder"],
+      "sub_value": 6,
+      "markup": 2,
+      "deadline": 5,
+      "flavor": "Engine bay, wiring, and structural steel — the firehouse overhaul is yours to coordinate and front."
+    },
+    {
+      "type": "routed",
+      "copies": 1,
+      "id": "rt_community",
+      "name": "Community center build-out",
+      "required_trades": ["plumber", "pipefitter", "HVAC technician"],
+      "sub_value": 6,
+      "markup": 2,
+      "deadline": 5,
+      "flavor": "The new community center's mechanicals all land on one contract — you sub them out and carry the float to net-90."
     },
     {
       "type": "referral",

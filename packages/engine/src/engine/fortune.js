@@ -15,6 +15,7 @@ import { post, cashIn, cashOut, ACCT } from "../state/ledger.js";
 import { bearLoss, marketingInjection } from "./modifiers.js";
 import { applyCrewEvent } from "./crew.js";
 import { applyIncident } from "./incidents.js";
+import { startRouted } from "./routed.js";
 import { startProject } from "./projects.js";
 import { startCivic } from "./civics.js";
 import { performanceReview } from "./employment.js";
@@ -302,6 +303,8 @@ export function resolveCard(state, player, card) {
     }
     case "incident":
       return applyIncident(state, player, card);
+    case "routed":
+      return { type: "routed", name: card.name, text: startRouted(state, player, card) };
     case "project":
       return { type: "project", name: card.name, text: startProject(state, player, card) };
     case "civic": {
