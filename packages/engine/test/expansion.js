@@ -20,6 +20,8 @@ const game = (n = 4) => {
   g.start();
   return g;
 };
+// Simulate every fit-out contract delivered (cleared from all queues) so the move can complete.
+const finishFitout = (g) => { for (const p of g.state.players) p.jobs = p.jobs.filter((j) => !j.readying); };
 
 // Start: deposit + insurance down, contracts out, stays in the old shop.
 {
@@ -34,11 +36,24 @@ const game = (n = 4) => {
   ok("expansion start: deposit + insurance down, six trade contracts out, you keep the old shop");
 }
 
-// Complete at the next upkeep → move in, balance paid, fee capitalised.
+// The move-in is GATED on the fit-out: outstanding contracts hold you in the old shop.
 {
   const g = game(); const me = g.currentPlayer; me.cash = 60;
   g.startExpansion("shop");
   g.state.turn += 1;
+  const lines = tickExpansion(g.state, me); // fit-out NOT finished
+  assert.equal(me.building, economy.starting_building, "still in the old shop — the fit-out isn't done");
+  assert.ok(me.pendingExpansion, "the move is still pending");
+  assert.ok(lines.some((l) => /fit-out is still underway/.test(l)), "told the fit-out is outstanding");
+  ok("expansion gating: you can't move in until every fit-out contract clears (high rent bites meanwhile)");
+}
+
+// Fit-out done → move in, balance paid, fee capitalised.
+{
+  const g = game(); const me = g.currentPlayer; me.cash = 60;
+  g.startExpansion("shop");
+  g.state.turn += 1;
+  finishFitout(g);
   tickExpansion(g.state, me);
   assert.equal(me.building, "shop", "moved into the Shop");
   assert.equal(me.pendingExpansion, null, "the project is closed out");
@@ -67,6 +82,7 @@ const game = (n = 4) => {
   g.startExpansion("shop");
   me.cash = 3; // can't cover the balance
   g.state.turn += 1;
+  finishFitout(g);
   tickExpansion(g.state, me);
   assert.equal(me.building, economy.starting_building, "stayed in the old building");
   assert.equal(me.pendingExpansion, null, "the project is abandoned");
@@ -80,6 +96,7 @@ const game = (n = 4) => {
   const g = game(); const me = g.currentPlayer; me.cash = 60; me.bbbThisTurn = true;
   g.startExpansion("improve");
   g.state.turn += 1;
+  finishFitout(g);
   tickExpansion(g.state, me);
   assert.equal(me.capacityBonus, EX.improve.capacity, "in-place expansion adds crew capacity");
   assert.equal(me.building, economy.starting_building, "improve keeps you in the same building");

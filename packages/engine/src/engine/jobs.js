@@ -186,14 +186,16 @@ function botchRoutedJob(state, contractor, job) {
   if (!job.hirer_id) return null;
   const hirer = state.players.find((p) => p.id === job.hirer_id);
   if (!hirer) return null;
-  hirer.payables = hirer.payables.filter((a) => a.job_id !== job.id); // liability cleared
+  hirer.payables = hirer.payables.filter((a) => a.job_id !== job.id); // the undelivered work is off the books
   // A botched sub costs the GC their lost markup (value − sub_cost); a plain routed job, the value.
   const dmg = job.subcontract ? Math.max(1, job.value - (job.sub_cost ?? 0)) : job.value;
+  // Damages are RECOVERED to the GC/hirer (recipientId) — they lost the commission and can sue to get it
+  // back (capped by what the contractor can cover); they no longer just sink to the bank.
   state.pendingDamages.push({
     hirerId: hirer.id, contractorId: contractor.id, jobId: job.id, jobName: job.name,
-    value: dmg, window: state.economy.sue_window,
+    value: dmg, window: state.economy.sue_window, recipientId: hirer.id,
   });
-  return `↳ ${contractor.name} botched ${hirer.name}'s ${job.name} — ${hirer.name}'s liability cleared; they may sue for ${w(dmg)} damages`;
+  return `↳ ${contractor.name} walked off ${hirer.name}'s ${job.name} — ${hirer.name} is out ${w(dmg)} (lost commission); they may sue ${contractor.name} to recover it`;
 }
 
 // --- Upkeep: clocks + expiry ------------------------------------------------------------

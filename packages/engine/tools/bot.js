@@ -31,6 +31,7 @@ export function botActions(game, strategy = "balanced", opts = {}) {
   const state = game.state;
   const p = game.currentPlayer;
   const humanIds = opts.humanIds ?? new Set(); // seats a bot must not open a response window against
+  const allowSueHumans = !!opts.allowSueHumans; // local play CAN sue a human (they defend via the modal); sabotage/favor stay gated
   const over = () => overheadGuess(state, p);
   const cap = findBuilding(state.economy, p.building).capacity;
   const waiting = () => p.jobs.filter((j) => ["Queued", "OnHold"].includes(j.state)).length;
@@ -194,7 +195,7 @@ export function botActions(game, strategy = "balanced", opts = {}) {
 
   // 9. Collect hard: sue a BOT rival who's dodging a delivered, still-suable debt they owe us.
   for (const o of state.players) {
-    if (o === p || o.bankrupt || humanIds.has(o.id)) continue;
+    if (o === p || o.bankrupt || (humanIds.has(o.id) && !allowSueHumans)) continue;
     const debt = o.payables.find(
       (a) => a.creditor_id === p.id && !a.is_npc && !a.pending && a.sue_window_remaining > 0 && state.turn >= a.due_turn && (a.turns_dodged ?? 0) >= 1,
     );

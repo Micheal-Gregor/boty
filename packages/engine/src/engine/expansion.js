@@ -87,7 +87,21 @@ export function onReadyingBotch(state, contractor, job) {
 /** Upkeep hook: once readied, pay the balance + capitalise + move in, or forfeit the deposit. */
 export function tickExpansion(state, player) {
   const pe = player.pendingExpansion;
-  if (!pe || state.turn < pe.readyTurn) return [];
+  if (!pe) return [];
+  // The move-in is GATED on the fit-out finishing: every readying contract (yours + any rival's you
+  // depend on) must clear before you can move. Until then you're already paying the new building's
+  // higher rent (overheadFor) on a shop you can't use — so dragging the fit-out, or a stalling rival,
+  // genuinely costs you. A contract leaves this count when it's delivered OR it expires (you'd have
+  // sued the staller via onReadyingBotch). Floor of readyTurn so even an instant fit-out takes a turn.
+  const outstanding = state.players.reduce(
+    (n, p) => n + p.jobs.filter((j) => j.readying && (p.id === player.id || j.readying_for === player.id) && j.state !== "Complete").length,
+    0,
+  );
+  if (state.turn < pe.readyTurn || outstanding > 0) {
+    return outstanding > 0
+      ? [`🏗️ ${player.name}'s ${pe.targetName} fit-out is still underway — ${outstanding} contract(s) outstanding; paying the higher rent until it's done`]
+      : [];
+  }
 
   if (player.cash < pe.balance) {
     // Can't close it out → forfeit the deposit (a real loss) and stay put.

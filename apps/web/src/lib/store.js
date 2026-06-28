@@ -266,6 +266,7 @@ const ALERTS = [
   [/🏛️ civic project "(.+?)" delivered/, "🏛️ Civic job delivered", (m) => `${m[1]} was delivered — favours earned.`],
   [/🌐 Town labor union grips/, "🪙 Union drive", () => `The trades unionised — every firing is far riskier now (+2 to their odds). A Favor busts it.`],
   [/⚖️ (.+?) fired .+? SUED AND WON/, "⚖️ Wrongful termination", (m) => `${m[1]} fired a worker who sued and won — a costly payout on the books.`],
+  [/^⚖️ (.+?(?:WINS|WALKS).+)$/, "⚖️ Court verdict", (m) => m[1]], // a sue/damages suit is decided — surface the outcome
   [/🌐 (.+?) grips Maple Hollow/, "🌐 Town penalty", (m) => `${m[1]} — a town-wide levy now hits every shop in Maple Hollow.`],
   [/🏗️ (.+?) moved into (.+?) \(from/, "🏗️ Moved in", (m) => `${m[1]} finished readying and moved into ${m[2]}.`],
   [/⚠ (.+?) couldn't cover the .* balance on (.+?) —/, "⚠ Move forfeited", (m) => `${m[1]} couldn't close out ${m[2]} — the deposit is lost.`],
@@ -327,6 +328,7 @@ function rivalCardInteresting(d) {
 }
 
 const declinedDamages = new Set(); // jobIds the human chose not to sue over
+let threatResolver = null; // resolves when the human answers a threat a bot raised mid-AI-turn (resumes the loop)
 const openDamages = () => game.damagesCases.filter((c) => !declinedDamages.has(c.jobId));
 
 // --- Card registry: unique card definitions for the detail modal + log↔card linking --------
@@ -678,7 +680,7 @@ function resolveThreat() {
   const t = game.state.pendingThreat;
   if (!t) return push({ error: null });
   const targetId = t.type === "sabotage" ? t.ownerId : t.type === "damages" ? t.contractorId : t.debtorId;
-  if (ai[targetId]) { aiRespond(t, targetId); push({ error: null, threat: null }); refreshDamages(); }
+  if (ai[targetId]) { aiRespond(t, targetId); push({ error: null, threat: null }); surfaceNewOutcomes(); refreshDamages(); } // AI auto-defends → surface the court verdict
   else { playSfx("gavel", 0.5); push({ error: null, threat: viewThreat(t) }); }
 }
 
@@ -723,6 +725,7 @@ function applyRespond(decision) {
   push({ threat: null, error: null });
   surfaceNewOutcomes();
   refreshDamages();
+  if (threatResolver) { const r = threatResolver; threatResolver = null; r(); } // resume a paused AI turn (a bot sued me)
 }
 
 function viewThreat(t) {
@@ -874,7 +877,18 @@ async function advanceUntilHuman(initialCtx) {
     if (game.mayorCases.length) game.autoResolveMayor();
     if (game.referralCases.length) game.autoResolveReferral(online ? undefined : (cid) => !!ai[cid]); // online: no callback (must serialize for replay) → auto-resolves all; local: only AI shops
     const humanIds = new Set(game.state.players.filter((x) => !ai[x.id]).map((x) => x.id));
-    try { botActions(game, ai[p.id], { humanIds }); } catch { /* best effort */ }
+    try { botActions(game, ai[p.id], { humanIds, allowSueHumans: !online }); } catch { /* best effort */ }
+    // A bot may have sued a human (local only) — that opens a response window the human must answer
+    // before play continues. Surface the defense modal and PAUSE the loop until they respond.
+    if (!online && game.state.pendingThreat) {
+      const t = game.state.pendingThreat;
+      const tid = t.type === "sabotage" ? t.ownerId : t.type === "damages" ? t.contractorId : t.debtorId;
+      if (!ai[tid]) {
+        playSfx("gavel", 0.5);
+        push({ threat: viewThreat(t) });
+        await new Promise((res) => { threatResolver = res; });
+      }
+    }
     const lines = game.state.log.slice(before).slice(-5); // this rival's moves this turn
 
     const ctx = game.endTurn();

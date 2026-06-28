@@ -14,11 +14,10 @@
 {#if c}
   <div class="overlay">
     <div class="modal threat">
-      <h2>⚖️ {contractor?.name ?? "Your contractor"} botched {c.jobName}</h2>
-      <p>Your liability is already cleared. You can sue them for <strong>{$money(c.value)} in damages</strong> —
-        which they pay the <strong>bank</strong>, not you. You just sink a rival. You win on a
-        <strong>4–6 (50%)</strong> defence roll going against them; a Slick Lawyer shifts it your way.
-        {$money(1)} legal fee each.</p>
+      <h2>⚖️ {contractor?.name ?? "Your contractor"} walked off {c.jobName}</h2>
+      <p>They left you out the work and the commission. Sue to <strong>recover up to {$money(c.value)}</strong>
+        in damages, paid <strong>to you</strong> (capped by what they can actually cover). They roll to
+        wriggle out (≈50%); a Slick Lawyer tilts it your way. {$money(1)} legal fee each.</p>
       <div class="row">
         <button onclick={() => sueDamagesUI(c.jobId, false)}>⚖️ Sue for {$money(c.value)}</button>
         {#if lawyers > 0}<button onclick={() => sueDamagesUI(c.jobId, true)}>🧑‍⚖️ Sue + Slick Lawyer</button>{/if}
