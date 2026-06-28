@@ -141,13 +141,17 @@ export function assign(state, player, jobId, tradesmanId) {
   return `${player.name} assigned ${t.id} to ${job.name} (${job.id}) — now ${job.state}`;
 }
 
-/** Put an Active job On-Hold, freeing its tradespeople (e.g. to redeploy them). */
+/** Free a job's tradespeople so they can be redeployed — works on an Active job (pause it) OR an
+ *  auto-held one (it parked itself for a missing shop tier / tool, but kept its crew assigned; this
+ *  releases them so you're not bleeding wages on a job that can't progress). The job stays On-Hold and
+ *  its deadline keeps ticking. */
 export function hold(state, player, jobId) {
   const job = findJob(player, jobId);
-  if (job.state !== "Active") throw new GameError(`${job.name} is ${job.state} — only Active jobs can be held`);
+  if (!["Active", "OnHold"].includes(job.state)) throw new GameError(`${job.name} is ${job.state} — no crew to free`);
+  if (job.assigned_tradesmen.length === 0) throw new GameError(`${job.name} has no crew to free`);
   freeTradesmen(player, job);
   job.state = "OnHold";
-  return `${player.name} put ${job.name} (${job.id}) on hold — its clock keeps ticking`;
+  return `${player.name} freed the crew from ${job.name} (${job.id}) — its clock keeps ticking`;
 }
 
 /** Take a held job off hold — back to the queue, ready to staff again (Active once crew + gear return). */

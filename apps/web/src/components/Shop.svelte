@@ -95,7 +95,7 @@
     {:else}
       <span class="wh-actions">
         {#if player.bbbThisTurn}<button class="mini" title="Capital project: deposit + insurance now, six trade contracts to the town, +1 capacity next round (the fee capitalises)" onclick={() => act((g) => g.startExpansion("improve"))}>⬆️ Upgrade</button>{/if}
-        {#if nextBuilding}<button class="mini" onclick={() => openConfirm({ title: `Move to the ${nextBuilding.name}?`, body: `Readying it is a capital project: you pay a deposit + insurance now, six trade contracts go out to the town for the fit-out, you keep this shop's low rent until you move in, then pay the balance and relocate next round. Can't cover the balance and you forfeit the deposit.`, yes: "Start the move" }, () => act((g) => g.startExpansion(nextBuilding.id)))}>Move → {nextBuilding.name}</button>{/if}
+        {#if nextBuilding}<button class="mini" onclick={() => openConfirm({ title: `Move to the ${nextBuilding.name}?`, body: `Readying it is a capital project: you pay a deposit + insurance now, and trade contracts go out to the town for the fit-out. You start paying the NEW shop's higher rent right away — and you can't move in until every fit-out contract is finished, so dragging it out (or a stalling crew) bites. At move-in you pay the balance; can't cover it and you forfeit the deposit.`, yes: "Start the move" }, () => act((g) => g.startExpansion(nextBuilding.id)))}>Move → {nextBuilding.name}</button>{/if}
       </span>
     {/if}
   </div>
@@ -183,6 +183,7 @@
           {#if canAssign(j)}<button class="mini" onclick={() => act((g) => g.assignJob(j.id))}>Assign</button>{/if}
           {#if j.state === "Active"}<button class="mini" onclick={() => act((g) => g.holdJob(j.id))}>Hold</button>{/if}
           {#if j.state === "OnHold"}<button class="mini" onclick={() => act((g) => g.resumeJob(j.id))}>▶ Resume</button>{/if}
+          {#if j.state === "OnHold" && j.assigned_tradesmen.length > 0}<button class="mini" onclick={() => act((g) => g.holdJob(j.id))}>Free crew</button>{/if}
           {#if canSell(j)}<button class="mini" onclick={() => confirmSell(j.id, sellPrice(j))}>Sell {$money(sellPrice(j))}</button>{/if}
           {#if j.droppable}<button class="mini" onclick={() => act((g) => g.dropJob(j.id))}>Drop</button>{/if}
           {#if handHas("rush")}<button class="mini" onclick={() => act((g) => g.playRush(j.id))}>Rush</button>{/if}

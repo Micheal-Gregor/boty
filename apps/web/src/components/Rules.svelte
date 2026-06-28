@@ -43,8 +43,9 @@
 
       <h3>Growing</h3>
       <p>Moving to a bigger shop (or adding capacity) is a <strong>capital project</strong>: pay a deposit
-        and insurance, the town does the fit-out for contracts, and you move in next round when you pay
-        the balance.</p>
+        and insurance, the town does the fit-out on contracts, and you start paying the new shop's higher
+        rent right away. You move in — paying the balance — only once every fit-out contract is finished,
+        so a slow or stalling crew costs you (and you can sue a staller).</p>
 
       <h3>Playing rough</h3>
       <p><strong>Sue</strong> a rival who dodges a debt they owe you; defend a suit with a Slick Lawyer.
