@@ -314,7 +314,8 @@ export function resolveCard(state, player, card) {
       // finder's fee (= the job's sell price); they accept next round or refuse. No shop with that
       // trade at the table → the county handles it and you still pocket the fee.
       const others = state.economy.services.filter((s) => s !== player.service);
-      const trade = others[(state.die() - 1) % others.length];
+      let roll; do { roll = state.die(); } while (roll > others.length); // reroll a 6 → uniform over the 5 trades (no mod-6 bias toward services[0])
+      const trade = others[roll - 1];
       const job = createJob(tailorJob(state.economy, { ...card, droppable: true }, trade), state.turn);
       const fee = Math.max(1, Math.floor(job.value * state.economy.sell_rate));
       const contractor = pickContractor(state, player, trade);

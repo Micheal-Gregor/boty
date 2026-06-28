@@ -141,3 +141,25 @@ const vals = S.map((t) => tradeVal[t]);
 const excluded = S.filter((t) => tradeVal[t] === 0);
 if (excluded.length) { console.log(`  ⚠ FAIL — these trades get NO incident work: ${excluded.join(", ")}`); process.exitCode = 1; }
 else console.log(`  ✅ every trade gets incident work (spread ${Math.min(...vals)}–${Math.max(...vals)}).`);
+
+// ── Referral routing balance: the referred trade is ROLLED per draw, so it should land on each of
+// the drawer's 5 non-trades roughly evenly (no trade over-referred). Monte-Carlo it. ──
+const refCard = cards.find((c) => c.type === "referral");
+if (refCard) {
+  const N = 1000, tally = {};
+  for (let seed = 1; seed <= N; seed++) {
+    resetIds();
+    const g = new Game(economy, seats, { ...decks, seed, difficulty: "standard" });
+    g.start();
+    const res = resolveCard(g.state, g.state.players[0], refCard);
+    const m = /Referral: a (.+) job/.exec(res?.name ?? "");
+    if (m) tally[m[1]] = (tally[m[1]] || 0) + 1;
+  }
+  const others = S.filter((t) => t !== seats[0].service);
+  const exp = N / others.length;
+  console.log(`\n=== Referral trade routing (rolled per draw, N=${N}, drawer=${seats[0].service}) ===`);
+  let skew = 0;
+  for (const t of others) { const c = tally[t] || 0; const pct = Math.round((100 * c) / N); console.log(`  ${t.padEnd(18)} ${c} (${pct}%)`); skew = Math.max(skew, Math.abs(c - exp) / exp); }
+  if (skew > 0.25) { console.log(`  ⚠ FAIL — uneven (one trade is ${Math.round(skew * 100)}% off an even split).`); process.exitCode = 1; }
+  else console.log(`  ✅ even (within ${Math.round(skew * 100)}% of a flat split).`);
+}
