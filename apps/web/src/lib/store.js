@@ -230,6 +230,7 @@ function enqueueTurnStart(ctx) {
     const intro = npcIntroFor(d.cardId);
     if (intro) enqueuePopup({ kind: "character", ...intro });
     enqueuePopup({ kind: "card", cardId: d.cardId, art: d.art ?? null, name: d.name, flavor: d.flavor, text: d.text, rule: ruleFor(def), routing: d.routing ?? null, ownContract: true });
+    if (d.drawnCard) enqueuePopup({ kind: "card", cardId: d.drawnCard.cardId, art: d.drawnCard.cardId, name: d.drawnCard.name, flavor: d.drawnCard.flavor, text: d.drawnCard.text }); // the drawn civil event, as its own card
   }
 }
 
@@ -511,6 +512,7 @@ function surfaceActiveDraws() {
     const intro = npcIntroFor(d.cardId);
     if (intro) enqueuePopup({ kind: "character", ...intro });
     enqueuePopup({ kind: "card", who: mine ? null : actor.name, isAi, cardId: d.cardId, art: d.art ?? null, name: d.name, flavor: d.flavor, text: d.text, rule: ruleFor(def), routing: d.routing ?? null, ownContract: mine });
+    if (d.drawnCard) enqueuePopup({ kind: "card", who: mine ? null : actor.name, isAi, cardId: d.drawnCard.cardId, art: d.drawnCard.cardId, name: d.drawnCard.name, flavor: d.drawnCard.flavor, text: d.drawnCard.text }); // the drawn civil event, as its own card
   }
 }
 
@@ -899,6 +901,7 @@ async function advanceUntilHuman(initialCtx) {
         const intro = npcIntroFor(d.cardId);
         if (intro) enqueuePopup({ kind: "character", rival: p.name, ...intro });
         enqueuePopup({ kind: "card", rival: p.name, cardId: d.cardId, art: d.art ?? null, name: d.name, flavor: d.flavor, text: d.text, routing: d.routing ?? null, ownContract: false });
+        if (d.drawnCard) enqueuePopup({ kind: "card", rival: p.name, cardId: d.drawnCard.cardId, art: d.drawnCard.cardId, name: d.drawnCard.name, flavor: d.drawnCard.flavor, text: d.drawnCard.text }); // the drawn civil event, as its own card
       }
       await waitForPopups();
       if (game.state.over) return;
