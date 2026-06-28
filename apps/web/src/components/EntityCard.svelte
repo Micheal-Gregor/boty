@@ -11,7 +11,7 @@
 
   const econ = $derived($ui.economy);
   const view = $derived($ui.view);
-  const me = $derived(view ? view.players[view.activePlayerIndex] : null);
+  const me = $derived(view ? view.players[view.meIndex ?? view.activePlayerIndex] : null); // YOUR sheet (online: your seat, not the active player's)
   const ec = $derived($ui.entityCard);
 
   const worker = $derived(ec?.kind === "worker" && me ? me.tradesmen.find((t) => t.id === ec.id) : null);
@@ -60,14 +60,13 @@
       <button class="ent-x" onclick={closeEntity}>✕</button>
 
       {#if worker}
-        <span class="headline">⚡{worker.productivity}</span>
         <div class="ent-art"><Art kind="crew" id={worker.id} label="portrait" autoplay={$settings.animateCards} /></div>
-        <h2>{ident.name}</h2>
+        <h2>{ident.name} <span class="ent-hl">⚡{worker.productivity}</span></h2>
         <p class="ent-sub">{worker.id} · <em>“{ident.flavor}”</em></p>
         <div class="stack">
           <div class="stack-row"><span>Tool</span><span>{worker.tool ?? "bare-handed"}</span></div>
-          {#if worker.prod_mod}<div class="stack-row"><span>Last review</span><span class={worker.prod_mod > 0 ? "bonus" : "malus"}>{worker.prod_mod > 0 ? `⭐ +${worker.prod_mod}` : `📉 ${worker.prod_mod}`}/turn</span></div>{/if}
-          {#if me.modifiers?.some((m) => m.kind === "training")}<div class="stack-row"><span>Training</span><span class="bonus">🎓 +1/turn · shop-wide</span></div>{/if}
+          <div class="stack-row"><span>Last review</span><span class={worker.prod_mod > 0 ? "bonus" : worker.prod_mod < 0 ? "malus" : "rmuted"}>{worker.prod_mod > 0 ? `⭐ +${worker.prod_mod}/turn` : worker.prod_mod < 0 ? `📉 ${worker.prod_mod}/turn` : "— none yet"}</span></div>
+          <div class="stack-row"><span>Training</span>{#if me.modifiers?.some((m) => m.kind === "training")}<span class="bonus">🎓 +1/turn · shop-wide</span>{:else}<span class="rmuted">— not enrolled</span>{/if}</div>
           {#if me.defects?.length}<div class="stack-row"><span>Code drag</span><span class="malus">🚧 −{me.defects.reduce((s, d) => s + (d.productivity_hit ?? 0), 0)}/turn · shop-wide</span></div>{/if}
           <div class="stack-row"><span>Status</span><span>{worker.out_until && worker.out_until > view.turn ? "out until t" + worker.out_until : worker.assignedJob ? "on a job" : "idle"}</span></div>
         </div>
@@ -178,6 +177,8 @@
   .ent { position: relative; background: var(--panel, #161a22); border: 1px solid var(--accent, #e0b341); border-radius: 14px; padding: 18px 20px; max-width: 380px; width: 100%; }
   .ent-x { position: absolute; top: 10px; left: 12px; background: none; border: none; font-size: 1.1em; cursor: pointer; color: var(--muted, #9aa0aa); }
   .headline { position: absolute; top: 12px; right: 16px; font-size: 1.4em; font-weight: 800; color: var(--accent, #e0b341); font-variant-numeric: tabular-nums; }
+  .ent-hl { color: var(--accent, #e0b341); font-weight: 800; font-variant-numeric: tabular-nums; font-size: 0.7em; vertical-align: middle; }
+  .stack-row .rmuted { color: var(--muted, #9aa0aa); }
   .ent-art { border-radius: 10px; overflow: hidden; margin: 6px 0 8px; }
   .ent h2 { margin: 0 0 8px; }
   .stack { display: flex; flex-direction: column; gap: 3px; margin-bottom: 10px; }
