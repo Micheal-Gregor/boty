@@ -56,7 +56,7 @@
       <h2>🃏 Your cards</h2>
 
       <div class="cc-scroll" bind:this={scroller} onscroll={onScroll}>
-        {#each items as it, i (it.kind + (it.id ?? it.title))}
+        {#each items as it, i (it.kind + (it.id ?? it.title) + "#" + i)}
           <button class="cc" class:active={i === activeIdx} class:near={Math.abs(i - activeIdx) === 1} class:flat={!openable(it.kind)} onclick={() => clickCard(it)}>
             <div class="cc-art">{#if it.art}<Art kind={it.art[0]} id={it.art[1]} seed={it.art[2] ?? ""} label={it.title} autoplay={i === activeIdx && $settings.animateCards} />{:else}<div class="cc-icon">{it.icon}</div>{/if}</div>
             <div class="cc-type">{it.type}</div>

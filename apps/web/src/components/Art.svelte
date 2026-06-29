@@ -77,6 +77,9 @@
   // late case (e.g. the player flips "Animate cards" on while a card is already showing).
   $effect(() => { if (vid && autoplay && anim && !playing) play(); });
 
+  // If an animation has NO companion still, the <video> has no poster — so a paused clip shows a blank
+  // box. Nudge it to paint its first frame so it reads as the still until/unless it animates.
+  function paintPoster() { if (vid && !still && vid.paused) { try { vid.currentTime = 0.04; } catch { /* ignore */ } } }
   function play() { if (!vid) return; vid.play().then(() => (playing = true)).catch(() => {}); }
   function toggle() {
     if (!anim || !animatable || !vid) return;
@@ -89,7 +92,7 @@
 
 {#if anim}
   <div class="art-anim" class:sm={small} class:playable={animatable} onclick={toggle} role="button" tabindex="0">
-    <video bind:this={vid} class="art-vid" class:sm={small} poster={still} loop={!loopFrom} autoplay={autoplay} muted onended={onEnded} onplay={() => (playing = true)} onpause={() => (playing = false)} playsinline preload="metadata">
+    <video bind:this={vid} class="art-vid" class:sm={small} poster={still} loop={!loopFrom} autoplay={autoplay} muted onended={onEnded} onloadeddata={paintPoster} onplay={() => (playing = true)} onpause={() => (playing = false)} playsinline preload="metadata">
       <source src={anim} />
     </video>
     {#if animatable && !playing}<span class="play-hint">▶</span>{/if}

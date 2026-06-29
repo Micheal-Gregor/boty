@@ -44,14 +44,15 @@
   const onlineWaiting = $derived.by(() => { void $ui.rev; return isOnline() && !myTurn(); });
   const activeName = $derived(s ? (s.players[s.activePlayerIndex]?.name ?? "") : "");
 
-  // On YOUR fresh turn that dealt cards, flip to the Fortune tab so you watch the draw, then you
-  // tap over to your shop to act. (On wide screens all three are columns, so this is a no-op.)
+  // On YOUR fresh turn, land on the SHOP — that's where you act. The draw is already shown by the
+  // reveal pop-ups, so there's no need to park on the Fortune tab first. (On wide screens all three
+  // are columns, so this is a no-op; on a phone it means your turn opens ready to work.)
   let lastSig = $state("");
   $effect(() => {
     const sig = s ? `${s.turn}:${s.activePlayerIndex}` : "";
     if (sig && sig !== lastSig) {
       lastSig = sig;
-      if (!aiTurn && drawn.length) { tab = "fortune"; playSfx("deal", 0.5); }
+      if (!aiTurn) { tab = "shop"; if (drawn.length) playSfx("deal", 0.5); }
     }
   });
   // While a rival plays, sit on the Table tab so you watch the open books move.
