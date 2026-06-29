@@ -47,7 +47,7 @@ export function buildIncident(state, plan, choices = {}) {
   state.incidentSeq = (state.incidentSeq ?? 0) + 1;
   const id = `IN${state.incidentSeq}`;
   const { fee, value, deadline, cardId, cardName } = plan;
-  const contract = { id, pm_id: pm.id, fee, deadline_turn: state.turn + deadline, portions: [], failed: false };
+  const contract = { id, pm_id: pm.id, name: cardName, fee, deadline_turn: state.turn + deadline, portions: [], failed: false };
   const notes = []; const parts = [];
   const toCounty = (trade, chosen) => {
     contract.portions.push({ trade, bank: true, done: true });

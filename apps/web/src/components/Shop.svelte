@@ -8,6 +8,7 @@
 
   let { player, econ, handHas, nextBuilding } = $props();
   const suits = $derived($ui.view?.lawsuits ?? { mine: [], against: [] }); // persistent player-v-player lawsuits
+  const pm = $derived($ui.view?.pmContracts ?? []); // contracts YOU broker (PM tenders / GC contracts) + the fee/markup you'll earn
   const tradeSlug = (svc) => (svc === "HVAC technician" ? "hvac" : (svc ?? "").toLowerCase());
   const equipArtId = (e) => (e.defId === "pro" ? `pro/${tradeSlug(player.service)}` : e.defId); // per-trade pro gear
 
@@ -227,8 +228,28 @@
     </div>
   </div>
 
+  {#if pm.length}
+    <h3>🏗️ Your contracts (PM / GC) <span class="muted">— fees & markups you earn while the trades sub the work</span></h3>
+    <div class="suits">
+      {#each pm as c (c.id)}
+        <div class="pm-row">
+          <div class="line">
+            <span class="who">{c.name} <span class="muted">[{c.kind}]</span></span>
+            <span class="when gain">+{$money(c.commission)}{#if c.gross} · bills {$money(c.gross)}{/if} · due turn {c.deadline}</span>
+          </div>
+          <div class="pm-portions">
+            {#each c.portions as pt}
+              <span class="pm-portion" class:done={pt.done} class:mine={pt.mine}>{pt.trade}: {pt.who} {pt.done ? "✓" : "…"}</span>
+            {/each}
+          </div>
+        </div>
+      {/each}
+      <div class="pm-total">Potential commissions in flight: <strong class="gain">{$money(pm.reduce((s, c) => s + c.commission, 0))}</strong> <span class="muted">— if a sub botches a portion, the contract collapses and you can sue them (below)</span></div>
+    </div>
+  {/if}
+
   {#if suits.mine.length || suits.against.length}
-    <h3>⚖️ Lawsuits <span class="muted">— open until sued, settled, or a Favor closes them</span></h3>
+    <h3>⚖️ Lawsuits <span class="muted">— claims you can pursue (a sub botched YOUR contract) + suits against you; open until sued, settled, or a Favor closes them</span></h3>
     <div class="suits">
       {#each suits.mine as c (c.jobId)}
         <div class="line">
@@ -302,6 +323,13 @@
 
 <style>
   .routed { font-size: 0.8em; color: var(--accent, #e0b341); font-weight: 600; }
+  .gain { color: #7fdca0; }
+  .pm-row { border: 1px solid var(--line, #2a3140); border-radius: 8px; padding: 6px 8px; margin: 4px 0; background: rgba(127,220,160,0.04); }
+  .pm-portions { display: flex; flex-wrap: wrap; gap: 5px; margin-top: 4px; }
+  .pm-portion { font-size: 0.78em; padding: 1px 7px; border-radius: 6px; background: rgba(255,255,255,0.05); color: var(--muted, #9aa4b2); }
+  .pm-portion.done { color: #7fdca0; background: rgba(127,220,160,0.12); }
+  .pm-portion.mine { border: 1px solid rgba(224,179,65,0.5); }
+  .pm-total { font-size: 0.82em; margin-top: 6px; padding-top: 5px; border-top: 1px solid var(--line, #2a3140); }
   .line.aged { display: grid; grid-template-columns: 3.5em 1fr auto auto; gap: 0.5em; align-items: center; padding: 0.15em 0; }
   .line.aged .amt { font-weight: 600; font-variant-numeric: tabular-nums; }
   .line.aged .who { color: var(--muted, #9aa0aa); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }

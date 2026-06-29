@@ -420,8 +420,20 @@ function viewOf() {
     mine: (s.pendingDamages ?? []).filter((c) => (c.recipientId ?? c.hirerId) === me?.id).map((c) => ({ jobId: c.jobId, jobName: c.jobName, value: c.value, other: nm(c.contractorId), settlement: c.settlement ?? null })),
     against: (s.pendingDamages ?? []).filter((c) => c.contractorId === me?.id).map((c) => ({ jobId: c.jobId, jobName: c.jobName, value: c.value, other: nm(c.recipientId ?? c.hirerId), settlement: c.settlement ?? null })),
   };
+  // PM/GC contracts YOU broker — the fee/markup you stand to earn while subs do the trades, plus each
+  // portion's status (this is also why you hold suits: a sub who botched YOUR contract is suable).
+  const pmContracts = [
+    ...(s.incidents ?? []).filter((c) => c.pm_id === me?.id).map((c) => ({
+      kind: "PM tender", id: c.id, name: c.name ?? c.id, commission: c.fee ?? 0, gross: null, deadline: c.deadline_turn,
+      portions: (c.portions ?? []).map((pt) => ({ trade: pt.trade, who: pt.bank ? "the county" : pt.sub_id === me?.id ? "you" : nm(pt.sub_id), done: !!pt.done, mine: pt.sub_id === me?.id })),
+    })),
+    ...(s.routed ?? []).filter((c) => c.gc_id === me?.id).map((c) => ({
+      kind: "GC contract", id: c.id, name: c.name ?? c.id, commission: c.commission ?? 0, gross: c.client_value ?? null, deadline: c.deadline_turn,
+      portions: (c.portions ?? []).map((pt) => ({ trade: pt.trade, who: pt.bank ? "the bank" : pt.self ? "you" : nm(pt.sub_id), done: !!pt.done, mine: !!pt.self || pt.sub_id === me?.id })),
+    })),
+  ];
   return {
-    lawsuits,
+    lawsuits, pmContracts,
     turn: s.turn, activePlayerIndex: s.activePlayerIndex, meIndex: mi, over: s.over, phase: s.phase,
     mustStaffBoon: game.unstaffedBoon.length > 0, // Chief Boon's mandatory job blocks end-turn until staffed
     log: s.log.slice(-8),

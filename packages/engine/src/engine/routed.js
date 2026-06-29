@@ -78,7 +78,7 @@ export function buildRouted(state, plan, choices = {}) {
   state.routedSeq = (state.routedSeq ?? 0) + 1;
   const id = `RT${state.routedSeq}`;
   const { subVal, markup, deadline, cardId, cardName } = plan;
-  const contract = { id, gc_id: gc.id, deadline_turn: state.turn + deadline, client_value: 0, portions: [], failed: false };
+  const contract = { id, gc_id: gc.id, name: cardName, deadline_turn: state.turn + deadline, client_value: 0, commission: 0, portions: [], failed: false };
   const notes = []; const parts = [];
   const toBank = (trade, chosen) => {
     contract.client_value += subVal;
@@ -95,6 +95,7 @@ export function buildRouted(state, plan, choices = {}) {
       gc.jobs.push(job);
       contract.portions.push({ trade, job_id: job.id, self: true, done: false });
       contract.client_value += subVal + markup;
+      contract.commission += markup; // the broker's spread on a portion you run yourself
       notes.push(`you take ${trade}`);
       parts.push({ trade, who: gc.name, isActor: true, kind: "self", value: subVal + markup, note: "your own crew" });
     } else if (por.role === "sub" && choices[trade] !== "bank") {
@@ -108,6 +109,7 @@ export function buildRouted(state, plan, choices = {}) {
         gc.payables.push(createPayable({ vendor: `${sub.name} — ${cardName} (${trade})`, amount: subVal, dueTurn: null, isNpc: false, creditorId: sub.id, jobId: job.id, pending: true }));
         contract.portions.push({ trade, job_id: job.id, sub_id: sub.id, done: false });
         contract.client_value += subVal + markup;
+        contract.commission += markup; // the broker's spread on a sub-run portion
         notes.push(`${trade} → ${sub.name}`);
         parts.push({ trade, who: sub.name, kind: "sub", value: subVal, note: "you owe, net-30 on delivery" });
       } else toBank(trade, false); // the sub vanished between draw and decision → bank covers it
