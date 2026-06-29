@@ -8,6 +8,7 @@ import { settings } from "./settings.js";
 import { botActions } from "@boty/engine/bots";
 import { loadContent } from "./content.js";
 import { unlockAudio, playSfx, playSting, playMusic } from "./sound.js";
+import { checkInvariants, noteRoundSurfaced } from "./invariants.js";
 import { dealTownlife, townlifeForRound } from "./townlife.js";
 import { setMoneyRate } from "./money.js";
 import { npcIntroFor } from "./townsfolk.js";
@@ -215,6 +216,7 @@ function maybeShowRoundCard() {
   const view = viewOf();
   const tl = townlifeForRound(view.season?.name, view.season?.roundInSeason); // this round's Maple Hollow story beat
   const leadP = s.players[s.activePlayerIndex];
+  noteRoundSurfaced(s.turn); // dev-only: flags a re-fire (the looping-card bug)
   enqueuePopup({ kind: "round", turn: s.turn, season: view.season, town: flavor?.town, townlife: tl?.id ?? null, townlifeFlavor: tl?.flavor ?? null, lead: leadP?.name ?? null, leadIsMe: leadP ? !isAI(leadP.id) : false });
   return true;
 }
@@ -474,6 +476,7 @@ function push(patch = {}) {
   });
   if (online) { surfaceRoundStart(); surfaceActiveDraws(); } // round card (round tick) + the active player's fortune reveal — both guarded
   if (online && pending.length) flushMoves(); // persist any moves I just recorded (online only)
+  checkInvariants({ state: game?.state, popups: get(ui).popups, online }); // dev-only: shout if the flow breaks
 }
 function fail(msg) { ui.update((v) => ({ ...v, rev: v.rev + 1, error: msg })); }
 
@@ -563,6 +566,7 @@ function surfaceRoundStart() {
   const lead = s.players[s.activePlayerIndex]?.name ?? null; // who leads off the new round (rotates each round)
   const roll = s.turn === 1 ? buildFirstRoll() : null; // round 1 opens with the "who goes first" dice
   const roundCard = { kind: "round", turn: s.turn, season: view?.season, town: flavor?.town, townlife: tl?.id ?? null, townlifeFlavor: tl?.flavor ?? null, lead, leadIsMe: s.activePlayerIndex === mySeat };
+  noteRoundSurfaced(s.turn); // dev-only: flags a re-fire (the looping-card bug)
   ui.update((v) => ({ ...v, rev: v.rev + 1, popups: roll ? [roll, roundCard] : [roundCard] }));
 }
 
