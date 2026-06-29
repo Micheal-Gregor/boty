@@ -2,11 +2,11 @@
   import { backToMenu } from "../lib/store.js";
   import Shell from "./Shell.svelte";
 
-  // Fill in your name / collaborators where it says [Your name].
+  // Fill in your name / collaborators where it says Micheal Gregor.
   const credits = [
-    ["Created &amp; designed by", ["[Your name]"]],
-    ["Art &amp; animation", ["[Your name]"]],
-    ["Music &amp; sound", ["[Your name]"]],
+    ["Created &amp; designed by", ["Micheal Gregor"]],
+    ["Art &amp; animation", ["Micheal Gregor"]],
+    ["Music &amp; sound", ["Micheal Gregor"]],
     ["World &amp; story — Maple Hollow", ["Original fiction, in the small-town-Americana tradition"]],
     ["Engine &amp; build", ["Crafted with Claude Code (Anthropic)"]],
     ["With thanks to", ["the pre-launch testers of Maple Hollow"]],

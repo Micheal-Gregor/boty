@@ -1,5 +1,5 @@
 <script>
-  import { goScreen } from "../lib/store.js";
+  import { goScreen, openSettings } from "../lib/store.js";
   import { user, signOut } from "../lib/auth.js";
   import { supabaseReady } from "../lib/supabase.js";
   import Shell from "./Shell.svelte";
@@ -16,6 +16,7 @@
       {/if}
       <button onclick={() => goScreen("history")}>📜 The Story of Maple Hollow</button>
       <button onclick={() => goScreen("faq")}>❔ How to Play &amp; FAQ</button>
+      <button onclick={openSettings}>⚙️ Settings</button>
       <button onclick={() => goScreen("credits")}>🎬 Credits</button>
     </nav>
     {#if supabaseReady && $user}

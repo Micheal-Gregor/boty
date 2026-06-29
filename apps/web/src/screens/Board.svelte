@@ -5,7 +5,6 @@
   import { seasonFor, findBuilding } from "@boty/engine";
   import Shop from "../components/Shop.svelte";
   import Art from "../components/Art.svelte";
-  import Settings from "../components/Settings.svelte";
   import RivalShop from "../components/RivalShop.svelte";
   import Rules from "../components/Rules.svelte";
   // Popup / EntityCard / HandView / Confirm / Dice now live as global overlays in App.svelte.
@@ -75,7 +74,6 @@
     <div class="turn-strip" class:mine={!onlineWaiting}>{onlineWaiting ? `⏳ ${activeName} is up — they're playing` : `🎯 Your turn, ${me?.name ?? "you"} — make your move!`}</div>
   {/if}
 
-  <Settings />
   <RivalShop />
   <Rules />
   <!-- Popup / EntityCard / HandView / Confirm / Dice moved to App.svelte global overlays so they

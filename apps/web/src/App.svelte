@@ -27,6 +27,7 @@
   import HandView from "./components/HandView.svelte";
   import Confirm from "./components/Confirm.svelte";
   import Dice from "./components/Dice.svelte";
+  import Settings from "./components/Settings.svelte";
 
   // One soft click for EVERY button press, app-wide (capture phase, so it still fires when a modal
   // stops propagation). Card opens / litigation / the Gala layer their own accent (flip/gavel/chime)
@@ -69,6 +70,7 @@
   <HandView />
   <Confirm />
   <Dice />
+  <Settings />
   <CardModal />
   <SettleModal />
   <CourtModal />
