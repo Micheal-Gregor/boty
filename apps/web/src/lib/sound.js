@@ -53,10 +53,9 @@ settings.subscribe((s) => {
   // Adjusting settings must NOT restart the music (that was jarring). Volume slides live on the
   // playing element; turning music off pauses IN PLACE (keeps position); turning it back on resumes
   // from where it was. Only spin up a fresh track when nothing is loaded yet.
-  if (musicEl) musicEl.volume = musicBaseVol * masterVol;
+  if (musicEl) applyVol(musicEl); // live volume — composes with any in-flight fade/duck
   if (!musicOn || isMuted) { if (musicEl && !musicEl.paused) { try { musicEl.pause(); } catch { /* ignore */ } } }
-  else if (musicEl) { if (musicEl.paused) musicEl.play().catch(() => {}); }
-  else resumeMusic();
+  else resumeMusic(); // resumes in place if paused; spins a fresh track only if none is loaded
 });
 
 /** Called on the first user gesture (the Start button) so the browser lets us make sound. */
@@ -77,24 +76,55 @@ export function playSting(id, vol = 0.7) {
   if (isMuted || !sfxOn || !unlocked) return;
   if (!lookup[`sfx/${id}`]) return; // no clip yet → don't duck the music for silence
   if (musicEl) {
-    try { musicEl.volume = musicBaseVol * masterVol * 0.2; } catch { /* ignore */ }
-    setTimeout(() => { try { if (musicEl) musicEl.volume = musicBaseVol * masterVol; } catch { /* ignore */ } }, 1600);
+    const el = musicEl; // duck via the envelope so it composes with a crossfade; restore THIS element
+    el._duck = 0.2; applyVol(el);
+    setTimeout(() => { el._duck = 1; applyVol(el); }, 1600);
   }
   playSfx(id, vol);
 }
 
-// Low-level: load and play one track. A non-looping track in season mode chains to the next song.
+const FADE_MS = 1400, FADE_SEC = FADE_MS / 1000;
+const clampVol = (v) => Math.max(0, Math.min(1, v));
+// A track's volume = its fade envelope (_gain 0..1) × duck (_duck, 0.2 under a sting) × per-track base ×
+// the master slider. applyVol recomputes it live, so the slider and the duck compose with an in-flight
+// crossfade instead of fighting it.
+function applyVol(el) { if (el) try { el.volume = clampVol((el._gain ?? 1) * (el._duck ?? 1) * musicBaseVol * masterVol); } catch { /* ignore */ } }
+function fade(el, toGain, ms, onDone) {
+  if (!el) { onDone?.(); return; }
+  if (el._ft) clearInterval(el._ft);
+  const fromGain = el._gain ?? 0;
+  const steps = Math.max(1, Math.round(ms / 50));
+  let i = 0;
+  el._ft = setInterval(() => {
+    i += 1;
+    el._gain = fromGain + (toGain - fromGain) * (i / steps);
+    applyVol(el);
+    if (i >= steps) { clearInterval(el._ft); el._ft = null; el._gain = toGain; applyVol(el); onDone?.(); }
+  }, 50);
+}
+// Chain to the next jukebox song exactly once — whichever fires first, the near-end timeupdate or onended.
+function chainNext(el) { if (el._chained) return; el._chained = true; onTrackEnd(); }
+
+// Low-level: CROSSFADE to one track. The outgoing element fades out while the incoming fades in; a
+// non-looping song in season mode hands off a beat early (timeupdate) so the two overlap and blend.
 function spin(id, loop) {
   musicId = id; musicLoop = loop;
-  if (musicEl) { try { musicEl.pause(); musicEl.onended = null; } catch { /* ignore */ } musicEl = null; }
   const url = id && lookup[`music/${id}`];
-  if (!url || isMuted || !musicOn || !unlocked) return; // keep the intent; stay silent for now
+  const old = musicEl;
+  const retire = (el) => { if (!el) return; el.onended = null; el.ontimeupdate = null; fade(el, 0, FADE_MS, () => { try { el.pause(); } catch { /* ignore */ } }); };
+  if (!url || isMuted || !musicOn || !unlocked) { retire(old); musicEl = null; return; } // keep the intent; stay silent
   try {
-    musicEl = new Audio(url);
-    musicEl.loop = loop;
-    musicEl.volume = Math.max(0, Math.min(1, musicBaseVol * masterVol));
-    if (!loop) musicEl.onended = onTrackEnd;
-    musicEl.play().catch(() => {});
+    const next = new Audio(url);
+    next.loop = loop; next._gain = 0; next._duck = 1;
+    applyVol(next); // start silent, then fade up
+    if (!loop) {
+      next.onended = () => chainNext(next);
+      next.ontimeupdate = () => { if (next.duration && next.currentTime >= next.duration - FADE_SEC) chainNext(next); };
+    }
+    next.play().catch(() => {});
+    musicEl = next;
+    fade(next, 1, FADE_MS); // new one IN
+    retire(old);            // old one OUT, overlapping = crossfade
   } catch { /* ignore */ }
 }
 
@@ -108,10 +138,12 @@ function nextInQueue() {
   spin(queue.shift(), false);
 }
 
-// Resume whatever was intended after an unmute / music-on / autoplay-unlock.
+// Resume whatever was intended after an unmute / music-on / autoplay-unlock — IN PLACE if a track is
+// loaded (no jarring restart); spin a fresh one only when nothing's playing yet (first unlock).
 function resumeMusic() {
   if (isMuted || !musicOn || !unlocked) return;
-  if (musicMode === "season") spin(musicId ?? seasonId, musicLoop); // replay current track; chain continues
+  if (musicEl) { if (musicEl.paused) musicEl.play().catch(() => {}); return; }
+  if (musicMode === "season") spin(musicId ?? seasonId, musicLoop);
   else if (musicMode === "loop" && musicId) spin(musicId, true);
 }
 
