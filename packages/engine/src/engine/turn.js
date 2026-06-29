@@ -115,9 +115,9 @@ function settleBankruptcy(state, x) {
   for (const job of x.jobs.filter((j) => j.hirer_id)) {
     const hirer = state.players.find((p) => p.id === job.hirer_id);
     if (!hirer) continue;
-    const before = hirer.payables.length;
-    hirer.payables = hirer.payables.filter((a) => a.job_id !== job.id);
-    if (hirer.payables.length < before) {
+    const owed = hirer.payables.filter((a) => a.job_id === job.id);
+    for (const ap of owed) clearPayable(state, hirer, ap, { cashAmt: 0, reason: "Contractor folded" });
+    if (owed.length) {
       lines.push(`   ↳ ${x.name}'s ${job.name} contract dies with the shop — ${hirer.name}'s ${w(job.value)} liability cleared`);
     }
   }
@@ -141,9 +141,9 @@ function settleBankruptcy(state, x) {
   // 3. Debts players owed X are forgiven (defunct shop can't collect).
   for (const p of state.players) {
     if (p === x) continue;
-    const before = p.payables.length;
-    p.payables = p.payables.filter((a) => a.creditor_id !== x.id);
-    if (p.payables.length < before) lines.push(`   ↳ ${p.name}'s debt to ${x.name} is written off`);
+    const owed = p.payables.filter((a) => a.creditor_id === x.id);
+    for (const ap of owed) clearPayable(state, p, ap, { cashAmt: 0, reason: "Creditor folded" });
+    if (owed.length) lines.push(`   ↳ ${p.name}'s debt to ${x.name} is written off`);
   }
 
   // 4. X's own books are wiped, and any litigation touching X is dropped. Clear each payable so an

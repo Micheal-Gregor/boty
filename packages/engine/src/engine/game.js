@@ -439,7 +439,7 @@ export class Game {
       // can pay it, or stiff it and get dragged to court (the existing player-payable litigation).
       contractor.jobs.push(r.job);
       const terms = this.state.economy.referral_fee_terms ?? 2;
-      contractor.payables.push(createPayable({ vendor: `${referrer.name} — referral fee`, amount: r.fee, dueTurn: this.state.turn + terms, isNpc: false, creditorId: referrer.id }));
+      payables.incurPayable(this.state, contractor, { vendor: `${referrer.name} — referral fee`, amount: r.fee, dueTurn: this.state.turn + terms, isNpc: false, creditorId: referrer.id, memo: "Referral finder's fee", debits: [{ acct: ACCT.MARKETING, amt: r.fee }] });
       line = `🤝 ${contractor.name} takes the ${r.trade} referral — owes ${referrer.name} a ${w(r.fee)} finder's fee (net-${terms * 30})`;
     } else {
       line = `🚫 ${contractor.name} passes on the ${r.trade} referral — ${referrer.name} gets nothing`;
@@ -723,7 +723,6 @@ export class Game {
     const creditor = this.#playerById(t.creditorId);
     const debtor = this.#playerById(t.debtorId);
     const ap = debtor.payables.find((a) => a.id === t.payableId);
-    const settle = () => { debtor.payables = debtor.payables.filter((a) => a.id !== t.payableId); };
 
     // You can't get blood from a stone: a creditor only collects what the debtor can actually
     // cover (capped at their cash before court costs); any shortfall is uncollectible and the
@@ -733,9 +732,7 @@ export class Game {
     const shortNote = collectible < ap.amount ? ` — only ${w(collectible)} of the ${w(ap.amount)} was collectible` : "";
 
     if (!contest) {
-      cashOut(this.state, debtor, ACCT.COGS_SUB, collectible, "Folded — paid the creditor");
-      cashIn(this.state, creditor, ACCT.REVENUE, collectible, `Collected from ${debtor.name}`);
-      settle();
+      payables.clearPayable(this.state, debtor, ap, { cashAmt: collectible, reason: "Folded" }); // Dr AP / Cr Cash + creditor Dr Cash / Cr AR (shortfall → bad debt)
       return `🏳️ ${debtor.name} folds rather than fight it — pays ${creditor.name} ${w(collectible)}${shortNote}.`;
     }
     let defLawyers = 0;
@@ -758,9 +755,11 @@ export class Game {
     // tradesperson PUNITIVE damages (capped by what you can cover). This makes stalling a gamble
     // that doesn't pay on average — crime can't out-earn paying on time (the A balance gate).
     const punitive = Math.min(Math.max(0, debtor.cash - collectible), e.civil.sue_loss_penalty ?? 0);
-    cashOut(this.state, debtor, ACCT.COGS_SUB, collectible + punitive, "Lost the suit — paid + damages");
-    cashIn(this.state, creditor, ACCT.REVENUE, collectible + punitive, `Won suit vs ${debtor.name}`);
-    settle();
+    payables.clearPayable(this.state, debtor, ap, { cashAmt: collectible, reason: "Lost suit" }); // base debt — both sides
+    if (punitive > 0) {
+      cashOut(this.state, debtor, ACCT.LEGAL, punitive, "Lost the suit — punitive damages");
+      cashIn(this.state, creditor, ACCT.OTHER_INCOME, punitive, `Punitive damages vs ${debtor.name}`);
+    }
     const punNote = punitive > 0 ? ` + ${w(punitive)} punitive` : "";
     return `⚖️ ${creditor.name} WINS (${debtor.name} rolled ${res.roll} > ${g}) — collects ${w(collectible)}${punNote}${shortNote}; ${w(FEE)} legal fee each.`;
   }

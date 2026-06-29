@@ -44,7 +44,7 @@ export function fixDefect(state, player, defectId) {
   if (d.fix_trade && player.service !== d.fix_trade) {
     const fixer = pickFixer(state, player, d.fix_trade);
     if (fixer) {
-      player.payables.push(createPayable({ vendor: `${fixer.name} (fixed ${d.name})`, amount: d.fix_cost, dueTurn, isNpc: false, creditorId: fixer.id }));
+      incurPayable(state, player, { vendor: `${fixer.name} (fixed ${d.name})`, amount: d.fix_cost, dueTurn, isNpc: false, creditorId: fixer.id, memo: `${d.name} — fixed by ${fixer.name}`, debits: [{ acct: ACCT.COGS_SUB, amt: d.fix_cost }] });
       line = `🔧 ${player.name} hired ${fixer.name} (the ${d.fix_trade}) to clear ${d.name} — owes ${w(d.fix_cost)} due turn ${dueTurn}`;
     }
   }

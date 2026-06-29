@@ -50,7 +50,16 @@ export function factorClaim(state, player, payableId) {
   const collectible = Math.max(0, Math.min(ap.amount, debtor.cash));
   const fee = Math.ceil(collectible * factoringFeeRate(player, state.economy.factoring_fee));
   const proceeds = collectible - fee;
-  cashIn(state, player, ACCT.OTHER_INCOME, proceeds, "Sold a debt to collections");
+  if (ap.accrued) {
+    // Your receivable was on the books (Dr AR at delivery): sell it — Dr Cash (proceeds) + Dr Bad debt
+    // (the haircut + uncollectible) / Cr AR (full).
+    const lines = [{ acct: ACCT.AR, amt: -ap.amount }, { acct: ACCT.CASH, amt: proceeds }];
+    const haircut = ap.amount - proceeds;
+    if (Math.abs(haircut) > 0.001) lines.push({ acct: ACCT.BAD_DEBT, amt: haircut });
+    post(state, player, "Sold a debt to collections", lines);
+  } else {
+    cashIn(state, player, ACCT.OTHER_INCOME, proceeds, "Sold a debt to collections"); // legacy un-accrued
+  }
   // Hand the debt to collections: NPC-style bill + a guaranteed lawyer in court.
   ap.is_npc = true;
   ap.creditor_id = null;
@@ -72,11 +81,7 @@ export function payPayable(state, player, payableId) {
   const ap = player.payables.find((a) => a.id === payableId);
   if (!ap) throw new GameError(`No payable "${payableId}"`);
   if (player.cash < ap.amount) throw new GameError(`${player.name} can't cover ${w(ap.amount)} (has ${w(player.cash)})`);
-  if (!ap.is_npc && ap.creditor_id) {
-    const creditor = playerById(state, ap.creditor_id);
-    if (creditor) cashIn(state, creditor, ACCT.REVENUE, ap.amount, `Collect from ${player.name}`);
-  }
-  clearPayable(state, player, ap, { cashAmt: ap.amount, reason: "Paid" });
+  clearPayable(state, player, ap, { cashAmt: ap.amount, reason: "Paid" }); // clears both the debtor's AP and the creditor's AR
   return `${player.name} paid ${ap.vendor} ${w(ap.amount)} in full`;
 }
 
@@ -100,33 +105,63 @@ function removeAp(player, ap) {
   player.payables = player.payables.filter((a) => a.id !== ap.id);
 }
 
+/** Book the CREDITOR side of a player debt (the player owed carries the matching AR). */
+function creditorEarns(state, ap) {
+  if (ap.is_npc || !ap.creditor_id) return;
+  const creditor = playerById(state, ap.creditor_id);
+  if (creditor) post(state, creditor, `Earned — ${ap.vendor}`, [{ acct: ACCT.AR, amt: ap.amount }, { acct: ACCT.REVENUE, amt: -ap.amount }]); // Dr AR / Cr Revenue
+}
+
 /** Incur a bill: create the payable AND accrue it (Dr the expense split / Cr AP) so it sits on the
- *  balance sheet until paid. `debits` is the expense lines (their sum must equal the amount). A PENDING
- *  player AP is left un-accrued — it books at delivery (legacy cash-basis for now). */
+ *  balance sheet until paid. `debits` sum to the amount. A player AP also books the creditor's AR. A
+ *  PENDING player AP is left un-accrued — it books at delivery via accruePending(). */
 export function incurPayable(state, player, opts) {
   const ap = createPayable(opts);
   if (!ap.pending && opts.debits?.length) {
     post(state, player, opts.memo ?? `Bill — ${ap.vendor}`, [...opts.debits, { acct: ACCT.AP, amt: -ap.amount }]);
     ap.accrued = true;
+    creditorEarns(state, ap);
   }
   player.payables.push(ap);
   return ap;
 }
 
-/** Settle a payable off the books. ACCRUED bill → Dr AP / Cr Cash (paid), any shortfall to Other
- *  income (forgiven/settled below face). A not-accrued (legacy/pending) AP keeps the old cash-basis
- *  Dr COGS-Sub / Cr Cash when paid, or just drops when forgiven. */
-export function clearPayable(state, player, ap, { cashAmt = null, reason = "Paid" } = {}) {
+/** Delivery: a pending player AP becomes firm — the debtor books Dr COGS-Sub / Cr AP and the creditor
+ *  (the sub who delivered) books Dr AR / Cr Revenue. Idempotent. */
+export function accruePending(state, debtor, ap) {
+  if (ap.accrued) return;
+  post(state, debtor, `Sub cost — ${ap.vendor}`, [{ acct: ACCT.COGS_SUB, amt: ap.amount }, { acct: ACCT.AP, amt: -ap.amount }]);
+  ap.accrued = true;
+  creditorEarns(state, ap);
+}
+
+/** Settle a payable off both sides' books. Debtor: ACCRUED → Dr AP / Cr Cash, shortfall → Other income
+ *  (forgiven/settled below face); un-accrued → legacy Dr COGS-Sub / Cr Cash. Creditor (player debt):
+ *  ACCRUED → Dr Cash / Cr AR for what's paid, Dr Bad debt / Cr AR for any shortfall. */
+export function clearPayable(state, debtor, ap, { cashAmt = null, reason = "Paid" } = {}) {
+  const cash = cashAmt ?? 0;
   if (ap.accrued) {
     const lines = [{ acct: ACCT.AP, amt: ap.amount }];
-    if (cashAmt) lines.push({ acct: ACCT.CASH, amt: -cashAmt });
-    const gain = ap.amount - (cashAmt ?? 0);
+    if (cash) lines.push({ acct: ACCT.CASH, amt: -cash });
+    const gain = ap.amount - cash;
     if (Math.abs(gain) > 0.001) lines.push({ acct: ACCT.OTHER_INCOME, amt: -gain });
-    post(state, player, `${reason} — ${ap.vendor}`, lines);
-  } else if (cashAmt) {
-    cashOut(state, player, ACCT.COGS_SUB, cashAmt, `${reason} — ${ap.vendor}`);
+    post(state, debtor, `${reason} — ${ap.vendor}`, lines);
+  } else if (cash) {
+    cashOut(state, debtor, ACCT.COGS_SUB, cash, `${reason} — ${ap.vendor}`);
   }
-  removeAp(player, ap);
+  if (!ap.is_npc && ap.creditor_id) {
+    const creditor = playerById(state, ap.creditor_id);
+    if (creditor && ap.accrued) {
+      const lines = [{ acct: ACCT.AR, amt: -ap.amount }];
+      if (cash) lines.push({ acct: ACCT.CASH, amt: cash });
+      const writeoff = ap.amount - cash;
+      if (Math.abs(writeoff) > 0.001) lines.push({ acct: ACCT.BAD_DEBT, amt: writeoff });
+      post(state, creditor, `${reason} — from ${debtor.name}`, lines);
+    } else if (creditor && cash) {
+      cashIn(state, creditor, ACCT.REVENUE, cash, `Collect from ${debtor.name}`); // legacy un-accrued path
+    }
+  }
+  removeAp(debtor, ap);
 }
 
 function dodgeNpc(state, player, ap) {

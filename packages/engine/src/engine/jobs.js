@@ -14,6 +14,7 @@
 
 import { GameError, findEquipment, findBuilding, w } from "./economy.js";
 import { createInvoice } from "../state/state.js";
+import { accruePending } from "./payables.js";
 import { defectPenalty } from "./defects.js";
 import { trainingSpeedBonus } from "./modifiers.js";
 import { applyGlobal } from "./globals.js";
@@ -377,7 +378,7 @@ function completeJob(state, player, job) {
     if (job.hirer_id) {
       const hirer = state.players.find((p) => p.id === job.hirer_id);
       const ap = hirer?.payables.find((a) => a.job_id === job.id);
-      if (ap) { ap.pending = false; ap.due_turn = state.turn + terms; }
+      if (ap) { ap.pending = false; ap.due_turn = state.turn + terms; accruePending(state, hirer, ap); }
     }
     onRoutedPortionComplete(state, job);
     return;
@@ -388,7 +389,7 @@ function completeJob(state, player, job) {
     if (job.hirer_id) {
       const lead = state.players.find((p) => p.id === job.hirer_id);
       const ap = lead?.payables.find((a) => a.job_id === job.id);
-      if (ap) { ap.pending = false; ap.due_turn = state.turn + terms; }
+      if (ap) { ap.pending = false; ap.due_turn = state.turn + terms; accruePending(state, lead, ap); }
     }
     onPhaseComplete(state, job);
     return;
@@ -398,7 +399,7 @@ function completeJob(state, player, job) {
     // contractor (this player) the sub_cost, or refuse and face a suit.
     const hirer = state.players.find((p) => p.id === job.hirer_id);
     const ap = hirer?.payables.find((a) => a.job_id === job.id);
-    if (ap) { ap.pending = false; ap.due_turn = state.turn + terms; }
+    if (ap) { ap.pending = false; ap.due_turn = state.turn + terms; accruePending(state, hirer, ap); }
     if (job.subcontract && hirer) {
       // The GC delivers to the customer: book their marked-up invoice (collects later, or factor
       // it). Gross margin = this revenue (value) − the COGS_SUB they pay the sub = the markup.
