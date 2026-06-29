@@ -14,12 +14,15 @@ export const gameInvites = writable([]);      // incoming, open: [{ id, gameId, 
 const meId = () => get(user)?.id ?? null;
 let subbed = false;
 
-/** Load my profile after sign-in (or detect that I still need to pick a username). */
-export async function loadProfile() {
+/** Load my profile after sign-in (or detect that I still need to pick a username). Resilient to a
+ *  transient failure (e.g. PostgREST's schema cache still warming after the tables were created): on an
+ *  ERROR we retry rather than treating it as "no profile" — which would wrongly pop the name prompt. */
+export async function loadProfile(attempt = 0) {
   if (!supabaseReady || !meId()) { myProfile.set(null); needsUsername.set(false); friends.set([]); friendRequests.set([]); gameInvites.set([]); return; }
-  const { data } = await supabase.from("profiles").select("*").eq("id", meId()).maybeSingle();
+  const { data, error } = await supabase.from("profiles").select("*").eq("id", meId()).maybeSingle();
+  if (error) { if (attempt < 4) setTimeout(() => loadProfile(attempt + 1), 1500); return; } // transient — retry, don't false-prompt
   myProfile.set(data ?? null);
-  needsUsername.set(!data);
+  needsUsername.set(!data); // a clean "no row" → you genuinely need to pick a username
   if (data) { refreshFriends(); refreshInvites(); subscribe(); }
 }
 
