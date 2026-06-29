@@ -57,6 +57,7 @@ export function buildIncident(state, plan, choices = {}) {
   const makeTender = (trade, taker, isSelf) => {
     const job = createJob({ id: `${cardId}_${trade}`, name: `${cardName} — ${trade}`, value, work_amount: value, deadline, terms: 1, min_tradesmen: 1, max_tradesmen: 1, required_equipment: null, droppable: false }, state.turn);
     job.incident_id = id;
+    job.art = cardId; // tender shows the parent incident's art (e.g. grain_elevator), not a per-trade key
     taker.jobs.push(job);
     contract.portions.push({ trade, job_id: job.id, sub_id: taker.id, done: false });
     notes.push(`${trade}→${taker.name}`);

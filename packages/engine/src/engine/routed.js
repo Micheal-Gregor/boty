@@ -91,6 +91,7 @@ export function buildRouted(state, plan, choices = {}) {
     if (por.role === "self") {
       const job = createJob({ id: `${cardId}_self`, name: `${cardName} — ${trade} (your part)`, value: 0, work_amount: subVal, deadline, terms: 0, min_tradesmen: 1, max_tradesmen: 2, required_equipment: null, droppable: false }, state.turn);
       job.routed_id = id;
+      job.art = cardId; // show the parent contract's art (e.g. rt_townhall), not a per-trade key
       gc.jobs.push(job);
       contract.portions.push({ trade, job_id: job.id, self: true, done: false });
       contract.client_value += subVal + markup;
@@ -101,6 +102,7 @@ export function buildRouted(state, plan, choices = {}) {
       if (sub && !sub.bankrupt) {
         const job = createJob({ id: `${cardId}_${trade}`, name: `${cardName} — ${trade} sub`, value: subVal, work_amount: subVal, deadline, terms: PORTION_TERMS, min_tradesmen: 1, max_tradesmen: 2, required_equipment: null, droppable: false }, state.turn);
         job.routed_id = id;
+        job.art = cardId; // show the parent contract's art (e.g. rt_townhall), not a per-trade key
         job.hirer_id = gc.id;
         sub.jobs.push(job);
         gc.payables.push(createPayable({ vendor: `${sub.name} — ${cardName} (${trade})`, amount: subVal, dueTurn: null, isNpc: false, creditorId: sub.id, jobId: job.id, pending: true }));
