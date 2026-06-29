@@ -1,171 +1,206 @@
-# Job-card redesign + the living deck — plan v3 (for approval)
+# Job cards + the living deck — how it works today
 
-**Status: proposal only. No engine changes until you sign off.** v3 folds in your latest decisions; most of Part E is now settled, with the rest moving into harness tuning.
+**Status: BUILT.** This was a proposal once; the engine has since shipped most of it and evolved past the rest. This doc now describes the job-card system **as it actually runs**, file by file, so it can be trusted as the reference. Provisional *numbers* are still being feel-tuned in play, but the *mechanics* below are live.
 
-**Unchanged (you like these):** crew events, inspector/defects, bills & payables, shocks, windfalls, specials (BBB, networking, perf review, courthouse, tool theft, union). This plan touches **jobs, incidents, civic, subcontract**, the **deck system**, and two tweaks (poached, re-election).
+**Unchanged subsystems (not covered here):** crew events, inspector/defects, bills & payables, shocks, windfalls, specials (BBB, networking, perf review, courthouse, tool theft, union), the two card tweaks (poached, re-election). Those work as the older plan described and live in their own modules. This doc is about **jobs and the work that comes player-to-player**: the job ladder, NPC word-of-mouth, referrals, subcontracts, GC routed contracts, PM incident tenders, civic contracts, the move-in fit-out, and the per-turn job-progress deck.
+
+Source of truth: `packages/engine/src/engine/` (`fortune.js`, `jobs.js`, `routed.js`, `incidents.js`, `civics.js`, `expansion.js`, `livingdeck.js`, `game.js`) and the data in `packages/engine/data/` (`economy.json`, `fortune.json`, `jobprogress.json`).
 
 ---
 
 # Part A — The living deck
 
-The deck's **composition is the difficulty knob**, and it changes as you play. Your choices bend your own probabilities — keep the cast happy and good work flows in; neglect them and the work dries up.
+The deck's **composition is the difficulty knob**, and it changes as you play. Your choices bend your own probabilities — keep the cast happy and good work flows in; neglect them and the work dries up. Implemented in `livingdeck.js` (inject/remove + reshuffle) and triggered from `jobs.js` / `game.js`.
 
-### A1 · Per-player decks ✅ CONFIRMED
-- **Every player starts with a copy of the same 60-card deck** (built from the pool by difficulty).
-- You then play **your own** deck — it diverges through your choices.
-- An injection targets **your deck** (poach, courthouse, inspector, Dot, Hettrick…) or **all decks** (union).
-- *(This is the one real architecture change from today's single shared deck.)*
+### A1 · Per-player decks ✅ LIVE
+- Each player plays **their own deck** (`player.deck`); `drawFortune` in `fortune.js` reads `player.deck ?? state.deck`.
+- An injection/pull targets **your deck** (`injectById` / `pullJobs` / `removeMatching`) or **all decks** (`injectAllById`, e.g. the union drive).
+- Every reshape pushes a `deckEvent` so the UI can animate the cards moving and play the shuffle.
 
-### A2 · Difficulty tiers ✅ — they shape the deck two ways
-At setup you pick a tier. It sets **(a)** the **starting 60-card mix** and **(b)** the **% chance** each trigger fires (A3). Both are harness-tunable.
+### A2 · Difficulty tiers ✅ LIVE — they shape the deck two ways
+At setup you pick a tier (`economy.json` → `difficulty`, `difficulty_tiers`). A tier sets:
+- **(a) the word-of-mouth fire chance** — each WOM trigger rolls a d6 and fires on `≤` the tier's threshold for that NPC (`womFires` in `livingdeck.js`).
+- **(b) the starting cash runway** (`cash_mod`) and **(c) the severity of cash shocks** (`shock_mult`, applied in `fortune.js cashEffect` — losses only; gains are untouched).
+
+Current tier values (provisional, in `economy.json`):
 
 | | Steady | Standard | Cutthroat |
 |---|--------|----------|-----------|
-| **Feel** | smooth growth | balanced | forces investment & grit |
-| **Starting mix** | more Dot jobs, fewer Hettrick; more windfalls | default | **fewer Dot, more Hettrick** jobs; more shocks |
-| **Dot adds jobs (+3)** | **100%** | ~75% | **50%** |
-| **Lundgren/Hettrick pull jobs (−2)** | **50%** | ~75% | **100%** |
+| **Dot helps (d6 ≤)** | **6** (almost always) | 4 | **2** (rarely) |
+| **Hettrick bites (d6 ≤)** | **2** (rarely) | 4 | **6** (almost always) |
+| **Lundgren bites (d6 ≤)** | **2** | 4 | **6** |
+| **cash_mod** (starting runway) | +26 | 0 | −12 |
+| **shock_mult** (loss severity) | 0.2 | 1.0 | 1.2 |
 
-> **The %s above are illustrative, not fixed.** Every trigger ships at **100%** and gets tuned per-tier in the harness until each tier feels right — the Dot-down/Hettrick-up pattern is the *direction*, not hard numbers.
->
-> The cutthroat irony you flagged: the cheapskate Hettrick won't pay (net-90) yet keeps showing up — more of his cards, firing more often, and pulling your work when you put him off.
+> The cutthroat irony still holds: the cheapskate Hettrick won't pay (net-90) yet his bad word bites almost every time you put him off, draining your job pile, while Dot's good word almost never lands to refill it.
 
-### A3 · Deck triggers — calculated %, not dice
-Each mini-game outcome rolls a **fixed % chance** (set per tier; **default 100%**, the new harness parameter) to inject/remove cards, then **reshuffles**:
+> **Note vs. the old plan:** the original v3 imagined per-tier *starting deck mixes* and a long table of percentage triggers. What actually shipped is simpler: **one fixed Fortune composition** (see Part B0), tuned by the **d6 word-of-mouth thresholds** above plus the cash/shock multipliers. The "% chance per mini-game" table from v3 is **not built** — the only probabilistic deck triggers today are Dot/Hettrick/Lundgren word-of-mouth.
 
-| Mini-game / choice | Effect | Whose deck | Amount |
+### A3 · The word-of-mouth triggers (what's actually wired)
+| Trigger | Where | Effect | Whose deck |
 |---|---|---|---|
-| **Complete a Dot job** | **+** job cards (good word of mouth) | yours | **+3** |
-| **Ignore a Hettrick job** | **−** job cards (bad word of mouth) | yours | **−2** |
-| **Ignore a Lundgren job** | **−** job cards (bad word of mouth) | yours | **−2** |
-| **Donate to the Mayor** (re-election) | **buy a Favor to hand** *(10 W)* **and +** networking_lunch cards | yours | **+3 networking_lunch** |
-| **Use a Favor to clear a fine** | **+** inspection cards (you made Grit's list) | yours | TBD *(draft +1)* |
-| **Fire an employee** | **+** a union card (**everyone**) **and +** poach cards (yours) | all + yours | TBD *(draft +1 / +1)* |
-| **Pay late** (dodge an AP) | **+** a courthouse_day card | yours | TBD *(draft +1)* |
-| **Don't do jobs** (sell / drop / expire) | **−** windfall cards | yours | TBD *(draft −1)* |
+| **Complete a Dot job** | `jobs.js completeJob` | on a `womFires("dot")` success, **inject +`dot_referral_jobs` (=3) `j2` cards** | yours |
+| **Ignore a Hettrick/Lundgren job** the round it's drawn | `game.js endTurn` | if drawn this turn, unstaffed, and `womFires` for that NPC, **pull `bad_wom_pull` (=2) plain job cards** | yours |
+| **Union drive** | `globals.js` via `injectAllById` | seeds a union card into **everyone's** deck | all |
+| **Mayor re-election / favors** | `livingdeck.js inject` | seeds `networking_lunch` / favor cards | yours |
 
-*(The four "TBD" amounts are the only injection numbers left to set — drafted defaults shown, finalized in the harness.)*
+"Ignore" is precise: the bad-word pull only fires for a Hettrick/Lundgren card **drawn this turn and left with no worker assigned by end of turn** (`drawn_turn === turn && assigned_tradesmen.length === 0`), checked **once** (`wom_done` guard).
 
-### A4 · The shuffle animation ✅ — we build it (CSS/sprite)
-On any composition change the player sees it: flash the incoming/outgoing card(s) ("➕ 3 jobs — Dot's good word" / "➖ 2 jobs — Hettrick's grumbling"), they fly into/out of the deck, then a **CSS/sprite shuffle** plays. Makes the living deck legible. *(No `.mp4` needed from you.)*
+### A4 · The shuffle animation ✅
+Each `deckEvent` carries the add/remove count and a reason string so the UI can flash the incoming/outgoing cards and play the reshuffle. Built in the web layer (CSS/sprite).
 
 ---
 
 # Part B — Job families
 
+## B0 · The Fortune deck composition
+The Fortune deck (`fortune.json`) is a **fixed composition drawn without reshuffle until exhausted**, so a run of shocks is a real "season" you can roughly card-count. Draw power = your tradesperson count, capped at `draw_cap` (4) — a bigger shop sees more opportunity AND more chaos. Cards resolve immediately by type in `fortune.js resolveCard`. The job-bearing types are: `job` (the j1–j6 ladder + the NPC cast), `referral`, `routed`, `incident`, `civic`. (`project` exists as a type but is **dead** — see Part F.)
+
 ## B1 · Standard jobs — the 6-size ladder
-One card per size; tailors to your trade on draw, so every trade sees the identical ladder.
+One card per size (`j1`–`j6`); `tailorJob` in `fortune.js` skins it to **the drawer's trade** on draw, so every trade sees the identical ladder. Stats come from `economy.json job_sizes`. These are always **your own** job — no routing.
 
-| Size | Crew | Requires | Art |
-|------|------|----------|-----|
-| **J1 — Service call** | 1 | — | generic walk-in |
-| **J2 — Standard job** | 2 | — | generic walk-in |
-| **J3 — Tooled job** | 2 | basic equipment | generic walk-in |
-| **J4 — Pro job** | 3 | pro gear | **per-trade** |
-| **J5 — Major job** | 4 | basic + pro + Shop (tier 2) | **per-trade** |
-| **J6 — Marquee job** | 4 | basic + pro + Warehouse (tier 3) | **per-trade** |
+| Size | Crew (max) | Value (W) | Work | Deadline | Terms | Gates |
+|------|-----------|-----------|------|----------|-------|-------|
+| **J1 — Service call** | 1 | 8 | 3 | 4 | net-30 | — |
+| **J2 — Standard job** | 2 | 13 | 4 | 4 | net-30 | — |
+| **J3 — Tooled job** | 2 | 16 | 5 | 5 | net-30 | **basic tools** |
+| **J4 — Pro job** | 3 | 24 | 7 | 5 | net-60 | **pro rig** |
+| **J5 — Major job** | 4 | 36 | 10 | 6 | net-90 | **pro rig + tier-2 Shop + a tool per worker** |
+| **J6 — Marquee job** | 4 | 58 | 13 | 6 | net-90 | **pro rig + tier-3 Warehouse + a tool per worker** |
 
-J4–J6 per-trade skins:
+Gating is enforced in `jobs.js`:
+- **Equipment type** and **building tier** are hard start-gates (`meetsHardGates`) — checked on `assign`; fail and you can't put a crew on it.
+- **`gear_all`** (J5/J6) requires **a tool assigned to every worker on the job** (`hasToolPerWorker`, model A). Short a tool and the job sits **OnHold** with a hint from `whyNotReady`.
+
+Per-trade names come from `JOB_LADDER` in `fortune.js`:
 
 | Size | Mechanic | Plumber | Electrician | Pipefitter | Welder | HVAC |
 |------|----------|---------|-------------|------------|--------|------|
+| J1 | Brake job | Clogged drain | Fixture swap | Fitting repair | Railing weld | A/C service |
+| J2 | Tune-up | Water heater | Panel upgrade | Steam-line patch | Gate & fence | Furnace swap |
+| J3 | Transmission | Section re-pipe | Room rewire | Process pipe | Structural repair | Ductwork run |
 | J4 | Engine rebuild | Main-line dig | Service upgrade | Boiler job | Custom fab | Rooftop unit |
 | J5 | Fleet contract | Building plumbing | Building wiring | Plant piping | Structural steel | Building HVAC |
 | J6 | Restoration shop | Commercial system | Commercial electrical | Industrial system | Industrial fab | Commercial system |
 
+Art keys (`jobArt`): J1→`job/walkin/1p`, J2→`job/walkin/2p`, J3→`job/walkin/2p_basic`, J4–J6→`job/<size>/<trade>`.
+
 ## B2 · NPC jobs — four characters, the word-of-mouth engine
-Each is one card, tailors to your trade (per-trade art — you want them real). **Hettrick & Lundgren are the bad-word-of-mouth twins; Dot is the good-word-of-mouth counter; Boon is mandatory.**
+Each is one card (`job` with an `npc` tag); `tailorNpcJob` skins the work + flavor **per trade** (`NPC_JOB_SKINS`) and stats come from `economy.json npc_jobs`. Hettrick & Lundgren are the bad-word-of-mouth twins; Dot is the good-word-of-mouth counter; Boon is mandatory.
 
-| NPC | Twist | Terms |
-|-----|-------|-------|
-| **Old Man Hettrick** | **Ignore his job** → bad word of mouth **pulls −2 jobs** from your deck (+reshuffle). Keeps coming back (more of his cards at cutthroat). | **net-90** |
-| **Mrs. Lundgren** | **Ignore her job** → bad word of mouth **pulls −2 jobs** (+reshuffle). | **net-90** |
-| **Dot** | **Complete her job** → good word of mouth **adds +3 jobs** (+reshuffle). The counter to the twins. | normal |
-| **Chief Boon** | **Mandatory** — **can't end your turn until it's assigned**; the job **stays 8 turns**, **3 work to complete** (won't expire). | prompt |
+| NPC | Crew | Value | Work | Deadline | Terms | Twist |
+|-----|------|-------|------|----------|-------|-------|
+| **Old Man Hettrick** | 2 | 16 | 5 | 5 | **net-90** | Leave it unworked the round you draw it → on a `womFires` roll his bad word **pulls 2 jobs** from your deck. Droppable. |
+| **Mrs. Lundgren** | 2 | 16 | 5 | 5 | **net-90** | Same bad-word pull as Hettrick. Droppable. |
+| **Dot** | 2 | 14 | 4 | 4 | net-30 | **Complete** it → on a `womFires("dot")` roll her good word **injects +3 `j2` jobs**. Droppable. The counter to the twins. |
+| **Chief Boon** | 2 | 14 | 3 | **8** | net-30 | **Mandatory** — `droppable: false`, so it can't be dropped OR sold. Long deadline; the game nags you (`unstaffedBoon`) until someone's on it. |
 
-("Prioritize/ignore" = whether you assign a worker the round you draw them.)
-
-Per-trade skins:
+Per-trade skins (the work) from `NPC_JOB_SKINS`:
 
 | NPC | Mechanic | Plumber | Electrician | Pipefitter | Welder | HVAC |
 |-----|----------|---------|-------------|------------|--------|------|
-| **Hettrick** | rattling pickup | "fine" dripping tap | flickering porch light | ancient radiator | busted gate hinge | wheezing window unit |
-| **Lundgren** | car won't start | cold water heater | dead outlets | knocking boiler | wrought-iron fence | dead furnace |
-| **Dot** | delivery van | grease trap | neon sign | steam table | counter & stools | walk-in cooler |
-| **Boon** | fire truck engine | firehouse standpipe | station alarm wiring | sprinkler riser | ladder-truck weld | station exhaust |
+| **Hettrick** | his old truck | his busted radiator | his shorting wiring | his broken furnace | his broken gate | his dead window unit |
+| **Lundgren** | her car won't start | her scalding water tank | her flickering wiring | her cold bedroom radiator | her shed door | her too-cold AC |
+| **Dot** | the diner delivery truck | the flooded storefront | the breakfast blackout | the kitchen steam table | the diner's chairs & tables | the broken cooler |
+| **Boon** | crash-car inspection | Dot's Diner flood response | the fire-station alarm | the school sprinkler reset | the fire-truck ladder | the fire-station HVAC |
 
-## B3 · Misallocation / referral — the wild card
-A wrong-trade job walks in; you broker it. **Size variants: 1-person, 2-person, 3-person + basic** (reuses walk-in art).
+Art key: `job/<npc>/<trade>`.
 
-1. Draw → route to a **random shop with the right trade**.
-2. **Finder's fee = the job's sell price.**
-3. Next round the target **accepts** (does the job; you collect the fee) or **refuses** (you collect **nothing**).
-4. **No shop has that trade** → the **bank pays** your fee automatically.
+## B3 · Player-to-player routing — the AR/AP web
+Several job sources move work **between players** and create the inter-player debt/credit web. Routing always uses `pickContractor`/`pickSub`: a solvent rival who runs the needed trade **with spare capacity** — a shop carries **one routed job per crew member** (`routedHeld < max(1, tradesmen)`), so a bigger crew takes on more contracts but overcommitting risks botches.
 
-## B4 · Incidents — one per trade, at a building
-Building emergency needing a specific trade; mismatch → B3 referral logic. **6 total:**
+**A botch makes the hirer the plaintiff.** If a routed/subbed contractor blows a portion (deadline or a decisive-failure progress card), `botchRoutedJob` (in `jobs.js`) clears the hirer's liability and queues a **damages suit** the hirer can bring against the no-show (recovered to the hirer, capped at what the contractor can pay) within the `sue_window`. PMs and movers get the same suit (see B6, B7, Part E).
 
-| Trade | Incident · Building | Status |
-|-------|---------------------|--------|
-| Plumber | Burst main · Grange Hall | exists |
-| Pipefitter | Steam line · Hollis Mill | exists |
-| HVAC | Refrigeration fails · Dot's Diner | exists |
-| Mechanic | Machinery seizes · **Rail Depot** | new |
-| Electrician | Blackout · **Bijou Theater** | new |
-| Welder | Structural crack · **Grain Elevator** | new |
+### B3a · Required-trade referrals — a finder's commission
+Two paths, both in `fortune.js`:
+- A **`referral` card** (`referral_1p/2p/3p`): a job that isn't your trade walks in. The engine rolls a **uniform** random eligible trade (rerolling a 6 to avoid mod-bias), then offers it to a `pickContractor`. The contractor **accepts next round** (does it as their own job; you collect the fee) or **refuses** (you get nothing). **No shop with that trade at the table → the county takes it and the bank pays your fee automatically.** Pending offers live in `state.pendingReferral`; you can't end your turn with one unanswered.
+- A **`required_trade` job** (a normal job card carrying a trade you lack): `resolveCard` refers the lead to a `pickContractor`, pays you a **finder's commission** immediately (`floor(value × sell_rate)` → `OTHER_INCOME`), and the contractor does it as **their own NPC-paid job** (no inter-player debt — `hirer_id` stays null).
 
-## B5 · Civic — a contract to the whole town
-On draw, **every player** gets a sub-contract sized **by their shop**; the **drawer is PM**.
+Finder's fee / commission = the job's **sell price** (`value × sell_rate`, `sell_rate` = 0.15).
 
-- **Sub-contract pay by size:** 2-person → **8 W**, 3-person → **12 W**, 4-person → **16 W**.
-- **PM bonus (drawer):** **20% of the total W of all sub-contracts**, if **all** complete.
-- **Failure:** the **existing global-card penalty** (town levy).
-- **Storm:** `downtown_storm` **moves to civic** and **follows the season** (Spring squall / Summer thunderstorm / Fall windstorm / Winter ice storm) — your 4 storm animations.
+### B3b · Subcontract jobs — the GC markup on one trade
+A `job` card flagged `subcontract` with a `sub_trade` you don't run: `resolveCard` routes it to a sub (`pickContractor`). You become the GC:
+- The **sub holds the job** (`hirer_id = you`) and does the work for `sub_cost`.
+- **You hold the AP** that pays them (a pending payable, `creditorId = sub`, `jobId`).
+- On delivery you **bill the customer the full `value`** (Dr AR / Cr Revenue) and **pocket the markup** (`value − sub_cost`); the sub's AP comes due net of terms.
+- If the sub botches: `botchRoutedJob` voids your AP and lets you sue them for the **lost markup** (`value − sub_cost`).
 
-Civic builds: Town Hall, Firehouse, Opera House, County Hospital, + seasonal Storm.
+*(Note: there are currently no `subcontract`-flagged single-trade job cards in `fortune.json` — this path exists in the engine but isn't seeded in the live deck today. The multi-trade GC contract below is the shipped form of GC work.)*
 
----
+## B4 · GC routed contracts — the general-contractor squeeze (`routed.js`)
+A **`routed` card** is a **3-trade client contract** the drawer takes on as GC. Six are in the deck (`rt_townhall`, `rt_depot`, `rt_school`, `rt_library`, `rt_firehouse`, `rt_community`), each naming three `required_trades`, `sub_value` 6, `markup` 2, deadline 5.
 
-# Part C — Two card tweaks
+- For each required trade: if **you run it**, you take that portion yourself (a `routed_id` job in your queue, no client invoice of its own); if a **local sub** runs it, you route it as an owed sub-job (you hold the AP, net-30 from delivery); if **no local trade**, the **bank covers it** (you get the `sub_value` but **no markup** on that portion).
+- A **human GC with a real choice** (≥1 local sub available) defers to a **routing modal** (`state.pendingRouting`); an **AI GC** resolves inline and deterministically — it routes the **front-runner** (richest rival) to the bank to deny them the work, and shares with everyone else.
+- The contract bills the client **ONE net-90 invoice** (`buildRouted` → `client_value`, the summed `sub_value + markup` per player/self portion) — but **only when every portion lands** (`maybeCompleteRouted`).
+- **Miss one portion → the whole contract collapses** (`onRoutedPortionBotch`): no client AR, the delivered subs are still owed, and the GC may sue the no-show for the lost commission. The `commission` field tracks the markup the GC stands to earn.
 
-**Poached** — counter, then **you roll** (visible dice):
+## B5 · Incidents — PM "incident tenders" (`incidents.js`)
+An **`incident` card** is a building emergency needing 2–3 specific trades; it's **lighter than a civic** (no town-wide levy). Eight are in the deck (`grange_main`, `mill_breakdown`, `rail_depot`, `bijou`, `grain_elevator`, `market_hall`, …), `value` 6 per trade, `pm_fee` 3, deadline 4.
 
-| Counter | Stays on | ≈ |
-|---|---|---|
-| **1 W** | 1–3 | 50% |
-| **2 W** | 1–4 | 67% |
-| **3 W** | 1–5 | 83% |
-| Let go | — | leaves, free |
+- The drawer is a **mini-PM**. For each trade the incident needs, the PM tenders one **NPC-paid** job to the local who runs it (`tradePlayer`, preferring the PM if they match), or to the **county** if no one does. The contractors are paid by the building owner either way — this is the "community puts work on the table" stream.
+- Same human-defers / AI-decides-inline routing as routed contracts (shared `routeOrDefer`).
+- **Deliver every tender → the PM takes the `fee`** (`maybeCompleteIncident` → `OTHER_INCOME`). **Let one stall → the PM loses the fee and may sue the defaulter** (`onIncidentTenderBotch`).
 
-**Re-election drive** — Crabtree pop-up: **buy a Favor for 10 W**. The purchase **adds the Favor to your hand now** *and* **injects +3 `networking_lunch` cards** into your deck (more favor opportunities later). Building the relationship compounds.
+## B6 · Civic — a contract to the whole town (`civics.js`)
+A **`civic` card** breaks ground town-wide. On draw, **every solvent player** gets one sub-contract **sized by their building tier**; the drawer is **PM**. (This is the shipped form — it replaced the old "drawer does every phase" idea.)
 
----
+- **Contract by tier** (`CONTRACT` in `civics.js`): garage (tier 1) → **2-crew / 8 W**; shop (tier 2) → **3-crew / 12 W**; warehouse (tier 3) → **4-crew / 16 W**. Work = crew + 2; terms net-60; **sticky** (`droppable: false`). Bankrupt shops' slots are covered by the county.
+- **PM bonus (drawer):** **20% of the total W** of all contracts, paid **only if ALL deliver** (`onCivicContractComplete`), plus `favor_reward` favours.
+- **Failure:** any contract still open past the civic deadline drops a **town-wide global penalty** (the existing levy/recession layer, `tickCivics` → `applyGlobal`), and the **PM may sue each defaulting contractor** for their share value.
+- Live civic cards: **Restore the Town Hall**, **Raise the firehouse**, **The Maple Hollow Opera House**, **The County Hospital wing**, and the **seasonal storm** (`downtown_storm`, `seasonal_storm: true`) which follows the season for its art (`civic/storm/<season>`) and flavor (Spring hail / Summer thunderstorm / Fall windstorm / Winter ice storm).
 
-# Part D — Graphics manifest
+> **Important correction vs. the old plan:** the Opera House and County Hospital are **civic jobs** (`startCivic`), **not** phased "projects." The phased `project` card type is currently **dead code** (Part F).
 
-| Slot | Path | Count |
-|------|------|-------|
-| **Walk-in jobs** — one per size (J1–J3 + referral) | `card/job/walkin/<1p,2p,2p_basic,3p_basic>` | **4** |
-| **Standard J4–J6** (per trade) | `card/job/<j4,j5,j6>/<trade>` | **18** |
-| **NPC jobs** (per trade) | `card/job/<hettrick,lundgren,boon,dot>/<trade>` | **24** |
-| **Incidents** | `card/incident/<id>` | **6** (3 new) |
-| **Civic builds** | `card/civic/<id>` | **4** |
-| **Seasonal storm** | `card/civic/storm/<season>` | **4** (you have) |
-| **Deck shuffle** | CSS/sprite — we build | 0 |
-| **Referral** | reuses walk-in art | 0 |
-| **Total new to generate** | | **≈ 52** |
-
-Everything else (windfalls, shocks, payables, crew, specials, townsfolk) is unchanged — see `CARD-ART-WORKSHEET.md`.
+## B7 · Move-in / fit-out — the insured 3-turn cap (`expansion.js`)
+Growth (relocating up, or an in-place capacity "improve") is a **deferred capital project**, not an instant button. `startExpansion`:
+- You pay **insurance** (expensed) + a **50% deposit** (capitalised as a prepaid/CIP asset) up front, and **six trade fit-out contracts go out to the town** (one per trade — your growth puts the whole table to work). You keep operating your **old** shop but pay the **new building's higher rent now** until move-in, so a staller costs you.
+- The fit-out jobs are **sticky** (`droppable: false`) — a fit-out is a commitment to someone's move, can't be walked away from.
+- **It's insured, so the move NEVER collapses.** `tickExpansion`: once readied, if every contract is in you move in / gain capacity, capitalise the fee to a leasehold asset, and (if relocating) write off the old leasehold. If contracts are still outstanding at the **3-turn cap** (`capTurn`), **insurance closes out** whatever's unfinished and you move in anyway — and **every rival who stalled a contract you depend on is sued** for its value (`readying_for` → `pendingDamages`). The only real failure is not affording the **balance**, which forfeits the deposit and keeps you put.
 
 ---
 
-# Part E — What's left (all harness-tuning now)
+# Part C — The per-turn job-progress deck (`jobprogress.json`)
 
-Everything structural is decided. Remaining items are **numbers we set and balance in the tuning harness after the build**:
+On top of the crew's deterministic base burn, **one job-progress card is drawn against each Active job every turn** (after the crew's work lands), in `runJobProgress` (`jobs.js`). This is the "jobsite card" swing — the day-to-day luck of the site on top of your steady rate.
 
-1. **Starting 60-card mix per tier** (Steady / Standard / Cutthroat) — the card counts.
-2. **Per-tier trigger %s** — Dot 100/75/50, Lundgren+Hettrick 50/75/100 (confirmed pattern); fill the Standard column.
-3. **Four remaining injection amounts** — favor-clears-fine (+inspections), fire (+union/+poach), pay-late (+courthouse), skipped-job (−windfall). Drafted at ±1; tune.
-4. **Civic/job value balance** — slot the new ladder + civic pay into the harness and re-run.
+- **Base burn** = summed worker productivity (each worker burns at their assigned tool's speed, else `base_hand_speed`, ± their perf-review modifier), a trained crew adds a little, unfixed code violations shave a little.
+- **Then the jobsite card** (`applyProgressCard`): `work` (± progress), `pay` (± job value), `cost` (immediate cash hit), `deadline` (± turns), or **decisive** (`success` completes the job now / `failure` fails it in place — and triggers the routed/incident/civic/fit-out botch hooks).
 
-When you're happy with v3, say the word and I'll start the engine build (per-player decks → the job ladder → NPC word-of-mouth → referral/civic → the two tweaks → shuffle UX), then tune.
+Target spread (the deck is **roughly neutral on average**): neutral/minor ~40%, positive ~25%, negative ~25%, decisive ~10% (kept low so jobs feel dramatic, not arbitrary). Current cards: routine day, minor setback (−1), found efficiency (+1), ahead of schedule (+2), happy client tips (+2 pay), rework needed (−2), cost overrun (−2 cash), change-order (−2 pay), flawless (decisive success), catastrophe (decisive failure). Each turn's begin→burn→card→end is stashed in `player.lastProgress` for the end-of-turn report.
+
+With **no** progress deck (early-stage callers/tests), burn stays purely deterministic.
+
+---
+
+# Part D — AR/AP accrual on delivery & payment (brief — documented elsewhere)
+
+Jobs book on the **accrual** basis (see `jobs.js completeJob`, `routed.js`, `state/ledger.js`):
+- A **plain job** delivered → **Dr AR / Cr Revenue** for `value` now; cash arrives later when the invoice collects (`collectInvoices`) at its terms. The AR-to-cash gap is the lesson: profitable on paper, short on cash.
+- A **subcontract/GC** job books **both sides** — the sub's owed AP (the GC carries it to net-30) and, on the GC's side, the marked-up client invoice (Dr AR / Cr Revenue) and the COGS_SUB they pay the sub; gross margin = the markup.
+- A **GC routed contract** bills one net-90 client invoice on all-complete; **incident/civic** pay an NPC fee/bonus (OTHER_INCOME) rather than AR.
+- **Selling a job** to the bank (`sellJob`) is a small immediate `value × sell_rate` payout to cut losses; routed and sticky jobs can't be sold.
+
+This is kept brief here on purpose — the full ledger story lives in the accrual/AR-AP docs.
+
+---
+
+# Part E — Suits, damages & the inter-player teeth
+
+Across routing/incidents/civics/fit-outs, a contractor who **fails to deliver** makes the hirer/PM/GC/mover the **plaintiff in a damages suit** (`state.pendingDamages`, recovered to the recipient, capped by what the defendant can pay, within `sue_window`):
+- **Routed/subcontract botch** → `botchRoutedJob` (lost value, or lost markup for a subcontract).
+- **Incident tender stall** → `onIncidentTenderBotch` (PM loses fee + sues).
+- **Civic default** → `tickCivics` (PM sues the defaulting share; town eats the levy).
+- **Fit-out stall** → `onReadyingBotch` / `tickExpansion` (mover sues the staller; insurance still completes the move).
+
+This is what makes player-to-player work have real stakes: take someone's sub-job and flake, and you're in court.
+
+---
+
+# Part F — Not built / parked
+
+- **Phased `project` card type** (`projects.js`): the engine still contains the deposit/balance/parallel-phase machinery, but **no `project` cards are in the deck** and `resolveCard`'s `project` branch is never exercised in real play. The marquee builds (Opera House, County Hospital) ship as **civic** jobs instead. Treat `projects.js` as **dormant** — a parked design, not a live mechanic.
+- **Single-trade `subcontract` job cards** (Part B3b): the engine path exists but no such cards are seeded in `fortune.json` today; multi-trade **routed** contracts are the shipped GC form.
+- **The v3 "% chance per mini-game" deck-trigger table** and **per-tier starting deck mixes**: not built. The live difficulty levers are the **d6 word-of-mouth thresholds** + `cash_mod` + `shock_mult` (Part A2).
+
+When tuning, the live numbers to push on are in `economy.json` (`job_sizes`, `npc_jobs`, `difficulty_tiers`, `expansion`, `sell_rate`, `sue_window`), `fortune.json` (deck composition / copies), and `jobprogress.json` (the jobsite swing).

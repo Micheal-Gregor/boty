@@ -609,12 +609,16 @@ function buildOnlineGame(row) {
   online = true;
   declinedDamages.clear();
   dealTownlife();
-  lastScanned = 0; lastRoundShown = 0;
   realGame.start();
   log = [];
   const moves = row.state.moves ?? [];
   firstRollShown = moves.length > 0; // fresh game → show the dice; reconnect mid-game → skip it
   if (moves.length) { replay(realGame, moves, 0); log = [...moves]; }
+  // Surfacing guards, set AFTER replay: a FRESH game (no moves) shows the round-1 card + opening reveals
+  // (guards start "before" them); a RECONNECT or any rebuild mid-game must NOT replay them — otherwise
+  // every remote sync that rebuilt the game re-fired the round-1 card and re-scanned the whole log.
+  lastRoundShown = moves.length ? realGame.state.turn : realGame.state.turn - 1;
+  lastScanned = moves.length ? log.length : 0;
   // Self-heal: if the row's active_seat doesn't match the engine's real lead (e.g. a game started
   // before the first-player roll, or any drift), the host corrects it so the true active player can write.
   if (isHostClient && row.active_seat !== realGame.state.activePlayerIndex) {
