@@ -10,7 +10,7 @@ This is a **monorepo**:
 ```
 packages/engine/   the game engine — pure rules + content + the proof suite. Runs in Node,
                    the browser, and Deno. This is the single source of truth for the rules.
-apps/web/          (planned) the Svelte/React client.
+apps/web/          the Svelte 5 client (built & playable: solo-vs-AI, Supabase login, full art + audio).
 docs/              design + planning docs.
 PROJECT-PLAN.md    the roadmap: module strategy, online architecture, milestones.
 ```

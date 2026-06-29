@@ -50,9 +50,13 @@ export function toggleMute() { muted.update((v) => !v); }
 settings.subscribe((s) => {
   sfxOn = s.sound; musicOn = s.music;
   masterVol = typeof s.volume === "number" ? Math.max(0, Math.min(1, s.volume)) : 0.7;
-  if (musicEl) musicEl.volume = musicBaseVol * masterVol; // live-adjust the track as the slider moves
-  if (!musicOn && musicEl) { try { musicEl.pause(); } catch { /* ignore */ } }
-  else if (musicOn && !isMuted) resumeMusic();
+  // Adjusting settings must NOT restart the music (that was jarring). Volume slides live on the
+  // playing element; turning music off pauses IN PLACE (keeps position); turning it back on resumes
+  // from where it was. Only spin up a fresh track when nothing is loaded yet.
+  if (musicEl) musicEl.volume = musicBaseVol * masterVol;
+  if (!musicOn || isMuted) { if (musicEl && !musicEl.paused) { try { musicEl.pause(); } catch { /* ignore */ } } }
+  else if (musicEl) { if (musicEl.paused) musicEl.play().catch(() => {}); }
+  else resumeMusic();
 });
 
 /** Called on the first user gesture (the Start button) so the browser lets us make sound. */

@@ -6,6 +6,25 @@ graphics**, and never let the build run ahead of a proven core.*
 
 ---
 
+## 0. Status (current) — the roadmap below is partly historical
+
+The decisions this plan calls out as "to lock" are **locked**, and Phases 1–2 are largely built:
+
+- **Monorepo** (pnpm/npm workspaces: `packages/engine`, `apps/web`) — chosen over separate repos.
+- **Svelte** (Svelte 5 runes) — chosen over React. The client is built and playable.
+- **fs-decoupled engine** — `content-fs.js` for Node; bundled JSON for the browser. Runs in-browser.
+- **Phase 1 (fun-first web client): DONE** — full year solo-vs-AI in the browser; asset manifest done.
+- **AI opponents: DONE** — the harness bots are promoted to named rivals.
+- **Art + audio: DONE** — every card/job graphic present (art-audit + jobart-audit both 0-missing) and a
+  full sound layer. NOTE: this supersedes §7's "**No background music**" — the game now has seasonal
+  music themes + a shuffled jukebox, ducking under stings, with separate SFX/music/volume controls.
+- **Supabase auth: LIVE** (magic-link, invite-only). **Online multiplayer: in progress** (lobby/Realtime).
+- **Accounting:** full double-entry accrual, both sides (AR/AP on the balance sheet from delivery to
+  payment), guarded by a reconciliation suite — beyond the original ledger scope.
+- **Still ahead:** finish online multiplayer; token economy (Phase 3); packaging/IAP (Phase 4).
+
+---
+
 ## 1. Repo & module strategy
 
 The current prototype is a clean, well-tested game **engine** with a CLI and a tuning harness
@@ -141,9 +160,10 @@ online alike. AI seats are free; human seats cost tokens.
 - **Art (Grok):** pool of tradesperson portraits + equipment + shops; one image per card;
   animated versions of each; event animations (season change, slick-lawyer, litigation →
   win/fail, job complete/fail). Static by default, animated on view/trigger.
-- **Audio:** SFX for clicks/actions + short situational stingers (litigation win/lose, gala
-  fanfare). **No background music** (and a toggle anyway). Settings screen: separate
-  SFX / music / animation-speed / mute controls.
+- **Audio (BUILT):** SFX for clicks/actions + situational stingers (litigation, fine, levy, loan,
+  bankruptcy, gala) that DUCK the music, plus per-card sounds played on reveal. Background music IS
+  in (the original "no background music" call was reversed): seasonal themes → a shuffled jukebox,
+  looping. Settings screen has separate SFX / music / volume / animation-speed / mute controls.
 
 ### Make the content art-ready now (safe, inert)
 Add optional fields the engine ignores but the UI reads:
