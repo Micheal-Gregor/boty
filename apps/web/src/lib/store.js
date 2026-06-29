@@ -698,6 +698,14 @@ export function playSabotage(jobId) {
   try { game.playSabotage(jobId); } catch (e) { return fail(e?.message ?? String(e)); }
   resolveThreat();
 }
+/** Spend a Favor to sabotage a rival's job (Sabotage is folded into Favor). Opens the same response
+ *  window (the owner may Rush) + the caught roll (raised by their Security — cancel it with a Favor first). */
+export function favorSabotageUI(jobId) {
+  if (online && !myTurn()) return;
+  push({ picking: null });
+  try { game.favorSabotage(jobId); } catch (e) { return fail(e?.message ?? String(e)); }
+  resolveThreat();
+}
 
 export function playSue(debtorId, payableId, slick = false) {
   push({ picking: null });

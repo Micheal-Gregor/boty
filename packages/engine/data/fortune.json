@@ -707,7 +707,7 @@
       "id": "networking_lunch",
       "name": "Networking lunch",
       "flavor": "Lunch at the Grange hall with the Chamber of Commerce — you leave with a favor tucked in your pocket.",
-      "text": "Draw a Civil hand card (sabotage / rush / buy-time / slick lawyer) for later."
+      "text": "Draw a Civil hand card (favor / rush / buy-time / slick lawyer) for later."
     },
     {
       "type": "summons",

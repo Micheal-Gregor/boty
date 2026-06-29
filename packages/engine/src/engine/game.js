@@ -515,6 +515,24 @@ export class Game {
     }, true);
   }
 
+  /** Spend a FAVOR to sabotage any job — the standalone Sabotage card is deprecated, this is its
+   *  replacement. Same response window (the owner may Rush) and the same CAUGHT roll: the target's
+   *  private security raises the odds you're caught, so cancel their security with a Favor first
+   *  (the Standing-cards tab) to sabotage cleanly — two favors, one to disarm, one to strike. */
+  favorSabotage(targetJobId) {
+    return this.#act((attacker) => {
+      const found = cards.findHandCard(attacker, "favor");
+      if (!found) throw new GameError(`${attacker.name} has no Favor card to spend`);
+      const { owner, job } = this.#findJobAnywhere(targetJobId);
+      const escrow = cards.takeFromHand(attacker, found.index);
+      this.state.pendingThreat = {
+        type: "sabotage", attackerId: attacker.id, ownerId: owner.id, jobId: job.id,
+        card: escrow, counterableBy: ["rush"],
+      };
+      return `⚔️ ${attacker.name} calls in a Favor against ${owner.name}'s ${job.name} (${job.id}) — a quiet word, a loose bolt. ${owner.name} may answer with Rush.`;
+    }, true);
+  }
+
   /**
    * Sue another player to collect a late player-payable. Opens the response window: the debtor
    * may defend (play a Slick Lawyer) or fold. No deposit — it's a straight getaway roll at the

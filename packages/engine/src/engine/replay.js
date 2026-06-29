@@ -13,7 +13,7 @@ export const INTENTS = new Set([
   "assignEquipment", "unassignEquipment",
   "buyService", "cancelService", "fixDefect",
   "drawCredit", "repayCredit", "factorInvoice", "factorClaim", "payPayable",
-  "playRush", "playBuyTime", "playSabotage", "playFavor",
+  "playRush", "playBuyTime", "playSabotage", "favorSabotage", "playFavor",
   "sue", "sueDamages", "respondToThreat", "offerSettlement", "respondSettlement", "favorDropSuit",
   "resolveCourt", "resolveSettle", "resolvePoach", "resolveMayor", "resolveReferral", "decideRouting",
   "autoResolveCourt", "autoResolveSettle", "autoResolvePoach", "autoResolveMayor", "autoResolveReferral", "autoResolveDamages",

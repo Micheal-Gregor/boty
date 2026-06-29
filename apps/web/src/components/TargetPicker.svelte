@@ -1,5 +1,5 @@
 <script>
-  import { ui, playSabotage, playSue, playFavor, favorDropSuitUI, cancelPick } from "../lib/store.js";
+  import { ui, playSabotage, playSue, playFavor, favorDropSuitUI, favorSabotageUI, cancelPick } from "../lib/store.js";
   import { money } from "../lib/money.js";
 
   const s = $derived($ui.view);
@@ -38,10 +38,22 @@
         ]
       : [],
   );
+  const favJobs = $derived(
+    type === "favor" && s
+      ? s.players.filter((p) => p.id !== meId).flatMap((p) =>
+          p.jobs.filter((j) => ["Queued", "OnHold", "Active"].includes(j.state)).map((j) => ({
+            jobId: j.id,
+            label: `${p.name}: ${j.name}`,
+            note: (p.modifiers ?? []).some((m) => m.kind === "private_security") ? "⚠ has Security — riskier; cancel it (Standing tab) first" : "set their job back",
+          })),
+        )
+      : [],
+  );
   const favorTabs = $derived([
-    { key: "fines", label: "🚧 Your fines", items: favFines, drop: false },
-    { key: "suits", label: "⚖️ Suits vs you", items: favSuits, drop: true },
-    { key: "standing", label: "🛡️ Standing cards", items: favStanding, drop: false },
+    { key: "fines", label: "🚧 Your fines", items: favFines, kind: "favor" },
+    { key: "suits", label: "⚖️ Suits vs you", items: favSuits, kind: "drop" },
+    { key: "standing", label: "🛡️ Standing cards", items: favStanding, kind: "favor" },
+    { key: "jobs", label: "⚔️ Sabotage", items: favJobs, kind: "sabotage" },
   ]);
   let favorTab = $state(null);
   const activeFavorTab = $derived(favorTab ?? favorTabs.find((g) => g.items.length)?.key ?? "fines");
@@ -71,13 +83,14 @@
           {/each}
         </div>
         {#each activeGroup.items as t}
-          <button class="target" onclick={() => (activeGroup.drop ? favorDropSuitUI(t.jobId) : playFavor(t.ownerId, t.id))}>
+          <button class="target" onclick={() => (activeGroup.kind === "drop" ? favorDropSuitUI(t.jobId) : activeGroup.kind === "sabotage" ? favorSabotageUI(t.jobId) : playFavor(t.ownerId, t.id))}>
             {t.label} <span class="muted">({t.note})</span>
           </button>
         {:else}
           <p class="muted">
             {#if activeFavorTab === "fines"}No code violations on your shop to waive.
             {:else if activeFavorTab === "suits"}No lawsuits against you to drop.
+            {:else if activeFavorTab === "jobs"}No rival jobs to sabotage right now.
             {:else}No union to bust and no rival standing cards to touch.{/if}
           </p>
         {/each}

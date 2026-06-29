@@ -183,15 +183,15 @@ export function botActions(game, strategy = "balanced", opts = {}) {
   const stuck = p.payables.some((a) => !a.pending && state.turn >= a.due_turn && p.cash < a.amount);
   if (stuck && p.cash < over() && !p.invoices.length) tryDo(() => game.drawCredit());
 
-  // 8. Hobble the front-runner: holding a Sabotage and a RICHER bot rival is out front → pull in
-  //    their best job's deadline. Never aimed at a human seat (that needs their live response).
-  if (hand(p, "sabotage")) {
+  // 8. Hobble the front-runner: spend a FAVOR to sabotage a RICHER bot rival's best job (Sabotage is
+  //    folded into Favor now). Never aimed at a human seat (that needs their live response).
+  if (hand(p, "favor")) {
     const mark = richestRival(true);
     if (mark && mark.cash > p.cash) {
       const job = [...mark.jobs]
         .filter((j) => ["Queued", "OnHold", "Active"].includes(j.state))
         .sort((a, b) => b.value - a.value)[0];
-      if (job && tryDo(() => game.playSabotage(job.id))) settleBotThreat();
+      if (job && tryDo(() => game.favorSabotage(job.id))) settleBotThreat();
     }
   }
 
