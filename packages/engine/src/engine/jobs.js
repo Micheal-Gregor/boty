@@ -247,6 +247,7 @@ export function expireOverdue(state, player) {
   for (const job of player.jobs) {
     if (job.state === "Expired" || job.state === "Complete") continue;
     if (job.project_id) continue; // project phases live or die by the PROJECT deadline (tickProjects)
+    if (job.readying) continue; // fit-out contracts are closed out by the move's 3-turn cap (tickExpansion), not expired here
     if (state.turn >= job.deadline_turn) {
       const started = job.assigned_tradesmen.length > 0 || job.work_done > 0;
       freeTradesmen(player, job);

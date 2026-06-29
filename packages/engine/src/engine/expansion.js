@@ -52,7 +52,7 @@ export function startExpansion(state, player, target) {
 
   player.pendingExpansion = {
     target, isImprove, targetName, fee: spec.fee, deposit, balance: spec.fee - deposit,
-    capacity: spec.capacity ?? 0, readyTurn: state.turn + 1,
+    capacity: spec.capacity ?? 0, readyTurn: state.turn + 1, capTurn: state.turn + 3, // insured: the move completes within 3 turns no matter what
   };
   return `🏗️ ${player.name} starts readying ${targetName}: ${w(deposit)} deposit + ${w(ex.insurance)} insurance down, ${tenders} trade contract(s) (${w(spec.contract_value)} each) out to the town — you pay ${targetName}'s higher rent NOW until move-in, so a stalling contractor costs you (sue them)`;
 }
@@ -64,7 +64,7 @@ function spawnContracts(state, mover, targetName, value, work, deadline) {
     const taker = mover.service === trade ? mover : state.players.find((p) => p !== mover && !p.bankrupt && p.service === trade);
     if (!taker) continue; // no one runs this trade → the contract lapses (the insurance covers it)
     const job = createJob(
-      { id: `ready_${trade}`, name: `Ready ${targetName} — ${trade} fit-out`, value, work_amount: work, deadline, terms: 1, min_tradesmen: 1, max_tradesmen: 1, required_equipment: null, droppable: true },
+      { id: `ready_${trade}`, name: `Ready ${targetName} — ${trade} fit-out`, value, work_amount: work, deadline, terms: 1, min_tradesmen: 1, max_tradesmen: 1, required_equipment: null, droppable: false }, // sticky: a fit-out is a commitment to someone's move — can't be walked away from
       state.turn,
     );
     job.readying = true;
@@ -76,51 +76,39 @@ function spawnContracts(state, mover, targetName, value, work, deadline) {
   return n;
 }
 
-/** A fit-out contract fell through (yours OR a rival's you depend on) → the building can't be readied,
- *  so the move COLLAPSES (flagged here, forfeited at the mover's next upkeep). If a RIVAL stalled a
- *  contract you depend on, you may also sue them for the value (recovered, capped). */
+/** A fit-out contract fell through (yours OR a rival's you depend on). The move does NOT collapse — it's
+ *  insured, so the bank will close it out at the 3-turn cap (tickExpansion). If a RIVAL stalled a contract
+ *  you depend on, you may sue them now for the value (recovered, capped). */
 export function onReadyingBotch(state, contractor, job) {
   const moverId = job.readying_for ?? contractor.id; // a rival's fit-out (readying_for) or your own
   const mover = state.players.find((p) => p.id === moverId);
   if (!mover || !mover.pendingExpansion) return null;
-  mover.pendingExpansion.fitOutFailed = true; // the move can't complete — a contract didn't deliver
   if (job.readying_for && contractor.id !== mover.id && !contractor.bankrupt && !mover.bankrupt) {
     state.pendingDamages.push({ hirerId: mover.id, contractorId: contractor.id, jobId: job.id, jobName: job.name, value: job.value, recipientId: mover.id });
-    return `⚠ ${mover.name}'s move stalls — ${contractor.name} botched the ${job.name}; may sue for ${w(job.value)} in damages`;
+    return `⚠ ${contractor.name} botched ${mover.name}'s ${job.name} — insurance will cover it; ${mover.name} may sue for ${w(job.value)} in damages`;
   }
-  return `⚠ ${mover.name}'s ${job.name} fit-out fell through — the move will collapse`;
+  return `⚠ ${mover.name}'s ${job.name} fit-out fell through — insurance will close it out at the cap`;
 }
 
 /** Upkeep hook: once readied, pay the balance + capitalise + move in, or forfeit the deposit. */
 export function tickExpansion(state, player) {
   const pe = player.pendingExpansion;
   if (!pe) return [];
-  // A fit-out contract fell through → the building never got readied. The move collapses: forfeit the
-  // deposit and stay put (you'd have sued any rival who stalled). You DON'T get the new building.
-  if (pe.fitOutFailed) {
-    post(state, player, `Forfeited the ${pe.targetName} readying deposit (fit-out collapsed)`, [
-      { acct: ACCT.REPAIRS, amt: pe.deposit }, { acct: ACCT.PREPAID, amt: -pe.deposit },
-    ]);
-    player.pendingExpansion = null;
-    return [`⚠ ${player.name}'s move to ${pe.targetName} collapsed — a fit-out contract fell through; forfeited the ${w(pe.deposit)} deposit, stays put`];
-  }
-  // The move-in is GATED on the fit-out finishing: every readying contract (yours + any rival's you
-  // depend on) must clear before you can move. Until then you're already paying the new building's
-  // higher rent (overheadFor) on a shop you can't use — so dragging the fit-out, or a stalling rival,
-  // genuinely costs you. A contract leaves this count when it's delivered OR it expires (you'd have
-  // sued the staller via onReadyingBotch). Floor of readyTurn so even an instant fit-out takes a turn.
-  const outstanding = state.players.reduce(
-    (n, p) => n + p.jobs.filter((j) => j.readying && (p.id === player.id || j.readying_for === player.id) && j.state !== "Complete").length,
-    0,
+  const lines = [];
+  // The move-in is GATED on the fit-out finishing — but it's INSURED at the start, so it can NEVER
+  // just collapse. Either every contract clears, OR at the 3-turn cap the bank closes out whatever's
+  // unfinished and you move in anyway (and sue any rival who stalled). Until then you're paying the new
+  // building's higher rent on a shop you can't use — so a staller weighs impeding you against the suit.
+  if (state.turn < pe.readyTurn) return []; // floor: even an instant fit-out takes a turn
+  const outstanding = state.players.flatMap((p) =>
+    p.jobs.filter((j) => j.readying && (p.id === player.id || j.readying_for === player.id) && j.state !== "Complete").map((job) => ({ owner: p, job })),
   );
-  if (state.turn < pe.readyTurn || outstanding > 0) {
-    return outstanding > 0
-      ? [`🏗️ ${player.name}'s ${pe.targetName} fit-out is still underway — ${outstanding} contract(s) outstanding; paying the higher rent until it's done`]
-      : [];
+  if (outstanding.length > 0 && state.turn < pe.capTurn) {
+    return [`🏗️ ${player.name}'s ${pe.targetName} fit-out is still underway — ${outstanding.length} contract(s) outstanding; paying the higher rent until it's done`];
   }
 
   if (player.cash < pe.balance) {
-    // Can't close it out → forfeit the deposit (a real loss) and stay put.
+    // Can't cover the building-fee balance → forfeit the deposit (a real loss) and stay put.
     post(state, player, `Forfeited the ${pe.targetName} readying deposit`, [
       { acct: ACCT.REPAIRS, amt: pe.deposit }, { acct: ACCT.PREPAID, amt: -pe.deposit },
     ]);
@@ -128,7 +116,20 @@ export function tickExpansion(state, player) {
     return [`⚠ ${player.name} couldn't cover the ${w(pe.balance)} balance on ${pe.targetName} — forfeited the ${w(pe.deposit)} deposit, stays put`];
   }
 
-  const lines = [];
+  if (outstanding.length > 0) {
+    // The 3-turn cap reached with work still out: insurance closes out every unfinished fit-out so the
+    // move ALWAYS completes; each rival who stalled their contract is sued for its value (recovered, capped).
+    const sued = [];
+    for (const { owner, job } of outstanding) {
+      if (owner.id !== player.id && !owner.bankrupt) {
+        state.pendingDamages.push({ hirerId: player.id, contractorId: owner.id, jobId: job.id, jobName: job.name, value: job.value, recipientId: player.id });
+        sued.push(owner.name);
+      }
+      for (const tid of job.assigned_tradesmen) { const t = owner.tradesmen.find((x) => x.id === tid); if (t) t.assignedJob = null; }
+      owner.jobs = owner.jobs.filter((j) => j.id !== job.id);
+    }
+    lines.push(`🏦 ${player.name}'s ${pe.targetName} fit-out hit the 3-turn cap — insurance closes out ${outstanding.length} contract(s)${sued.length ? `; suing ${[...new Set(sued)].join(", ")} for stalling` : ""}`);
+  }
   if (pe.isImprove) {
     player.capacityBonus = (player.capacityBonus ?? 0) + pe.capacity;
     lines.push(`🏗️ ${player.name}'s shop expansion is finished — +${pe.capacity} crew capacity`);

@@ -76,19 +76,24 @@ const finishFitout = (g) => { for (const p of g.state.players) p.jobs = p.jobs.f
   ok("expansion contract: your growth puts a rival's crew to work (landlord pays contract_value)");
 }
 
-// A fit-out contract falling through COLLAPSES the move — you don't get the building.
+// An unfinished fit-out does NOT collapse the move — it's INSURED. At the 3-turn cap the bank closes
+// it out, you move in anyway, and the contractor(s) who stalled get sued.
 {
   const g = game(); const me = g.currentPlayer; me.cash = 60;
   g.startExpansion("shop");
-  const rival = g.state.players.find((p) => p !== me && p.jobs.some((j) => j.readying && j.readying_for === me.id));
-  const job = rival.jobs.find((j) => j.readying && j.readying_for === me.id);
-  onReadyingBotch(g.state, rival, job); // the rival stalls their fit-out
-  assert.ok(me.pendingExpansion.fitOutFailed, "the move is flagged collapsed");
-  g.state.turn += 1;
+  const target = me.pendingExpansion.target;
+  // Nobody finishes the fit-out. Before the cap the move just waits (no collapse)…
+  g.state.turn = me.pendingExpansion.capTurn - 1;
   tickExpansion(g.state, me);
-  assert.equal(me.building, economy.starting_building, "the move collapsed — you did NOT move in");
-  assert.equal(me.pendingExpansion, null, "the move is abandoned (deposit forfeited)");
-  ok("expansion gating: a stalled/unbuilt fit-out collapses the move — no free move-in on expiry");
+  assert.equal(me.building, economy.starting_building, "before the cap you haven't moved yet (still readying)");
+  assert.ok(me.pendingExpansion, "…but the move is NOT abandoned — it's insured");
+  // …then at the cap the bank closes it out and you move in.
+  g.state.turn = me.pendingExpansion.capTurn;
+  tickExpansion(g.state, me);
+  assert.equal(me.building, target, "insured: you DID move in at the 3-turn cap despite the unfinished fit-out");
+  assert.equal(me.pendingExpansion, null, "the move resolved (no collapse, deposit not forfeited)");
+  assert.ok(g.state.pendingDamages.some((c) => c.recipientId === me.id), "a stalling contractor is sued");
+  ok("expansion gating: an unfinished fit-out is insured — move completes at the 3-turn cap, stallers sued");
 }
 
 // Forfeit: can't cover the balance at move-in → deposit written off, stays put.

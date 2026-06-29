@@ -139,11 +139,12 @@ export function botActions(game, strategy = "balanced", opts = {}) {
   }
 
   // 4. Assign idle tradespeople to the best workable jobs. Phases of a big project come FIRST (a
-  //    collapse costs everyone), then a fit-out contract (someone's MOVE is gated on it finishing and
-  //    a stall is suable, so don't let low value bury it), then value, then urgency.
+  //    collapse costs everyone), then value, then urgency. (Fit-out contracts are deliberately NOT
+  //    boosted: a bot weighs stalling a rival's move against the resulting lawsuit on its own merits —
+  //    and the insured 3-turn cap means the mover never gets stuck regardless.)
   const workable = () => p.jobs
     .filter((j) => ["Queued", "OnHold", "Active"].includes(j.state) && hasEquip(p, j.required_equipment) && j.assigned_tradesmen.length < j.max_tradesmen)
-    .sort((a, b) => (b.project_id ? 1 : 0) - (a.project_id ? 1 : 0) || (b.readying ? 1 : 0) - (a.readying ? 1 : 0) || b.value - a.value || a.deadline_turn - b.deadline_turn);
+    .sort((a, b) => (b.project_id ? 1 : 0) - (a.project_id ? 1 : 0) || b.value - a.value || a.deadline_turn - b.deadline_turn);
   for (let t = p.tradesmen.filter((x) => !x.assignedJob).length; t > 0; t--) {
     const job = workable()[0];
     if (!job) break;
@@ -155,7 +156,7 @@ export function botActions(game, strategy = "balanced", opts = {}) {
   const here2 = findBuilding(state.economy, p.building);
   const noHands = p.tradesmen.every((t) => t.assignedJob);
   for (const j of [...p.jobs]) {
-    if (j.hirer_id || j.readying || !["Queued", "OnHold"].includes(j.state)) continue; // never bail on a fit-out a mover depends on
+    if (j.hirer_id || !["Queued", "OnHold"].includes(j.state)) continue;
     const cantStart = j.required_building_tier > (here2.tier ?? 1) || j.min_tradesmen > here2.capacity || noHands;
     if (j.deadline_turn - state.turn <= 2 && cantStart) tryDo(() => game.sellJob(j.id));
   }

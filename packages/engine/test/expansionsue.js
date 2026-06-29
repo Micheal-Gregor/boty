@@ -30,7 +30,7 @@ const job = { id: "ready_plumber", name: "Ready the shop — plumber fit-out", v
 plumber.jobs.push(job);
 const line = onReadyingBotch(g.state, plumber, job);
 assert.ok(line, "a stalled fit-out → the mover may sue");
-assert.ok(mover.pendingExpansion.fitOutFailed, "and the move is flagged to collapse");
+assert.ok(!mover.pendingExpansion.fitOutFailed, "the move is NOT collapsed — it's insured (the bank closes it out at the 3-turn cap)");
 const claim = g.state.pendingDamages.find((c) => c.hirerId === mover.id && c.contractorId === plumber.id);
 assert.ok(claim, "mover gets a damages claim against the staller");
 assert.equal(claim.recipientId, mover.id, "recovers to the mover, not the bank");
