@@ -68,6 +68,7 @@ function spawnContracts(state, mover, targetName, value, work, deadline) {
       state.turn,
     );
     job.readying = true;
+    job.art = "readying"; // all fit-out contracts share one "shop under construction" graphic (card/readying)
     if (taker !== mover) job.readying_for = mover.id; // a rival's fit-out you depend on → suable if they stall
     taker.jobs.push(job);
     n++;
