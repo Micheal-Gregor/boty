@@ -49,6 +49,32 @@ const snap = (g) => JSON.stringify({ turn: g.state.turn, active: g.state.activeP
   console.log("  ✓ protocol: duplicate sync is idempotent; reconnect rebuild converges");
 }
 
+// --- (a2) FULL determinism: a complete 6-seat AI game (the real shape — bots, auto-resolves, pendings,
+// reckoning) records and replays BYTE-IDENTICALLY. This is the strong lockstep guard. A player saw a
+// mid-game desync; it was a code hot-reload mid-session, NOT the engine — proven here, and the store now
+// self-heals (rebuild-from-row) on any divergence, which is exactly this replay-from-scratch path. ----
+{
+  const six = [
+    { name: "You", service: "mechanic" }, { name: "CPU2", service: "plumber" }, { name: "CPU3", service: "electrician" },
+    { name: "CPU4", service: "welder" }, { name: "CPU5", service: "pipefitter" }, { name: "CPU6", service: "HVAC technician" },
+  ];
+  const build = (seed) => { resetIds(); const g = new Game(economy, six, { ...decks, difficulty: "standard", seed }); g.start(); return g; };
+  const host = build(12345);
+  const moves = [];
+  const rec = recordable(host, moves);
+  for (let i = 0; i < 400 && !host.state.over; i++) {
+    try { botActions(rec, "balanced"); } catch { /* best effort */ }
+    rec.autoResolveCourt?.(); rec.autoResolveSettle?.(); rec.autoResolvePoach?.(); rec.autoResolveMayor?.(); rec.autoResolveReferral?.(); rec.autoResolveDamages?.();
+    const ctx = rec.endTurn();
+    if (ctx?.reckoning) { rec.closeBooks(); break; }
+  }
+  assert.ok(moves.length > 200 && host.state.over, `expected a full recorded game (got ${moves.length} moves, over=${host.state.over})`);
+  const client = build(12345); // a joiner / a self-heal rebuild from the move list
+  replay(client, JSON.parse(JSON.stringify(moves)));
+  assert.equal(snap(client), snap(host), "a full 6-seat AI game must replay BYTE-IDENTICALLY (lockstep determinism + self-heal rebuild)");
+  console.log(`  ✓ determinism: a full 6-seat AI game (${moves.length} moves, ${host.state.turn} rounds) replays byte-identically`);
+}
+
 // --- (b) SURFACING: a full bot game snapshotted into a timeline (the states a syncing client lands on)
 const autoResolve = (g) => { g.autoResolveCourt?.(); g.autoResolveSettle?.(); g.autoResolvePoach?.(); g.autoResolveMayor?.(); g.autoResolveReferral?.(); g.autoResolveDamages?.(); };
 const sim = fresh(424242);

@@ -634,7 +634,14 @@ function syncFromRow(row) {
   const moves = row.state?.moves ?? [];
   if (moves.length > log.length) {
     try { replay(realGame, moves, log.length); }
-    catch (e) { console.error("[online] replay failed at move", log.length, "—", e?.message ?? e); }
+    catch (e) {
+      // The incremental apply diverged (a half-applied state — e.g. a mid-game code hot-reload, or a
+      // dropped Realtime message). The move list is authoritative and replays deterministically from
+      // scratch, so SELF-HEAL: rebuild the whole game from the row instead of cascading broken syncs.
+      console.warn("[online] sync diverged at move", log.length, "—", e?.message ?? e, "→ rebuilding from the row to resync");
+      buildOnlineGame(row);
+      return;
+    }
     log = [...moves];
     push({ aiActing: null }); // push fires the townfolk card if a new round began in these moves
     surfaceNewOutcomes();
