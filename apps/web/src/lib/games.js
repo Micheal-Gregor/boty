@@ -5,6 +5,7 @@
 import { writable, get } from "svelte/store";
 import { supabase, supabaseReady } from "./supabase.js";
 import { user } from "./auth.js";
+import { myProfile } from "./social.js";
 import economy from "@boty/engine/data/economy.json";
 
 const TRADES = economy.services ?? [];
@@ -22,7 +23,7 @@ const MAX_SEATS = 6;
 let channel = null;
 
 const fail = (e) => { lobbyError.set(typeof e === "string" ? e : (e?.message ?? String(e))); lobbyBusy.set(false); return null; };
-const nameOf = (u) => (u?.email ?? "player").split("@")[0];
+const nameOf = () => get(myProfile)?.username ?? (get(user)?.email ?? "player").split("@")[0]; // show the username, never the email
 function genCode() {
   const a = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"; // no ambiguous chars
   let s = ""; for (let i = 0; i < 4; i++) s += a[Math.floor(Math.random() * a.length)];
@@ -59,7 +60,7 @@ export async function hostGame(difficulty = "standard") {
     else if (!/duplicate|unique/i.test(error.message)) return fail(error);
   }
   if (!game) return fail("Couldn't reserve a game code — try again.");
-  const { error: se } = await supabase.from("game_seats").insert({ game_id: game.id, seat: 0, user_id: me.id, display_name: nameOf(me), trade: firstFreeTrade([]) });
+  const { error: se } = await supabase.from("game_seats").insert({ game_id: game.id, seat: 0, user_id: me.id, display_name: nameOf(), trade: firstFreeTrade([]) });
   if (se) return fail(se);
   await enterGame(game);
   lobbyBusy.set(false);
@@ -77,7 +78,7 @@ export async function joinByCode(rawCode) {
   if (!game) return fail("No open game with that code.");
   const { data: seats } = await supabase.from("game_seats").select("*").eq("game_id", game.id);
   if (!(seats ?? []).some((s) => s.user_id === me.id)) { // not already seated
-    try { if (await claimSeat(game.id, () => ({ user_id: me.id, display_name: nameOf(me), trade: firstFreeTrade(seats ?? []) })) < 0) return fail("That game is full."); }
+    try { if (await claimSeat(game.id, () => ({ user_id: me.id, display_name: nameOf(), trade: firstFreeTrade(seats ?? []) })) < 0) return fail("That game is full."); }
     catch (e) { return fail(e); }
   }
   await enterGame(game);

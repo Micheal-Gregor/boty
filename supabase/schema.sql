@@ -80,3 +80,76 @@ create policy seats_write on public.game_seats for all to authenticated
 -- (If these say "already a member of publication", that's fine — ignore.)
 alter publication supabase_realtime add table public.games;
 alter publication supabase_realtime add table public.game_seats;
+
+-- ============================================================================
+-- BOTY — social layer (v2): public usernames, friends, invites, leaderboard.
+-- Re-runnable: paste the WHOLE file again any time; everything here is idempotent.
+-- Real emails stay private in auth.users — only the username is ever shown.
+-- ============================================================================
+create extension if not exists citext; -- case-insensitive unique usernames
+
+-- A public handle per signed-in user, plus their lifetime record (the leaderboard).
+create table if not exists public.profiles (
+  id           uuid primary key references auth.users (id) on delete cascade,
+  username     citext unique not null
+                 check (char_length(username::text) between 3 and 20 and username::text ~ '^[A-Za-z0-9_]+$'),
+  games_played integer not null default 0,
+  games_won    integer not null default 0,
+  created_at   timestamptz not null default now()
+);
+alter table public.profiles enable row level security;
+drop policy if exists profiles_select on public.profiles;
+create policy profiles_select on public.profiles for select to authenticated using (true); -- everyone sees usernames + the board
+drop policy if exists profiles_insert on public.profiles;
+create policy profiles_insert on public.profiles for insert to authenticated with check (id = auth.uid());
+drop policy if exists profiles_update on public.profiles;
+create policy profiles_update on public.profiles for update to authenticated using (id = auth.uid()) with check (id = auth.uid());
+
+-- Friend requests; status flips to 'accepted' when the addressee says yes.
+create table if not exists public.friendships (
+  id         uuid primary key default gen_random_uuid(),
+  requester  uuid not null references auth.users (id) on delete cascade,
+  addressee  uuid not null references auth.users (id) on delete cascade,
+  status     text not null default 'pending' check (status in ('pending', 'accepted')),
+  created_at timestamptz not null default now(),
+  unique (requester, addressee),
+  check (requester <> addressee)
+);
+alter table public.friendships enable row level security;
+drop policy if exists friendships_select on public.friendships;
+create policy friendships_select on public.friendships for select to authenticated using (requester = auth.uid() or addressee = auth.uid());
+drop policy if exists friendships_insert on public.friendships;
+create policy friendships_insert on public.friendships for insert to authenticated with check (requester = auth.uid());
+drop policy if exists friendships_update on public.friendships;
+create policy friendships_update on public.friendships for update to authenticated using (addressee = auth.uid() or requester = auth.uid()) with check (addressee = auth.uid() or requester = auth.uid());
+drop policy if exists friendships_delete on public.friendships;
+create policy friendships_delete on public.friendships for delete to authenticated using (requester = auth.uid() or addressee = auth.uid());
+
+-- A host nudging a friend to join their lobby (the friend sees it live + can jump in).
+create table if not exists public.game_invites (
+  id         uuid primary key default gen_random_uuid(),
+  game_id    uuid not null references public.games (id) on delete cascade,
+  from_user  uuid not null references auth.users (id) on delete cascade,
+  to_user    uuid not null references auth.users (id) on delete cascade,
+  created_at timestamptz not null default now(),
+  unique (game_id, to_user)
+);
+alter table public.game_invites enable row level security;
+drop policy if exists invites_select on public.game_invites;
+create policy invites_select on public.game_invites for select to authenticated using (to_user = auth.uid() or from_user = auth.uid());
+drop policy if exists invites_insert on public.game_invites;
+create policy invites_insert on public.game_invites for insert to authenticated with check (from_user = auth.uid());
+drop policy if exists invites_delete on public.game_invites;
+create policy invites_delete on public.game_invites for delete to authenticated using (to_user = auth.uid() or from_user = auth.uid());
+
+-- Leaderboard write: each client bumps its OWN record at game end (atomic, RLS-safe via the uid).
+create or replace function public.record_result(won boolean)
+  returns void language sql security definer set search_path = public as $$
+  update public.profiles
+     set games_played = games_played + 1,
+         games_won    = games_won + (case when won then 1 else 0 end)
+   where id = auth.uid();
+$$;
+
+alter publication supabase_realtime add table public.game_invites;
+alter publication supabase_realtime add table public.friendships;

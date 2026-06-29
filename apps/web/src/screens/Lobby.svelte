@@ -5,7 +5,14 @@
     onlineGame, onlineSeats, lobbyBusy, lobbyError, lobbyNote,
     hostGame, joinByCode, pickTrade, setSeatTrade, addAiSeat, removeSeat, leaveGame,
   } from "../lib/games.js";
+  import { friends, inviteFriend } from "../lib/social.js";
   import Shell from "./Shell.svelte";
+
+  let invited = $state(new Set());
+  async function invite(f) {
+    const { error } = await inviteFriend($onlineGame.id, f.id);
+    if (!error) invited = new Set(invited).add(f.id);
+  }
 
   const services = $derived($ui.economy?.services ?? []);
   const isHost = $derived($onlineGame && $user && $onlineGame.host_id === $user.id);
@@ -102,6 +109,14 @@
         {/if}
         <button class="leave" onclick={leaveAndBack}>Leave</button>
       </div>
+      {#if isHost && $friends.length}
+        <div class="invite">
+          <span class="muted">Invite a friend:</span>
+          {#each $friends as f (f.id)}
+            <button class="inv" disabled={invited.has(f.id)} onclick={() => invite(f)}>{invited.has(f.id) ? `✓ ${f.username}` : f.username}</button>
+          {/each}
+        </div>
+      {/if}
     {/if}
 
     {#if $lobbyError}<p class="err">{$lobbyError}</p>{/if}
@@ -141,6 +156,9 @@
   .trade-btn.on { background: var(--accent, #e0b341); color: #1a1a1a; border: none; }
   .controls { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
   .controls .leave { margin-left: auto; color: #e0564b; }
+  .invite { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; margin-top: 10px; }
+  .invite .inv { padding: 5px 10px; font-size: 0.85em; font-weight: 600; }
+  .invite .inv:disabled { opacity: 0.6; color: #7fdca0; cursor: default; }
   .waiting { font-style: italic; }
   .err { color: #e0564b; margin-top: 12px; }
   .note { color: var(--accent, #e0b341); margin-top: 12px; }

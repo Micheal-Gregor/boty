@@ -9,6 +9,7 @@
   import History from "./screens/History.svelte";
   import Faq from "./screens/Faq.svelte";
   import Credits from "./screens/Credits.svelte";
+  import Players from "./screens/Players.svelte";
   import Setup from "./screens/Setup.svelte";
   import Board from "./screens/Board.svelte";
   import Reckoning from "./screens/Reckoning.svelte";
@@ -28,6 +29,7 @@
   import Confirm from "./components/Confirm.svelte";
   import Dice from "./components/Dice.svelte";
   import Settings from "./components/Settings.svelte";
+  import UsernamePrompt from "./components/UsernamePrompt.svelte";
 
   // One soft click for EVERY button press, app-wide (capture phase, so it still fires when a modal
   // stops propagation). Card opens / litigation / the Gala layer their own accent (flip/gavel/chime)
@@ -54,6 +56,8 @@
     <Faq />
   {:else if $ui.screen === "credits"}
     <Credits />
+  {:else if $ui.screen === "players"}
+    <Players />
   {:else if $ui.screen === "setup"}
     <Setup />
   {:else if $ui.screen === "board"}
@@ -71,6 +75,7 @@
   <Confirm />
   <Dice />
   <Settings />
+  <UsernamePrompt />
   <CardModal />
   <SettleModal />
   <CourtModal />

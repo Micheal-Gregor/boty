@@ -9,6 +9,7 @@ import { botActions } from "@boty/engine/bots";
 import { loadContent } from "./content.js";
 import { unlockAudio, playSfx, playSting, playMusic } from "./sound.js";
 import { checkInvariants, noteRoundSurfaced } from "./invariants.js";
+import { recordResult } from "./social.js";
 import { dealTownlife, townlifeForRound } from "./townlife.js";
 import { setMoneyRate } from "./money.js";
 import { npcIntroFor } from "./townsfolk.js";
@@ -144,6 +145,15 @@ export function openRivals() { push({ rivalView: true }); }
 export function closeRivals() { push({ rivalView: false }); }
 
 // The end-of-year report behind the win screen — standings, consolation awards, full per-player books.
+let outcomeRecorded = false;
+/** Online only: record MY win/loss to my profile (the leaderboard) at game end — once per game. */
+function recordMyOutcome() {
+  if (!online || mySeat < 0 || outcomeRecorded || !game) return;
+  outcomeRecorded = true;
+  const live = game.state.players.filter((p) => !p.bankrupt);
+  const winner = live.length ? live.reduce((a, b) => (b.cash > a.cash ? b : a)) : null;
+  recordResult(!!winner && game.state.players.indexOf(winner) === mySeat);
+}
 function finalReport() {
   const players = game.state.players.map((p) => ({
     name: p.name, service: p.service, cash: p.cash, bankrupt: p.bankrupt,
@@ -611,6 +621,7 @@ function buildOnlineGame(row) {
   mySeat = onlineCfg.seats.findIndex((s) => s.user_id === me?.id);
   isHostClient = row.host_id === me?.id;
   online = true;
+  outcomeRecorded = false; // a new (or rebuilt) online game — its result hasn't been recorded yet
   declinedDamages.clear();
   dealTownlife();
   realGame.start();
@@ -649,7 +660,7 @@ function syncFromRow(row) {
     log = [...moves];
     push({ aiActing: null }); // push fires the townfolk card if a new round began in these moves
     surfaceNewOutcomes();
-    if (realGame.state.over) { playSfx("chime", 0.5); playMusic("gala", 0.3); return push({ screen: "gala", final: finalReport() }); }
+    if (realGame.state.over) { playSfx("chime", 0.5); playMusic("gala", 0.3); recordMyOutcome(); return push({ screen: "gala", final: finalReport() }); }
   }
   maybeDriveAI();
   surfaceDecisionsAfterReveal(); // a remote update advanced the turn to me → surface decisions after the reveals
@@ -942,7 +953,7 @@ export function endTurn() {
     const ender = game.state.players[game.state.activePlayerIndex]; // who is ending — read THEIR job progress
     const ctx = game.endTurn();
     if (ctx.reckoning) return enterReckoning(ctx.order);
-    if (ctx.over) { surfaceNewOutcomes(); playSfx("chime", 0.5); playMusic("gala", 0.3); return push({ screen: "gala", ctx, final: finalReport() }); } // fire the bankruptcy/loan-call popup over the gala
+    if (ctx.over) { surfaceNewOutcomes(); playSfx("chime", 0.5); playMusic("gala", 0.3); recordMyOutcome(); return push({ screen: "gala", ctx, final: finalReport() }); } // fire the bankruptcy/loan-call popup over the gala
     if ((game.state.humanIds ?? []).includes(ender.id) && ender.lastProgress?.length) // your jobs' begin → crew → jobsite card → end
       enqueuePopup({ kind: "jobreport", jobs: ender.lastProgress.map((r) => ({ ...r })) });
     if (online) { push({ aiActing: null }); surfaceNewOutcomes(); maybeDriveAI(); surfaceDecisionsAfterReveal(); } // flush my turn (push fires the round card if the round ticked); host drives the next AI seats
@@ -1066,7 +1077,7 @@ async function advanceUntilHuman(initialCtx) {
 
     const ctx = game.endTurn();
     if (ctx.reckoning) { push({ aiActing: null }); return enterReckoning(ctx.order); }
-    if (ctx.over) { surfaceNewOutcomes(); playSfx("chime", 0.5); playMusic("gala", 0.3); return push({ aiActing: null, screen: "gala", ctx, final: finalReport() }); } // fire the bankruptcy/loan-call popup over the gala
+    if (ctx.over) { surfaceNewOutcomes(); playSfx("chime", 0.5); playMusic("gala", 0.3); recordMyOutcome(); return push({ aiActing: null, screen: "gala", ctx, final: finalReport() }); } // fire the bankruptcy/loan-call popup over the gala
     push({ aiActing: { name: p.name, drew, lines } }); // recap + the updated table snapshot
     if (!skipAI) await sleep(800);
     lastCtx = ctx;
@@ -1177,7 +1188,7 @@ function advanceSeat() {
     game.closeBooks();
     reckon = null;
     playSfx("chime", 0.5);
-    playMusic("gala", 0.3); return push({ screen: "gala", final: finalReport(), reckoning: null });
+    playMusic("gala", 0.3); recordMyOutcome(); return push({ screen: "gala", final: finalReport(), reckoning: null });
   }
   const id = reckon.order[reckon.idx];
   game.seatReckoning(id);
