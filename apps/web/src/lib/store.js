@@ -283,12 +283,14 @@ const SOUND_CUES = [
   [/💀 .* cannot cover|BANKRUPT/, "sting_bankrupt", true],
   [/bank CALLED the loan/, "sting_loan", true],
   [/🌐 .* grips Maple Hollow|levy now hits|town levy/i, "sting_levy", true],
-  [/code violation|safety write-up|inspection .* fine|🚧/i, "sting_fine", true],
   [/COLLAPSED past deadline/, "sting_collapse", true], // a project/civic blows its deadline — balance forfeit
   [/⚖️.*(WINS|WALKS|SUED AND WON|lost in court)/, "sting_verdict", true], // a lawsuit is decided — the gavel falls
   [/✔ .* completed/, "job_done", false],
+  // Money CHANGING HANDS — fixing a violation, paying a bill, or collecting — is the cash register, NOT
+  // the fine warning (that fires with the inspector card itself, in Popup.svelte). First match wins, so
+  // this sits ahead of anything that also names the violation. The recurring upkeep fine is silent now.
+  [/🔧 .* (cleared|to clear)|paid .* in full|collects .* in receivables|settles up/i, "cash_register", false],
   [/a \d+-turn sue window opens/i, "gavel", false], // a player debt just went past due → you can sue (the AR view shows ⚖️ Sue)
-  [/collects .* in receivables|settles up|paid in full/i, "cash_register", false],
   [/walks anyway|poached|🚪|let .* go|fired/i, "worker_leaves", false],
 ];
 function surfaceNewOutcomes() {
