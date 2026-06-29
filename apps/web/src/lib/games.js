@@ -30,6 +30,23 @@ function genCode() {
 }
 const firstOpenSeat = (seats) => { const t = new Set(seats.map((s) => s.seat)); let n = 0; while (t.has(n)) n++; return n; };
 
+/** Claim the next open seat, resilient to a race: two clients (or rapid Add-AI clicks) can compute the
+ *  SAME open seat off a stale seat list and collide on the (game_id, seat) unique index (a 409). So
+ *  refetch the LIVE seats each attempt and, on a unique-violation, loop to grab the next free one.
+ *  `rowFor(seat)` returns the extra columns. Returns the claimed seat, or -1 if the lobby is full. */
+async function claimSeat(gameId, rowFor) {
+  for (let tries = 0; tries < 8; tries++) {
+    const { data: seats } = await supabase.from("game_seats").select("seat").eq("game_id", gameId);
+    const seat = firstOpenSeat(seats ?? []);
+    if (seat >= MAX_SEATS) return -1;
+    const { error } = await supabase.from("game_seats").insert({ game_id: gameId, seat, ...rowFor(seat) });
+    if (!error) return seat;
+    if (error.code !== "23505" && !/duplicate|unique|conflict/i.test(error.message ?? "")) throw error; // a real error, not a seat race
+    // else: someone took that seat between fetch and insert — refetch and try the next one
+  }
+  throw new Error("The lobby's busy filling seats — try again.");
+}
+
 /** Host a new game — creates the row, claims seat 0, and drops you into its lobby. */
 export async function hostGame(difficulty = "standard") {
   if (!supabaseReady) return fail("Online play isn't configured.");
@@ -60,10 +77,8 @@ export async function joinByCode(rawCode) {
   if (!game) return fail("No open game with that code.");
   const { data: seats } = await supabase.from("game_seats").select("*").eq("game_id", game.id);
   if (!(seats ?? []).some((s) => s.user_id === me.id)) { // not already seated
-    const seat = firstOpenSeat(seats ?? []);
-    if (seat >= MAX_SEATS) return fail("That game is full.");
-    const { error: se } = await supabase.from("game_seats").insert({ game_id: game.id, seat, user_id: me.id, display_name: nameOf(me), trade: firstFreeTrade(seats ?? []) });
-    if (se) return fail(se);
+    try { if (await claimSeat(game.id, () => ({ user_id: me.id, display_name: nameOf(me), trade: firstFreeTrade(seats ?? []) })) < 0) return fail("That game is full."); }
+    catch (e) { return fail(e); }
   }
   await enterGame(game);
   lobbyBusy.set(false);
@@ -87,9 +102,8 @@ export async function setSeatTrade(seat, trade) {
 /** Host: add a CPU seat. */
 export async function addAiSeat() {
   const g = get(onlineGame); if (!g) return;
-  const seat = firstOpenSeat(get(onlineSeats));
-  if (seat >= MAX_SEATS) return;
-  await supabase.from("game_seats").insert({ game_id: g.id, seat, is_ai: true, display_name: `CPU ${seat + 1}` });
+  try { if (await claimSeat(g.id, (s) => ({ is_ai: true, display_name: `CPU ${s + 1}` })) < 0) return; }
+  catch (e) { return fail(e); }
   await refreshSeats(g.id);
 }
 
