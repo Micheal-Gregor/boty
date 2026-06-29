@@ -2,11 +2,22 @@
   import { ui, dismissPopup, skipAITurns } from "../lib/store.js";
   import { money, cashText } from "../lib/money.js";
   import { settings } from "../lib/settings.js";
+  import { playSfx } from "../lib/sound.js";
   import Art from "./Art.svelte";
 
   const queue = $derived($ui.popups ?? []);
   const p = $derived(queue[0] ?? null);
   const more = $derived(queue.length > 1);
+
+  // Play a sound the moment a popup DISPLAYS (not when it was queued) — so the opening dice clatters
+  // as it lands and the deck riffles as the "unique deck" reveal appears, not while a prior popup is up.
+  let sounded = null;
+  $effect(() => {
+    if (!p || p === sounded) return;
+    sounded = p;
+    if (p.kind === "roll") playSfx("dice", 0.6);            // the "who goes first" dice
+    else if (p.kind === "deckbuilt") playSfx("riffle", 0.6); // the first deck shuffle
+  });
 
   // The non-zero recurring-expense lines, in statement order.
   const expenseLines = (r) =>
