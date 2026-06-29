@@ -50,6 +50,10 @@ for (const c of d.fortune) {
 for (const c of d.civil || []) want.add("card/" + c.id); // hand cards AND docket events (lawsuit/audit/… now reveal as their own card)
 want.add("card/civic/hospital_overrun");
 want.add("card/civic/opera_scandal");
+want.add("card/readying"); // shared "shop under construction" art for every fit-out (move-in) contract
+// Project phase jobs (county_hospital, opera_house) + incident tenders + routed subs all show their
+// PARENT card's art (job.art = the project/incident/routed card id), which is already a deck card above —
+// so no extra keys to expect here; this comment records that those job-art paths are covered.
 
 const missing = [...want].filter((k) => !exist.has(k)).sort();
 console.log(`expected card-art keys: ${want.size} | existing art files: ${exist.size} | MISSING: ${missing.length}\n`);

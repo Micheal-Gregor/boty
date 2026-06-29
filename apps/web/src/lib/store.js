@@ -343,9 +343,20 @@ for (const c of [...decks.fortune, ...decks.civil]) if (c.id && !cardById.has(c.
 // Longest names first so "Plumbing emergency" matches before a bare "Plumbing".
 const cardsByNameLen = [...cardById.values()].filter((c) => c.name).sort((a, b) => b.name.length - a.name.length);
 
+const artSlug = (svc) => (svc === "HVAC technician" ? "hvac" : (svc ?? "").toLowerCase());
+/** A static card def's display art key. Job cards carry NO art of their own — it's computed per-trade
+ *  at draw time — so recompute it here (for the viewer's trade) so a job that's already LEFT play
+ *  (completed/expired/referred) still shows its graphic in the log, not a placeholder. */
+function staticCardArt(c) {
+  const svc = game?.state?.players?.[game.state.activePlayerIndex]?.service;
+  const slug = artSlug(svc);
+  if (c.type === "job" && c.npc) return `job/${c.npc}/${slug}`;
+  if (c.type === "job" && c.size) return ["j1", "j2", "j3"].includes(c.size) ? `job/walkin/${{ j1: "1p", j2: "2p", j3: "2p_basic" }[c.size]}` : `job/${c.size}/${slug}`;
+  return c.art ?? c.id;
+}
 /** The first known card whose name appears in a log line, for making the line clickable. A LIVE job
- *  (anyone's) wins over the static def: tailored jobs (NPC/ladder/routed) carry their per-trade name
- *  AND resolved art key (e.g. job/lundgren/mechanic), which the static card definition lacks. */
+ *  (anyone's) wins — tailored jobs (NPC/ladder/routed) carry their per-trade name AND resolved art
+ *  key (e.g. job/lundgren/mechanic). Failing that, the static def, with its art recomputed per-trade. */
 export function cardInLine(line) {
   if (game) {
     const jobs = game.state.players
@@ -355,7 +366,8 @@ export function cardInLine(line) {
     const j = jobs.find((j) => line.includes(j.name));
     if (j) return { name: j.name, art: j.art ?? j.card, cardId: j.card, flavor: j.flavor ?? null };
   }
-  return cardsByNameLen.find((c) => line.includes(c.name)) ?? null;
+  const c = cardsByNameLen.find((c) => line.includes(c.name));
+  return c ? { name: c.name, art: staticCardArt(c), cardId: c.id, flavor: c.flavor ?? null } : null;
 }
 /** Open / close the card detail modal. */
 export function viewCard(card) { if (card) { playSfx("flip", 0.4); push({ cardView: card }); } }

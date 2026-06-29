@@ -42,6 +42,7 @@ export function startProject(state, lead, card) {
       state.turn,
     );
     job.project_id = project.id;
+    job.art = card.art ?? card.id; // every phase shows the project's own art (e.g. county_hospital), like routed/incident tenders
     if (hirer) {
       job.hirer_id = hirer.id;
       const ap = createPayable({ vendor: `${holder.name} (${card.name}: ${ph.name})`, amount: ph.sub_cost, dueTurn: null, isNpc: false, creditorId: holder.id, jobId: job.id, pending: true });
