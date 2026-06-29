@@ -378,6 +378,9 @@ function staticCardArt(c) {
   const slug = artSlug(svc);
   if (c.type === "job" && c.npc) return `job/${c.npc}/${slug}`;
   if (c.type === "job" && c.size) return ["j1", "j2", "j3"].includes(c.size) ? `job/walkin/${{ j1: "1p", j2: "2p", j3: "2p_basic" }[c.size]}` : `job/${c.size}/${slug}`;
+  // Civic jobs (the Opera House, County Hospital, Town Hall, etc.) keep their art under civic/<id> —
+  // match startCivic's keying so a DELIVERED civic that's left play still shows its graphic in the log.
+  if (c.type === "civic") return c.art ?? (c.seasonal_storm ? "civic/storm/summer" : `civic/${c.id}`);
   return c.art ?? c.id;
 }
 /** The first known card whose name appears in a log line, for making the line clickable. A LIVE job
