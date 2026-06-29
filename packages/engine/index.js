@@ -15,7 +15,7 @@ export { Deck, makeRng } from "./src/engine/deck.js";
 export { makeDie } from "./src/engine/dice.js";
 export { seasonFor, seasonName } from "./src/engine/season.js";
 export { recurringExpenses } from "./src/engine/turn.js";
-export { workerProductivity, jobWorkScore } from "./src/engine/jobs.js";
+export { workerProductivity, jobWorkScore, whyNotReady } from "./src/engine/jobs.js";
 export { classifyTermination, fireWorker, performanceReview, unionActive } from "./src/engine/employment.js";
 export { injectById, injectAllById, removeMatching, pullJobs } from "./src/engine/livingdeck.js";
 export { SERVICES, premiumsFor } from "./src/engine/modifiers.js";

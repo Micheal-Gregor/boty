@@ -65,6 +65,20 @@ function hasToolPerWorker(player, job) {
   return !job.equipment_per_tradesman || job.assigned_tradesmen.every((tid) => player.equipment.some((e) => e.assigned_to === tid));
 }
 
+/** The one concrete thing stopping a job from going Active right now — or null if it's good to run.
+ *  Drives the "why is this stuck on hold?" hint on the card and the failed-Resume message. */
+export function whyNotReady(state, player, job) {
+  if (job.assigned_tradesmen.length < job.min_tradesmen)
+    return `needs ${job.min_tradesmen} worker${job.min_tradesmen === 1 ? "" : "s"} on it (have ${job.assigned_tradesmen.length})`;
+  const gate = meetsHardGates(state, player, job);
+  if (!gate.ok) return gate.reason;
+  if (!hasToolPerWorker(player, job)) {
+    const geared = job.assigned_tradesmen.filter((tid) => player.equipment.some((e) => e.assigned_to === tid)).length;
+    return `needs a tool for EVERY worker on it — only ${geared} of ${job.assigned_tradesmen.length} are geared (buy/rent another tool, or pull a worker off)`;
+  }
+  return null;
+}
+
 /** Hand any IDLE owned/rented tool to a working tool-less worker — best (fastest) first. Never moves
  *  a tool already assigned to someone, so deliberate allocation still holds; this just stops your gear
  *  sitting in the cupboard while a worker swings bare-handed. Owned tools are free and rented tools
@@ -159,7 +173,9 @@ export function hold(state, player, jobId) {
 export function resume(state, player, jobId) {
   const job = findJob(player, jobId);
   if (job.state !== "OnHold") throw new GameError(`${job.name} is ${job.state} — only held jobs can be resumed`);
-  refreshState(state, player, job); // re-staffed → Active; otherwise back to Queued
+  const why = whyNotReady(state, player, job); // tell the player exactly what's missing instead of silently re-holding
+  if (why) throw new GameError(`${job.name} can't start yet — ${why}`);
+  refreshState(state, player, job);
   return `${player.name} took ${job.name} (${job.id}) off hold — now ${job.state}`;
 }
 
@@ -267,6 +283,10 @@ export function expireOverdue(state, player) {
  */
 export function runJobProgress(state, player) {
   const lines = [];
+  // A per-job breakdown of THIS turn's progress (begin → crew burn → jobsite card → end), stashed
+  // for the end-of-turn progress report the UI shows. Reset each run; left [] when nothing was active.
+  const report = [];
+  player.lastProgress = report;
   // Heal any worker left bare-handed while a tool sits idle (e.g. gear freed by a retirement, or
   // bought before the worker was hired) — so existing jobs pick up your gear too, not just new ones.
   for (const job of player.jobs) for (const tid of job.assigned_tradesmen) autoEquip(state, player, tid);
@@ -304,17 +324,21 @@ export function runJobProgress(state, player) {
   const hasProgressDeck = state.progressDeck && state.progressDeck.source.length > 0;
 
   for (const job of active) {
+    const begin = job.work_done;
     const burn = burnByJob.get(job) ?? 0;
     job.work_done += burn;
     let note = `burned ${burn}`;
+    let cardName = null, cardWork = 0, decisive = null;
 
     // Draw a job-progress card against the job (Stage 3). With no progress deck (Stage 1/2
     // callers), burn stays deterministic.
     if (hasProgressDeck) {
       const card = state.progressDeck.draw();
+      cardName = card.name; cardWork = card.effect?.work ?? 0; decisive = card.effect?.decisive ?? null;
       const outcome = applyProgressCard(state, player, job, card);
       note += `, ${card.name}${outcome ? ` (${outcome})` : ""}${card.flavor ? ` — “${card.flavor}”` : ""}`;
       if (job.state === "Expired") {
+        report.push({ name: job.name, id: job.id, begin, crew: burn, card: cardName, cardWork, decisive: "failure", end: null, target: job.work_amount, status: "failed" });
         lines.push(`✗ ${player.name}'s ${job.name} (${job.id}) — ${note}: failed, no pay`);
         if (job.project_id) { lines.push(...onPhaseFailed(state, job)); continue; } // a phase fails → the project collapses now
         const owed = botchRoutedJob(state, player, job);
@@ -328,7 +352,9 @@ export function runJobProgress(state, player) {
       }
     }
 
-    if (job.work_done >= job.work_amount) {
+    const complete = job.work_done >= job.work_amount;
+    report.push({ name: job.name, id: job.id, begin, crew: burn, card: cardName, cardWork, decisive, end: job.work_done, target: job.work_amount, status: complete ? "complete" : "progress" });
+    if (complete) {
       const note2 = completionNote(state, job);
       completeJob(state, player, job);
       lines.push(`✔ ${player.name} completed ${job.name} (${job.id}) — ${note2} [${note}]`);

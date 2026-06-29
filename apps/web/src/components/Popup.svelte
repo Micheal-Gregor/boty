@@ -113,6 +113,30 @@
           </div>
         {/if}
         {#if p.rule}<div class="pop-rule">📜 {$cashText(p.rule)}</div>{/if}
+
+      {:else if p.kind === "jobreport"}
+        <h2>📋 Job progress</h2>
+        <p class="pop-flavor">Your crews this turn — base rate <strong>± the day's jobsite card</strong>.</p>
+        <div class="jobrep">
+          {#each p.jobs as j}
+            <div class="jr-job">
+              <div class="jr-name">
+                <span>{j.name}</span>
+                {#if j.status === "complete"}<span class="jr-tag done">✔ done</span>{:else if j.status === "failed"}<span class="jr-tag fail">✗ lost</span>{/if}
+              </div>
+              <div class="jr-flow">
+                <span class="jr-step">{j.begin}</span>
+                <span class="jr-op">+{j.crew} crew</span>
+                {#if j.card}
+                  {#if j.decisive === "success"}<span class="jr-op gain">🌟 {j.card} · auto-finish</span>
+                  {:else if j.decisive === "failure"}<span class="jr-op loss">💥 {j.card} · job lost</span>
+                  {:else}<span class="jr-op" class:gain={j.cardWork > 0} class:loss={j.cardWork < 0}>{j.card}{#if j.cardWork} ({j.cardWork > 0 ? "+" : ""}{j.cardWork}){/if}</span>{/if}
+                {/if}
+                {#if j.status !== "failed"}<span class="jr-arrow">→</span><span class="jr-step end">{j.end}/{j.target}</span>{/if}
+              </div>
+            </div>
+          {/each}
+        </div>
       {/if}
 
       <div class="pop-foot">
@@ -131,6 +155,19 @@
   .pop-art { margin-bottom: 10px; border-radius: 10px; overflow: hidden; text-align: center; }
   /* Keep any aspect ratio (incl. tall 9:16 round-start art) inside the screen — scale to fit, never overflow. */
   .pop-art :global(img), .pop-art :global(video) { max-width: 100%; max-height: 52vh; width: auto; height: auto; margin: 0 auto; display: block; }
+  .jobrep { display: flex; flex-direction: column; gap: 8px; margin-top: 4px; }
+  .jr-job { border: 1px solid var(--line, #2a3140); border-radius: 9px; padding: 8px 10px; background: rgba(255,255,255,0.02); }
+  .jr-name { display: flex; align-items: center; gap: 8px; font-weight: 600; margin-bottom: 4px; }
+  .jr-tag { font-size: 0.78em; font-weight: 700; padding: 1px 6px; border-radius: 6px; }
+  .jr-tag.done { color: #7fdca0; background: rgba(127,220,160,0.12); }
+  .jr-tag.fail { color: #e88; background: rgba(230,136,136,0.12); }
+  .jr-flow { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; font-size: 0.9em; }
+  .jr-step { font-variant-numeric: tabular-nums; color: var(--muted, #9aa4b2); }
+  .jr-step.end { color: var(--text, #e8edf4); font-weight: 600; }
+  .jr-op { padding: 1px 7px; border-radius: 6px; background: rgba(255,255,255,0.05); color: var(--muted, #9aa4b2); }
+  .jr-op.gain { color: #7fdca0; background: rgba(127,220,160,0.12); }
+  .jr-op.loss { color: #e8b07f; background: rgba(232,176,127,0.12); }
+  .jr-arrow { color: var(--muted, #9aa4b2); }
   .pop-effect.hit { color: #e8746a; font-weight: 600; }
   .pop-effect.gain { color: #5fb87a; font-weight: 600; }
   .pop-flavor { color: var(--muted, #9aa0aa); font-style: italic; margin: 0 0 6px; }

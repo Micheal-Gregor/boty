@@ -111,6 +111,7 @@
         <span class="headline">{job.work_done}/{job.work_amount}</span>
         <div class="ent-art"><Art kind="card" id={job.art ?? job.card} label={job.name} autoplay={$settings.animateCards} /></div>
         <h2>{job.name} <span class="muted">[{job.state}]</span></h2>
+        {#if job.state === "OnHold" && job.holdReason}<div class="hold-why">⚠ Can't start — {job.holdReason}</div>{/if}
         <div class="bar"><div class="fill" style="width:{Math.min(100, (100 * job.work_done) / job.work_amount)}%"></div></div>
         <div class="stack">
           <div class="stack-row"><span>Crew rate / turn</span><span>⚡{workScore(job)} <span class="muted">base</span></span></div>
@@ -193,6 +194,7 @@
   .gdesc { color: var(--ink, #e7e7ea); margin: 0 0 10px; line-height: 1.4; }
   .ent-sub { margin: -4px 0 10px; color: var(--muted, #9aa0aa); font-size: 0.86rem; }
   .ent-sub em { color: var(--ink, #cfd2d8); }
+  .hold-why { font-size: 0.82em; color: #e8b07f; background: rgba(232,176,127,0.1); border: 1px solid rgba(232,176,127,0.25); border-radius: 6px; padding: 4px 8px; margin: 0 0 8px; }
   .bar { height: 6px; background: var(--panel-2, #1b1f27); border-radius: 3px; overflow: hidden; margin-bottom: 8px; }
   .bar .fill { height: 100%; background: var(--accent, #e0b341); }
   .picker { background: var(--panel-2, #1b1f27); border-radius: 8px; padding: 8px; margin-bottom: 10px; display: flex; flex-direction: column; gap: 4px; }

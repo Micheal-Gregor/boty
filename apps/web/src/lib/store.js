@@ -3,7 +3,7 @@
 // intents to Supabase, and the UI won't change. AI seats are driven by the engine's own bots.
 
 import { writable, get } from "svelte/store";
-import { Game, profitAndLoss, balanceSheet, recurringExpenses, seasonFor, workerProductivity, findEquipment, classifyTermination, unionActive, recordable, replay, resetIds } from "@boty/engine";
+import { Game, profitAndLoss, balanceSheet, recurringExpenses, seasonFor, workerProductivity, findEquipment, classifyTermination, unionActive, recordable, replay, resetIds, whyNotReady } from "@boty/engine";
 import { settings } from "./settings.js";
 import { botActions } from "@boty/engine/bots";
 import { loadContent } from "./content.js";
@@ -388,7 +388,7 @@ function viewOf() {
         return { ...t, productivity: workerProductivity(economy, p, t.id), tool: tool ? findEquipment(economy, tool.defId).name : null };
       }),
       equipment: p.equipment.map((e) => ({ ...e, assignedToId: e.assigned_to })),
-      jobs: p.jobs.map((j) => ({ ...j, assigned_tradesmen: [...j.assigned_tradesmen] })),
+      jobs: p.jobs.map((j) => ({ ...j, assigned_tradesmen: [...j.assigned_tradesmen], holdReason: j.state === "OnHold" ? whyNotReady(game.state, p, j) : null })),
       invoices: p.invoices.map((i) => ({ ...i })),
       payables: p.payables.map((a) => ({ ...a })),
       defects: p.defects.map((d) => ({ ...d })),
@@ -688,7 +688,7 @@ export function playFavor(targetId, modId) {
   push({ picking: null });
   let line;
   try { line = game.playFavor(targetId, modId); playSfx("coin", 0.5); } catch (e) { return fail(e?.message ?? String(e)); }
-  if (line) enqueuePopup({ kind: "alert", title: "🪙 Favor played", body: line }); // confirm the fine/union actually cleared
+  if (line) enqueuePopup({ kind: "card", cardId: "favor", art: "favor", name: "Favor", forceAnim: true, flavor: "A quiet word in the right ear.", text: line }); // show the Favor card + confirm the fine/union/suit actually cleared
   surfaceNewOutcomes();
   push({ error: null });
 }
@@ -844,9 +844,12 @@ export function endTurn() {
   if (game.state.pendingThreat) return fail("Resolve the response window first");
   if (game.routingCases.length) return fail("Decide who runs each trade on your contract first");
   const proceed = () => {
+    const ender = game.state.players[game.state.activePlayerIndex]; // who is ending — read THEIR job progress
     const ctx = game.endTurn();
     if (ctx.reckoning) return enterReckoning(ctx.order);
     if (ctx.over) { surfaceNewOutcomes(); playSfx("chime", 0.5); playMusic("gala", 0.3); return push({ screen: "gala", ctx, final: finalReport() }); } // fire the bankruptcy/loan-call popup over the gala
+    if ((game.state.humanIds ?? []).includes(ender.id) && ender.lastProgress?.length) // your jobs' begin → crew → jobsite card → end
+      enqueuePopup({ kind: "jobreport", jobs: ender.lastProgress.map((r) => ({ ...r })) });
     if (online) { push({ aiActing: null }); surfaceNewOutcomes(); maybeDriveAI(); surfaceDecisionsAfterReveal(); } // flush my turn (push fires the round card if the round ticked); host drives the next AI seats
     else advanceUntilHuman(ctx);
   };
