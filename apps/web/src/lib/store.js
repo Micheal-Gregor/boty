@@ -343,8 +343,18 @@ for (const c of [...decks.fortune, ...decks.civil]) if (c.id && !cardById.has(c.
 // Longest names first so "Plumbing emergency" matches before a bare "Plumbing".
 const cardsByNameLen = [...cardById.values()].filter((c) => c.name).sort((a, b) => b.name.length - a.name.length);
 
-/** The first known card whose name appears in a log line, for making the line clickable. */
+/** The first known card whose name appears in a log line, for making the line clickable. A LIVE job
+ *  (anyone's) wins over the static def: tailored jobs (NPC/ladder/routed) carry their per-trade name
+ *  AND resolved art key (e.g. job/lundgren/mechanic), which the static card definition lacks. */
 export function cardInLine(line) {
+  if (game) {
+    const jobs = game.state.players
+      .flatMap((p) => p.jobs)
+      .filter((j) => j.name)
+      .sort((a, b) => b.name.length - a.name.length); // longest name first, so specifics beat substrings
+    const j = jobs.find((j) => line.includes(j.name));
+    if (j) return { name: j.name, art: j.art ?? j.card, cardId: j.card, flavor: j.flavor ?? null };
+  }
   return cardsByNameLen.find((c) => line.includes(c.name)) ?? null;
 }
 /** Open / close the card detail modal. */

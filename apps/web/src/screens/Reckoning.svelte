@@ -22,7 +22,8 @@
       {#if $ui.error}<p class="error">✗ {$ui.error}</p>{/if}
       <div class="actions">
         {#if handHas("sabotage")}<button onclick={() => startPick("sabotage")}>⚔️ Sabotage…</button>{/if}
-        <button onclick={() => startPick("sue")}>⚖️ Sue…</button>
+        <!-- The generic "Sue…" picker is deprecated — suing is done from the Lawsuits panel's
+             per-claim red Sue buttons (and the AR/AP rows). Removed to avoid the empty picker. -->
         <button class="end" onclick={reckoningDone}>Done — pass it on ▶</button>
       </div>
       <p class="muted">(Hire / buy / assign are closed — the year's over. Rush, Buy Time, Factor, Pay, Sabotage and Sue are your last moves.)</p>
