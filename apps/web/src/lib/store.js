@@ -277,31 +277,17 @@ const ALERTS = [
   [/🏗️ (.+?) moved into (.+?) \(from/, "🏗️ Moved in", (m) => `${m[1]} finished readying and moved into ${m[2]}.`],
   [/⚠ (.+?) couldn't cover the .* balance on (.+?) —/, "⚠ Move forfeited", (m) => `${m[1]} couldn't close out ${m[2]} — the deposit is lost.`],
 ];
-// Audio cues fired off the log: stings (duck the music for a beat) on the dramatic events the user
-// flagged, plus a couple of satisfying one-shots. Files are drop-in (silent until they exist).
-const SOUND_CUES = [
-  [/💀 .* cannot cover|BANKRUPT/, "sting_bankrupt", true],
-  [/bank CALLED the loan/, "sting_loan", true],
-  [/🌐 .* grips Maple Hollow|levy now hits|town levy/i, "sting_levy", true],
-  [/COLLAPSED past deadline/, "sting_collapse", true], // a project/civic blows its deadline — balance forfeit
-  [/⚖️.*(WINS|WALKS|SUED AND WON|lost in court)/, "sting_verdict", true], // a lawsuit is decided — the gavel falls
-  [/✔ .* completed/, "job_done", false],
-  // Money CHANGING HANDS — fixing a violation, paying a bill, or collecting — is the cash register, NOT
-  // the fine warning (that fires with the inspector card itself, in Popup.svelte). First match wins, so
-  // this sits ahead of anything that also names the violation. The recurring upkeep fine is silent now.
-  [/🔧 .* (cleared|to clear)|paid .* in full|collects .* in receivables|settles up/i, "cash_register", false],
-  [/a \d+-turn sue window opens/i, "gavel", false], // a player debt just went past due → you can sue (the AR view shows ⚖️ Sue)
-  [/walks anyway|poached|🚪|let .* go|fired/i, "worker_leaves", false],
-];
+// Sounds are no longer fired off the log scan (that played them all at once at round start, and ahead
+// of the cards). Card / alert / report popups carry their sound and play it on DISPLAY (soundForPopup
+// in Popup.svelte); a money move you make plays on the click (in act()). So nothing pile-ups on a skip.
 function surfaceNewOutcomes() {
   if (!game) return;
   const log = game.state.log;
   for (let i = lastScanned; i < log.length; i++) {
     // The Slick Lawyer showcase: whoever plays one, EVERY client reveals the (forced) animation.
     const law = /🧑‍⚖️ (.+?) plays a Slick Lawyer/.exec(log[i]);
-    if (law) { enqueuePopup({ kind: "card", cardId: "slick_lawyer", art: "slick_lawyer", name: "Slick Lawyer", forceAnim: true, flavor: "Objection!", text: `${law[1]} brings in the Slick Lawyer.` }); playSfx("gavel", 0.5); }
-    for (const [re, title, body, art] of ALERTS) { const m = re.exec(log[i]); if (m) { enqueuePopup({ kind: "alert", title, body: body(m), art: art ?? null }); break; } }
-    for (const [re, id, sting] of SOUND_CUES) { if (re.test(log[i])) { sting ? playSting(id) : playSfx(id, 0.5); break; } }
+    if (law) enqueuePopup({ kind: "card", cardId: "slick_lawyer", art: "slick_lawyer", name: "Slick Lawyer", forceAnim: true, flavor: "Objection!", text: `${law[1]} brings in the Slick Lawyer.` }); // its gavel plays on display
+    for (const [re, title, body, art] of ALERTS) { const m = re.exec(log[i]); if (m) { enqueuePopup({ kind: "alert", title, body: body(m), art: art ?? null }); break; } } // the alert's sting plays on display (soundForPopup), not here — so a skipped one is silent
   }
   lastScanned = log.length;
   surfaceDeckEvents();
@@ -344,6 +330,44 @@ const cardById = new Map();
 for (const c of [...decks.fortune, ...decks.civil]) if (c.id && !cardById.has(c.id)) cardById.set(c.id, c);
 // Longest names first so "Plumbing emergency" matches before a bare "Plumbing".
 const cardsByNameLen = [...cardById.values()].filter((c) => c.name).sort((a, b) => b.name.length - a.name.length);
+
+// --- Popup sounds -----------------------------------------------------------------------------------
+// Every popup plays its sound WHEN IT DISPLAYS (in Popup.svelte), not when the log is scanned — so a
+// sound rides its card as it's revealed, and a SKIPPED card stays silent (no pile-up at round end).
+// Mapped by the card's TYPE, so all ~112 cards are covered by kind with money/legal/loss logic baked in.
+const TYPE_SOUND = {
+  job: "deal", routed: "deal", incident: "deal", civic: "deal", crew: "deal", // a contract / worker dealt in
+  windfall: "cash_register", referral: "coin",                                 // money IN (big payout / small fee)
+  payable: "coin", audit: "coin", back_taxes: "coin",                          // a bill LANDS (paying it OFF later → cash_register)
+  defect: "sting_fine", shock: "coin",                                         // a code violation / a setback
+  summons: "gavel", lawsuit: "gavel", class_action: "gavel", slick_lawyer: "gavel", // the law arrives
+  retirement: "worker_leaves", theft: "worker_leaves",                         // crew / gear off the books
+  gift: "flip", review: "chime", bbb_special: "chime",                         // softer table beats
+  favor: "flip", rush: "flip", buy_time: "flip",                              // a hand card played
+  union: "sting_levy",                                                         // a town-wide grip
+};
+const snd = (id) => (id ? { id, sting: id.startsWith("sting_") } : null);
+function soundForAlertPopup(p) {
+  const t = `${p.title ?? ""}`;
+  if (/Bankrupt/i.test(t)) return snd("sting_bankrupt");
+  if (/called your loan/i.test(t)) return snd("sting_loan");
+  if (/Town penalty|Union drive/i.test(t)) return snd("sting_levy");
+  if (/collapsed|forfeited/i.test(t)) return snd("sting_collapse");
+  if (/verdict|Wrongful/i.test(t)) return snd("sting_verdict");
+  if (/delivered|Moved in/i.test(t)) return snd("chime");
+  return null;
+}
+/** The sound a popup makes the moment it DISPLAYS — synced to the reveal, silent if the popup is skipped. */
+export function soundForPopup(p) {
+  if (!p) return null;
+  if (p.kind === "roll") return snd("dice");
+  if (p.kind === "deckbuilt" || p.kind === "shuffle") return snd("riffle");
+  if (p.kind === "alert") return soundForAlertPopup(p);
+  if (p.kind === "jobreport") return p.jobs?.some((j) => j.status === "complete") ? snd("job_done") : null;
+  if (p.kind !== "card") return null;
+  if (p.who || p.rival) return snd("flip"); // a RIVAL's reveal just flips — the effect lands on them, not you
+  return snd(TYPE_SOUND[cardById.get(p.cardId)?.type]) ?? snd("flip"); // your own card plays its effect
+}
 
 const artSlug = (svc) => (svc === "HVAC technician" ? "hvac" : (svc ?? "").toLowerCase());
 /** A static card def's display art key. Job cards carry NO art of their own — it's computed per-trade
@@ -683,8 +707,17 @@ export function newGame(seats, difficulty = "standard") {
 export function act(fn) {
   if (game && ai[game.currentPlayer.id]) return; // a rival is acting — ignore stray human input
   if (online && game.state.activePlayerIndex !== mySeat) return; // online: not your turn — ignore
-  try { fn(game); push({ error: null, flash: null }); surfaceNewOutcomes(); } // the triggering button clicks via the app-wide listener
-  catch (e) { flashError(e?.message ?? String(e)); }
+  const before = game ? game.state.log.length : 0;
+  try {
+    fn(game); push({ error: null, flash: null }); // the triggering button clicks via the app-wide listener
+    // A money/crew move you JUST made gets its sound on the click (these have no card popup). Bigger
+    // settlements ring the register; small outlays clink a coin; losing a worker has its own cue.
+    const fresh = game.state.log.slice(before).join("  ");
+    if (/paid .* in full|factored|settles up|collects .* in receivables/i.test(fresh)) playSfx("cash_register", 0.5);
+    else if (/🔧 .*(cleared|to clear)|on the line of credit|repaid|drew .* credit/i.test(fresh)) playSfx("coin", 0.5);
+    else if (/let .* go|\bfired\b|walks anyway|poached|🚪/i.test(fresh)) playSfx("worker_leaves", 0.5);
+    surfaceNewOutcomes();
+  } catch (e) { flashError(e?.message ?? String(e)); }
 }
 
 // --- Threats (Sabotage / Sue) + the response window --------------------------------------
@@ -719,7 +752,7 @@ export function playSue(debtorId, payableId, slick = false) {
 export function playFavor(targetId, modId) {
   push({ picking: null });
   let line;
-  try { line = game.playFavor(targetId, modId); playSfx("coin", 0.5); } catch (e) { return fail(e?.message ?? String(e)); }
+  try { line = game.playFavor(targetId, modId); } catch (e) { return fail(e?.message ?? String(e)); } // the Favor showcase popup plays its sound on display
   if (line) enqueuePopup({ kind: "card", cardId: "favor", art: "favor", name: "Favor", forceAnim: true, flavor: "A quiet word in the right ear.", text: line }); // show the Favor card + confirm the fine/union/suit actually cleared
   surfaceNewOutcomes();
   push({ error: null });

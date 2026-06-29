@@ -1,5 +1,5 @@
 <script>
-  import { ui, dismissPopup, skipAITurns } from "../lib/store.js";
+  import { ui, dismissPopup, skipAITurns, soundForPopup } from "../lib/store.js";
   import { money, cashText } from "../lib/money.js";
   import { settings } from "../lib/settings.js";
   import { playSfx, playSting } from "../lib/sound.js";
@@ -15,11 +15,8 @@
   $effect(() => {
     if (!p || p === sounded) return;
     sounded = p;
-    if (p.kind === "roll") playSfx("dice", 0.6);            // the "who goes first" dice
-    else if (p.kind === "deckbuilt") playSfx("riffle", 0.6); // the first deck shuffle
-    // The fine WARNING fires WITH the inspector card as it's revealed (your own draw) — not at the
-    // round-start log scan, and not for the recurring upkeep charge. Paying it off is the cash register.
-    else if (p.kind === "card" && !p.who && !p.rival && /inspection|write-up|code violation|🚧/i.test(`${p.name ?? ""} ${p.text ?? ""}`)) playSting("sting_fine");
+    const s = soundForPopup(p); // the card/alert's sound, chosen by its type — synced to THIS reveal
+    if (s) (s.sting ? playSting : playSfx)(s.id, s.sting ? 0.7 : 0.55);
   });
 
   // The non-zero recurring-expense lines, in statement order.
