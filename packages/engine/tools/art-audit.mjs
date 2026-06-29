@@ -41,7 +41,7 @@ for (const c of d.fortune) {
     want.add("card/" + c.id);
   }
 }
-for (const c of d.civil || []) if (c.hand) want.add("card/" + c.id);
+for (const c of d.civil || []) want.add("card/" + c.id); // hand cards AND docket events (lawsuit/audit/… now reveal as their own card)
 want.add("card/civic/hospital_overrun");
 want.add("card/civic/opera_scandal");
 
