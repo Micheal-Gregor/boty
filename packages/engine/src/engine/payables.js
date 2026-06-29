@@ -213,7 +213,7 @@ export function resolveCourt(state, caseEntry, useLawyer, accuserLawyers = 0, ro
   }
   // A collections case carries the agency's guaranteed lawyer on the accuser's side.
   const accLawyers = accuserLawyers + (caseEntry.agencyLawyer ? 1 : 0);
-  const g = getawayThreshold(e, e.civil.getaway_owed, defLawyers, accLawyers);
+  const g = getawayThreshold(e, caseEntry.lawsuit ? e.civil.getaway_dispute : e.civil.getaway_owed, defLawyers, accLawyers);
   const res = rollGetaway(roll != null ? () => roll : state.die, g);
   cashOut(state, player, ACCT.LEGAL, e.civil.legal_fee, "Court — legal fee"); // paid regardless
   const tag = defLawyers ? " (lawyered up)" : caseEntry.agencyLawyer ? " (vs collections)" : "";
@@ -222,7 +222,7 @@ export function resolveCourt(state, caseEntry, useLawyer, accuserLawyers = 0, ro
     return `⚖️ ${player.name}${tag} WALKS — rolled ${res.roll} ≤ ${g} (${getawayOdds(g)}); ${caseEntry.vendor} debt wiped, ${w(e.civil.legal_fee)} legal fee`;
   }
   if (ap) clearPayable(state, player, ap, { cashAmt: caseEntry.amount, reason: "Court loss" });
-  else cashOut(state, player, ACCT.COGS_SUB, caseEntry.amount, `Court loss — ${caseEntry.vendor}`); // collections case, no live AP
+  else cashOut(state, player, caseEntry.lawsuit ? ACCT.LEGAL : ACCT.COGS_SUB, caseEntry.amount, `Court loss — ${caseEntry.vendor}`); // lawsuit damages → Legal; collections → COGS
   return `⚖️ ${player.name}${tag} LOSES — rolled ${res.roll} > ${g}; pays ${caseEntry.vendor} ${w(caseEntry.amount)} + ${w(e.civil.legal_fee)} fee`;
 }
 
@@ -275,14 +275,13 @@ export function resolveCivilEvent(state, player, card) {
       return [...flavor, `🧾 ${player.name}: ${card.name} — owes ${w(ap.amount)} (Dr Licenses & taxes / Cr AP; due turn ${ap.due_turn})`];
     }
     case "lawsuit": {
-      // An NPC sues the player — a getaway roll at the dispute base (you walk on 1–3, 50%).
-      const g = getawayThreshold(e, e.civil.getaway_dispute);
-      const res = rollGetaway(state.die, g);
-      cashOut(state, player, ACCT.LEGAL, e.civil.legal_fee, `${card.name} — fee`);
-      if (res.getsAway) return [...flavor, `⚖️ ${player.name} was sued (${card.name}) and WALKED (rolled ${res.roll} ≤ ${g}) — ${w(e.civil.legal_fee)} fee`];
+      // An NPC sues the player — they DEFEND in court (roll to walk on the dispute base, a Slick
+      // Lawyer tips the odds). Routed through pendingCourt so the dice + lawyer UI handles it, instead
+      // of auto-resolving on the card.
       const claim = card.amount ?? 5;
-      cashOut(state, player, ACCT.LEGAL, claim, `${card.name} — damages`);
-      return [...flavor, `⚖️ ${player.name} was sued (${card.name}) and LOST (rolled ${res.roll} > ${g}) — paid ${w(claim)} + ${w(e.civil.legal_fee)} fee`];
+      const id = `lawsuit_${state.turn}_${player.id}_${state.pendingCourt.length}`;
+      state.pendingCourt.push({ playerId: player.id, payableId: id, vendor: card.name, amount: claim, lawsuit: true });
+      return [...flavor, `⚖️ ${player.name} is sued (${card.name}) — defend in court: roll to walk (a Slick Lawyer helps); ${w(claim)} + ${w(e.civil.legal_fee)} fee on a loss`];
     }
     default:
       return [...flavor, `${player.name}: ${card.name} (no effect)`];

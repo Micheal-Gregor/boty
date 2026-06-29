@@ -284,7 +284,7 @@ export class Game {
     const c = this.state.pendingCourt.find((x) => x.payableId === payableId);
     if (!c) return null;
     const e = this.state.economy;
-    return getawayThreshold(e, e.civil.getaway_owed, lawyer ? 1 : 0, (c.agencyLawyer ? 1 : 0));
+    return getawayThreshold(e, c.lawsuit ? e.civil.getaway_dispute : e.civil.getaway_owed, lawyer ? 1 : 0, (c.agencyLawyer ? 1 : 0));
   }
   threatThreshold(ownLawyer = false) {
     const t = this.state.pendingThreat;
