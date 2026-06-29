@@ -14,7 +14,7 @@ export const INTENTS = new Set([
   "buyService", "cancelService", "fixDefect",
   "drawCredit", "repayCredit", "factorInvoice", "factorClaim", "payPayable",
   "playRush", "playBuyTime", "playSabotage", "playFavor",
-  "sue", "sueDamages", "respondToThreat",
+  "sue", "sueDamages", "respondToThreat", "offerSettlement", "respondSettlement", "favorDropSuit",
   "resolveCourt", "resolveSettle", "resolvePoach", "resolveMayor", "resolveReferral", "decideRouting",
   "autoResolveCourt", "autoResolveSettle", "autoResolvePoach", "autoResolveMayor", "autoResolveReferral", "autoResolveDamages",
   "improveShop", "relocate", "startExpansion",

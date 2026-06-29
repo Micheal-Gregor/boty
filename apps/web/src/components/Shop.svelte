@@ -1,5 +1,5 @@
 <script>
-  import { ui, act, startPick, playSue, openEntity, openConfirm, confirmSell, confirmFire, confirmDispose } from "../lib/store.js";
+  import { ui, act, startPick, playSue, openEntity, openConfirm, confirmSell, confirmFire, confirmDispose, sueDamagesUI, offerSettlementUI, respondSettlementUI, favorDropSuitUI } from "../lib/store.js";
   import { money } from "../lib/money.js";
   import { findBuilding, findEquipment, SERVICES } from "@boty/engine";
   import { crewIdentity } from "../lib/crew.js";
@@ -7,6 +7,7 @@
   import Flash from "./Flash.svelte";
 
   let { player, econ, handHas, nextBuilding } = $props();
+  const suits = $derived($ui.view?.lawsuits ?? { mine: [], against: [] }); // persistent player-v-player lawsuits
   const tradeSlug = (svc) => (svc === "HVAC technician" ? "hvac" : (svc ?? "").toLowerCase());
   const equipArtId = (e) => (e.defId === "pro" ? `pro/${tradeSlug(player.service)}` : e.defId); // per-trade pro gear
 
@@ -225,6 +226,40 @@
       {:else}<p class="muted">none</p>{/each}
     </div>
   </div>
+
+  {#if suits.mine.length || suits.against.length}
+    <h3>⚖️ Lawsuits <span class="muted">— open until sued, settled, or a Favor closes them</span></h3>
+    <div class="suits">
+      {#each suits.mine as c (c.jobId)}
+        <div class="line">
+          <span class="who">{c.other} botched {c.jobName}</span>
+          {#if c.settlement != null}
+            <span class="when">offers {$money(c.settlement)} to settle</span>
+            <span class="row-actions">
+              <button class="mini" onclick={() => respondSettlementUI(c.jobId, true)}>Accept</button>
+              <button class="mini hostile" onclick={() => respondSettlementUI(c.jobId, false)}>Refuse</button>
+            </span>
+          {:else}
+            <span class="when">up to {$money(c.value)}</span>
+            <span class="row-actions">
+              <button class="mini hostile" onclick={() => sueDamagesUI(c.jobId, false)}>⚖️ Sue</button>
+              {#if handHas("slick_lawyer")}<button class="mini" onclick={() => sueDamagesUI(c.jobId, true)}>🧑‍⚖️ +Lawyer</button>{/if}
+            </span>
+          {/if}
+        </div>
+      {/each}
+      {#each suits.against as c (c.jobId)}
+        <div class="line">
+          <span class="who">{c.other} v. you — {c.jobName}</span>
+          <span class="when">{$money(c.value)}{#if c.settlement != null} · you offered {$money(c.settlement)}{/if}</span>
+          <span class="row-actions">
+            {#if c.settlement == null}<button class="mini" title="Offer half to close it" onclick={() => offerSettlementUI(c.jobId)}>Settle {$money(Math.max(1, Math.ceil(c.value / 2)))}</button>{/if}
+            {#if handHas("favor")}<button class="mini" title="Spend a Favor to make it disappear" onclick={() => favorDropSuitUI(c.jobId)}>🃏 Favor: drop</button>{/if}
+          </span>
+        </div>
+      {/each}
+    </div>
+  {/if}
 
   {#if player.modifiers?.length || player.bbbThisTurn}
     <h3>Standing cards</h3>

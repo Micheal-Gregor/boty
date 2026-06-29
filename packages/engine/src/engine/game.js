@@ -558,9 +558,61 @@ export class Game {
 
   // --- Damages suit: a botched routed job. Hirer sues contractor; damages → the BANK. --------
 
-  /** Open damages claims the current player (as hirer) may sue over. */
+  /** Open damages claims the current player (as plaintiff) may pursue. These persist the whole game
+   *  until sued, settled, or Favor-dropped. */
   get damagesCases() {
-    return this.state.pendingDamages.filter((c) => c.hirerId === this.currentPlayer.id);
+    return this.state.pendingDamages.filter((c) => (c.recipientId ?? c.hirerId) === this.currentPlayer.id);
+  }
+  /** Open suits AGAINST the current player (they're the contractor/defendant) — to settle or Favor-drop. */
+  get suitsAgainstMe() {
+    return this.state.pendingDamages.filter((c) => c.contractorId === this.currentPlayer.id);
+  }
+
+  /** Defendant offers to settle a suit against them for HALF the claim; the plaintiff accepts/refuses. */
+  offerSettlement(jobId) {
+    const me = this.currentPlayer;
+    const claim = this.state.pendingDamages.find((c) => c.jobId === jobId && c.contractorId === me.id);
+    if (!claim) throw new GameError(`No suit against you for "${jobId}"`);
+    claim.settlement = Math.max(1, Math.ceil(claim.value / 2));
+    const plaintiff = this.#playerById(claim.recipientId ?? claim.hirerId);
+    const msg = `🤝 ${me.name} offers ${plaintiff?.name ?? "the plaintiff"} ${w(claim.settlement)} to settle the ${claim.jobName} suit.`;
+    this.state.log.push(msg);
+    return msg;
+  }
+
+  /** Plaintiff answers a settlement offer: accept (defendant pays, capped by cash; suit closed) or refuse. */
+  respondSettlement(jobId, accept) {
+    const me = this.currentPlayer;
+    const claim = this.state.pendingDamages.find((c) => c.jobId === jobId && (c.recipientId ?? c.hirerId) === me.id && c.settlement != null);
+    if (!claim) throw new GameError(`No settlement offer for "${jobId}"`);
+    const contractor = this.#playerById(claim.contractorId);
+    if (!accept) {
+      claim.settlement = null;
+      const msg = `✋ ${me.name} refuses ${contractor?.name ?? "the"} settlement on ${claim.jobName} — the suit stands.`;
+      this.state.log.push(msg);
+      return msg;
+    }
+    const paid = Math.max(0, Math.min(claim.settlement, contractor?.cash ?? 0));
+    if (contractor) cashOut(this.state, contractor, ACCT.LEGAL, paid, `Settlement — ${claim.jobName}`);
+    cashIn(this.state, me, ACCT.OTHER_INCOME, paid, `Settlement from ${contractor?.name ?? "contractor"}`);
+    this.state.pendingDamages = this.state.pendingDamages.filter((c) => c !== claim);
+    const msg = `🤝 ${me.name} settles the ${claim.jobName} suit for ${w(paid)} — closed.`;
+    this.state.log.push(msg);
+    return msg;
+  }
+
+  /** Defendant spends a Favor to make a suit against them DISAPPEAR (political muscle). */
+  favorDropSuit(jobId) {
+    const me = this.currentPlayer;
+    const claim = this.state.pendingDamages.find((c) => c.jobId === jobId && c.contractorId === me.id);
+    if (!claim) throw new GameError(`No suit against you for "${jobId}"`);
+    if (!cards.hasCardType(me, "favor")) throw new GameError(`${me.name} has no Favor card to play`);
+    cards.takeFromHand(me, cards.findHandCard(me, "favor").index);
+    this.state.pendingDamages = this.state.pendingDamages.filter((c) => c !== claim);
+    const plaintiff = this.#playerById(claim.recipientId ?? claim.hirerId);
+    const msg = `🃏 ${me.name} calls in a Favor — the ${claim.jobName} suit${plaintiff ? ` from ${plaintiff.name}` : ""} is quietly dropped.`;
+    this.state.log.push(msg);
+    return msg;
   }
 
   /** Sue the contractor who botched your routed job for damages (= the job value, to the bank). */
@@ -623,6 +675,7 @@ export class Game {
   autoResolveDamages() {
     const lines = [];
     for (const c of [...this.damagesCases]) {
+      if (c.settlement != null) { lines.push(this.respondSettlement(c.jobId, true)); continue; } // take the guaranteed money
       const hirer = this.currentPlayer;
       if (hirer.cash <= this.state.economy.civil.legal_fee * 2) continue; // skip if too poor to bother
       this.sueDamages(c.jobId);

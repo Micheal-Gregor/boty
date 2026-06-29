@@ -361,7 +361,16 @@ function viewOf() {
   // Whose sheet this client renders: online, ALWAYS your own (each player sees their own shop, locked
   // when it isn't their turn); local/hotseat, the active player's (one screen follows the table).
   const mi = online && mySeat >= 0 ? mySeat : s.activePlayerIndex;
+  const me = s.players[mi];
+  const nm = (id) => s.players.find((p) => p.id === id)?.name ?? "someone";
+  // Persistent player-v-player lawsuits, from the rendered player's view: claims they can PURSUE, and
+  // suits AGAINST them (to settle or Favor-drop). These live until resolved — no timer.
+  const lawsuits = {
+    mine: (s.pendingDamages ?? []).filter((c) => (c.recipientId ?? c.hirerId) === me?.id).map((c) => ({ jobId: c.jobId, jobName: c.jobName, value: c.value, other: nm(c.contractorId), settlement: c.settlement ?? null })),
+    against: (s.pendingDamages ?? []).filter((c) => c.contractorId === me?.id).map((c) => ({ jobId: c.jobId, jobName: c.jobName, value: c.value, other: nm(c.recipientId ?? c.hirerId), settlement: c.settlement ?? null })),
+  };
   return {
+    lawsuits,
     turn: s.turn, activePlayerIndex: s.activePlayerIndex, meIndex: mi, over: s.over, phase: s.phase,
     mustStaffBoon: game.unstaffedBoon.length > 0, // Chief Boon's mandatory job blocks end-turn until staffed
     log: s.log.slice(-8),
@@ -775,11 +784,10 @@ function viewThreat(t) {
   return { type: "sue", targetName: debtor.name, amount: ap?.amount, canLawyer: handHas(debtor, "slick_lawyer") };
 }
 
-// --- Damages claims (the hirer sues a contractor who botched their routed job) -------------
-
-function refreshDamages() {
-  push({ damages: !game.state.pendingThreat && openDamages().length ? openDamages() : null });
-}
+// --- Player-v-player lawsuits — persistent; acted on from the Lawsuits panel any turn ------------
+// No forced modal: claims live in view.lawsuits until you Sue, the defendant settles/Favor-drops, or
+// the game ends. refreshDamages just keeps the old modal shut.
+function refreshDamages() { push({ damages: null }); }
 
 export function sueDamagesUI(jobId, slick = false) {
   if (online && !myTurn()) return; // online: only the active player resolves their own decisions
@@ -787,9 +795,23 @@ export function sueDamagesUI(jobId, slick = false) {
   resolveThreat();
 }
 
-export function skipDamages(jobId) {
-  declinedDamages.add(jobId);
-  refreshDamages();
+/** Defendant offers to settle a suit against them for half. */
+export function offerSettlementUI(jobId) {
+  if (online && !myTurn()) return;
+  try { game.offerSettlement(jobId); } catch (e) { return fail(e?.message ?? String(e)); }
+  push({ error: null }); surfaceNewOutcomes();
+}
+/** Plaintiff accepts/refuses a settlement offer. */
+export function respondSettlementUI(jobId, accept) {
+  if (online && !myTurn()) return;
+  try { game.respondSettlement(jobId, accept); } catch (e) { return fail(e?.message ?? String(e)); }
+  push({ error: null }); surfaceNewOutcomes();
+}
+/** Defendant spends a Favor to drop a suit against them. */
+export function favorDropSuitUI(jobId) {
+  if (online && !myTurn()) return;
+  try { game.favorDropSuit(jobId); } catch (e) { return fail(e?.message ?? String(e)); }
+  push({ error: null }); surfaceNewOutcomes();
 }
 
 // --- Contract routing: the GC/PM decides who runs each trade (locals or the bank/county) ---------
@@ -975,7 +997,7 @@ function surfaceTurnDecisions() {
   push({
     settle: game.settleCases.length ? [...game.settleCases] : null,
     court: game.courtCases.length ? [...game.courtCases] : null,
-    damages: openDamages().length ? openDamages() : null,
+    // damages claims are NOT force-surfaced anymore — they live in the Lawsuits panel (sue any turn)
     poach: game.poachCases.length ? [...game.poachCases] : null,
     mayor: game.mayorCases.length ? [...game.mayorCases] : null,
     referral: myReferrals.length ? myReferrals : null,

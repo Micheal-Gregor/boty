@@ -71,7 +71,8 @@ export function runUpkeep(state, player) {
   // (game.endTurn → expireOverdue, hard deadline) so a job has its whole deadline turn to finish.
   lines.push(...collectInvoices(state, player));
   lines.push(...processDuePayables(state, player));
-  lines.push(...tickDamagesClaims(state, player));
+  // Damages claims (player v. player) no longer expire on a timer — they stay open the whole game
+  // until sued, settled, or a Favor closes them (see game.js litigation). So no tick here.
   lines.push(...tickDefects(state, player));
   lines.push(...tickModifiers(state, player)); // premiums for insurance/marketing etc.
   lines.push(...chargeInterest(state, player, state.economy.line_of_credit.interest));
@@ -155,17 +156,6 @@ function settleBankruptcy(state, x) {
   state.pendingSettle = state.pendingSettle.filter((c) => c.playerId !== x.id);
   state.pendingThreat = state.pendingThreat && [state.pendingThreat.ownerId, state.pendingThreat.debtorId, state.pendingThreat.contractorId].includes(x.id) ? null : state.pendingThreat;
 
-  return lines;
-}
-
-/** Tick down the current player's damages-claim windows; drop any that expire unsued. */
-function tickDamagesClaims(state, player) {
-  const lines = [];
-  for (const c of state.pendingDamages.filter((x) => x.hirerId === player.id)) {
-    c.window -= 1;
-    if (c.window <= 0) lines.push(`${player.name}'s damages claim over ${c.jobName} lapsed unsued.`);
-  }
-  state.pendingDamages = state.pendingDamages.filter((c) => c.hirerId !== player.id || c.window > 0);
   return lines;
 }
 
