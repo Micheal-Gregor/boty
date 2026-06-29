@@ -77,9 +77,10 @@ create policy seats_write on public.game_seats for all to authenticated
   with check  (user_id = auth.uid() or exists (select 1 from public.games g where g.id = game_id and g.host_id = auth.uid()));
 
 -- Live updates ------------------------------------------------------------------
--- (If these say "already a member of publication", that's fine — ignore.)
-alter publication supabase_realtime add table public.games;
-alter publication supabase_realtime add table public.game_seats;
+-- Wrapped so re-running is safe: "already a member of publication" (42710) is swallowed instead of
+-- aborting the whole script in the SQL editor.
+do $$ begin alter publication supabase_realtime add table public.games;      exception when duplicate_object then null; end $$;
+do $$ begin alter publication supabase_realtime add table public.game_seats; exception when duplicate_object then null; end $$;
 
 -- ============================================================================
 -- BOTY — social layer (v2): public usernames, friends, invites, leaderboard.
@@ -151,5 +152,5 @@ create or replace function public.record_result(won boolean)
    where id = auth.uid();
 $$;
 
-alter publication supabase_realtime add table public.game_invites;
-alter publication supabase_realtime add table public.friendships;
+do $$ begin alter publication supabase_realtime add table public.game_invites; exception when duplicate_object then null; end $$;
+do $$ begin alter publication supabase_realtime add table public.friendships;  exception when duplicate_object then null; end $$;
