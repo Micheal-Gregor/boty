@@ -20,7 +20,7 @@ import { startProject } from "./projects.js";
 import { startCivic } from "./civics.js";
 import { performanceReview } from "./employment.js";
 import { applyGlobal } from "./globals.js";
-import { resolveCivilEvent } from "./payables.js";
+import { resolveCivilEvent, incurPayable } from "./payables.js";
 import { releaseTradesman } from "./jobs.js";
 import { seasonName } from "./season.js";
 
@@ -377,9 +377,8 @@ export function resolveCard(state, player, card) {
       return { type: "defect", name: card.name, defect, text: `🚧 code violation: −${defect.productivity_hit} output and ${w(defect.fine)}/turn until you fix it for ${w(defect.fix_cost)}${route}` };
     }
     case "payable": {
-      const ap = createPayable({ vendor: card.name, amount: card.amount, dueTurn: state.turn + (card.due ?? 3), isNpc: true });
-      player.payables.push(ap);
-      return { type: "payable", name: card.name, text: `🧾 vendor bill ${ap.id}: ${w(ap.amount)} due turn ${ap.due_turn}` };
+      const ap = incurPayable(state, player, { vendor: card.name, amount: card.amount, dueTurn: state.turn + (card.due ?? 3), isNpc: true, memo: `${card.name} — vendor bill`, debits: [{ acct: ACCT.COGS_MATERIALS, amt: card.amount }] });
+      return { type: "payable", name: card.name, text: `🧾 vendor bill ${ap.id}: ${w(ap.amount)} (Dr Materials / Cr AP) due turn ${ap.due_turn}` };
     }
     case "summons": {
       const event = state.civilEventDeck.draw();

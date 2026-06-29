@@ -56,6 +56,7 @@
   "sell_rate": 0.15,
   "shop_improvement": { "cost": 8, "capacity": 1 },
   "line_of_credit": { "draw": 20, "interest": 0.1 },
+  "permit_fee": 2,
 
   "_expansion_comment": "Growth is a deferred capital project, not an instant button. You pay insurance + a 50% deposit now, six trade contracts go out to the town (one per trade, the landlord pays contract_value each — your growth puts the whole table to work), you keep operating your OLD shop at its low rent, and next round you pay the balance, the fee CAPITALIZES as a leasehold asset, and you move in (or gain capacity). Can't cover the balance → forfeit the deposit and stay put. Keyed by target: improve = in-place +capacity (BBB-gated); shop/warehouse = relocate up.",
   "expansion": {

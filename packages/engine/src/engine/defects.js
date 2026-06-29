@@ -8,6 +8,7 @@
 import { GameError, w } from "./economy.js";
 import { createPayable } from "../state/state.js";
 import { cashOut, ACCT } from "../state/ledger.js";
+import { incurPayable } from "./payables.js";
 
 /** Total work-per-turn your unfixed defects drag off your active jobs. */
 export function defectPenalty(player) {
@@ -48,8 +49,13 @@ export function fixDefect(state, player, defectId) {
     }
   }
   if (!line) {
-    player.payables.push(createPayable({ vendor: `${d.name} repair`, amount: d.fix_cost, dueTurn, isNpc: true }));
-    line = `🔧 ${player.name} cleared ${d.name} — a ${w(d.fix_cost)} permit & materials bill comes due turn ${dueTurn}`;
+    const permit = Math.min(state.economy.permit_fee ?? 2, d.fix_cost);
+    const materials = d.fix_cost - permit;
+    const debits = [];
+    if (permit > 0) debits.push({ acct: ACCT.PERMITS, amt: permit }); // permits → their own overhead line
+    if (materials > 0) debits.push({ acct: ACCT.COGS_MATERIALS, amt: materials }); // materials → COGS
+    incurPayable(state, player, { vendor: `${d.name} permit & materials`, amount: d.fix_cost, dueTurn, isNpc: true, memo: `${d.name} — permit & materials`, debits });
+    line = `🔧 ${player.name} cleared ${d.name} — a ${w(d.fix_cost)} permit & materials bill (Dr Permits ${w(permit)} + Materials ${w(materials)} / Cr AP), due turn ${dueTurn}`;
   }
   player.defects.splice(i, 1);
   return line;

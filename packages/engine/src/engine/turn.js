@@ -9,7 +9,7 @@
 
 import { findBuilding, findEquipment, w } from "./economy.js";
 import { collectInvoices } from "./jobs.js";
-import { processDuePayables } from "./payables.js";
+import { processDuePayables, clearPayable } from "./payables.js";
 import { tickDefects } from "./defects.js";
 import { tickModifiers, chargeInterest, premiumsFor } from "./modifiers.js";
 import { tickExpansion } from "./expansion.js";
@@ -146,7 +146,9 @@ function settleBankruptcy(state, x) {
     if (p.payables.length < before) lines.push(`   ↳ ${p.name}'s debt to ${x.name} is written off`);
   }
 
-  // 4. X's own books are wiped, and any litigation touching X is dropped.
+  // 4. X's own books are wiped, and any litigation touching X is dropped. Clear each payable so an
+  //    accrued bill comes off AP (Dr AP / Cr Other income — forgiven in the fold), keeping AP reconciled.
+  for (const ap of [...x.payables]) clearPayable(state, x, ap, { cashAmt: 0, reason: "Forgiven (bankrupt)" });
   x.payables = [];
   x.invoices = [];
   x.jobs = [];

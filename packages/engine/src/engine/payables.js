@@ -72,12 +72,11 @@ export function payPayable(state, player, payableId) {
   const ap = player.payables.find((a) => a.id === payableId);
   if (!ap) throw new GameError(`No payable "${payableId}"`);
   if (player.cash < ap.amount) throw new GameError(`${player.name} can't cover ${w(ap.amount)} (has ${w(player.cash)})`);
-  cashOut(state, player, ACCT.COGS_SUB, ap.amount, `Pay ${ap.vendor}`);
   if (!ap.is_npc && ap.creditor_id) {
     const creditor = playerById(state, ap.creditor_id);
     if (creditor) cashIn(state, creditor, ACCT.REVENUE, ap.amount, `Collect from ${player.name}`);
   }
-  player.payables = player.payables.filter((a) => a.id !== payableId);
+  clearPayable(state, player, ap, { cashAmt: ap.amount, reason: "Paid" });
   return `${player.name} paid ${ap.vendor} ${w(ap.amount)} in full`;
 }
 
@@ -181,13 +180,14 @@ export function resolveCourt(state, caseEntry, useLawyer, accuserLawyers = 0, ro
   const accLawyers = accuserLawyers + (caseEntry.agencyLawyer ? 1 : 0);
   const g = getawayThreshold(e, e.civil.getaway_owed, defLawyers, accLawyers);
   const res = rollGetaway(roll != null ? () => roll : state.die, g);
-  if (ap) removeAp(player, ap);
   cashOut(state, player, ACCT.LEGAL, e.civil.legal_fee, "Court — legal fee"); // paid regardless
   const tag = defLawyers ? " (lawyered up)" : caseEntry.agencyLawyer ? " (vs collections)" : "";
   if (res.getsAway) {
+    if (ap) clearPayable(state, player, ap, { cashAmt: 0, reason: "Court — debt wiped" }); // forgiven
     return `⚖️ ${player.name}${tag} WALKS — rolled ${res.roll} ≤ ${g} (${getawayOdds(g)}); ${caseEntry.vendor} debt wiped, ${w(e.civil.legal_fee)} legal fee`;
   }
-  cashOut(state, player, ACCT.COGS_SUB, caseEntry.amount, `Court loss — ${caseEntry.vendor}`);
+  if (ap) clearPayable(state, player, ap, { cashAmt: caseEntry.amount, reason: "Court loss" });
+  else cashOut(state, player, ACCT.COGS_SUB, caseEntry.amount, `Court loss — ${caseEntry.vendor}`); // collections case, no live AP
   return `⚖️ ${player.name}${tag} LOSES — rolled ${res.roll} > ${g}; pays ${caseEntry.vendor} ${w(caseEntry.amount)} + ${w(e.civil.legal_fee)} fee`;
 }
 
@@ -199,7 +199,7 @@ function tickPlayerWindow(state, player, ap) {
   ap.sue_window_remaining -= 1;
   ap.turns_dodged = (ap.turns_dodged ?? 0) + 1; // a stalled player debt accrues dodge-count (mirrors NPC bills; cues a creditor to sue)
   if (ap.sue_window_remaining <= 0) {
-    removeAp(player, ap);
+    clearPayable(state, player, ap, { cashAmt: 0, reason: "Forgiven (unsued)" });
     return [`${player.name}'s creditor never sued — ${ap.vendor} debt of ${w(ap.amount)} is forgiven`];
   }
   return [`${player.name} still owes ${ap.vendor} ${w(ap.amount)} — ${ap.sue_window_remaining} turn(s) left to sue`];
@@ -211,10 +211,10 @@ function tickPlayerWindow(state, player, ap) {
 export function classAction(state) {
   const lines = ["🏛️ CLASS ACTION — every player must settle all AP at full value now:"];
   for (const player of state.players) {
-    const total = player.payables.reduce((s, a) => s + a.amount, 0);
+    const aps = [...player.payables];
+    const total = aps.reduce((s, a) => s + a.amount, 0);
     if (total > 0) {
-      cashOut(state, player, ACCT.COGS_SUB, total, "Class action settlement");
-      player.payables = [];
+      for (const a of aps) clearPayable(state, player, a, { cashAmt: a.amount, reason: "Class action" });
       lines.push(`   ${player.name} settled ${w(total)} of AP`);
     }
   }
@@ -235,9 +235,9 @@ export function resolveCivilEvent(state, player, card) {
       return [...flavor, `🎀 ${player.name}: ${card.name} — +${w(card.cash ?? 0)}`];
     case "back_taxes":
     case "audit": {
-      const ap = createPayable({ vendor: card.name, amount: card.amount ?? 5, dueTurn: state.turn + (card.due ?? 2), isNpc: true });
-      player.payables.push(ap);
-      return [...flavor, `🧾 ${player.name}: ${card.name} — owes ${w(ap.amount)} (due turn ${ap.due_turn}, ${ap.id})`];
+      const amount = card.amount ?? 5;
+      const ap = incurPayable(state, player, { vendor: card.name, amount, dueTurn: state.turn + (card.due ?? 2), isNpc: true, memo: `${card.name} — assessed`, debits: [{ acct: ACCT.LICENSES, amt: amount }] });
+      return [...flavor, `🧾 ${player.name}: ${card.name} — owes ${w(ap.amount)} (Dr Licenses & taxes / Cr AP; due turn ${ap.due_turn})`];
     }
     case "lawsuit": {
       // An NPC sues the player — a getaway roll at the dispute base (you walk on 1–3, 50%).

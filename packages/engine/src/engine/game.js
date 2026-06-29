@@ -322,8 +322,7 @@ export class Game {
     if (ap) ap.in_settle = false;
     let line;
     if (accept && ap) {
-      cashOut(this.state, player, ACCT.COGS_SUB, c.settle, `Settled ${c.vendor}`);
-      player.payables = player.payables.filter((a) => a.id !== c.payableId);
+      payables.clearPayable(this.state, player, ap, { cashAmt: c.settle, reason: "Settled" }); // accrued → Dr AP / Cr Cash + Cr Other income (forgiven half)
       line = `🤝 ${player.name} took the settlement — paid ${w(c.settle)} to clear ${c.vendor}`;
     } else {
       line = `🎲 ${player.name} declined the settlement on ${c.vendor} — keeps dodging`;
