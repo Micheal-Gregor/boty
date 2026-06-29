@@ -16,6 +16,9 @@
   const gearName = (e) => findEquipment(econ, e.defId).name;
   const tradeSlug = (svc) => (svc === "HVAC technician" ? "hvac" : (svc ?? "").toLowerCase());
   const equipArtId = (e) => (e.defId === "pro" ? `pro/${tradeSlug(me?.service)}` : e.defId); // per-trade pro gear
+  // Modifier kind → art key, for standing services whose art file isn't named after the kind (and so
+  // older saved modifiers that predate carrying an `art` field still resolve their graphic).
+  const MOD_ART = { marketing: "marketing_campaign", union: "union_drive" };
 
   let show = $state({ crew: true, equip: true, jobs: true, persistent: true, playable: true, global: true });
   const typeDefs = [
@@ -30,7 +33,7 @@
     if (show.crew) for (const t of me.tradesmen) out.push({ kind: "worker", id: t.id, type: "Tradesperson", title: crewIdentity(t.id).name, sub: `⚡${t.productivity} · ${t.tool ?? "bare-handed"}`, art: ["crew", t.id] });
     if (show.equip) for (const e of me.equipment) out.push({ kind: "equipment", id: e.id, type: "Equipment", title: gearName(e), sub: e.assigned_to ? `→ ${crewIdentity(e.assigned_to).name}` : "💤 idle", art: ["equipment", equipArtId(e), e.id] });
     if (show.jobs) for (const j of me.jobs) out.push({ kind: "job", id: j.id, type: "Job", title: j.name, sub: `${j.work_done}/${j.work_amount} · ${$money(j.value)}`, art: ["card", j.art ?? j.card] });
-    if (show.persistent) for (const m of me.modifiers ?? []) out.push({ kind: "mod", type: "Persistent", title: m.name, sub: m.positive ? "🛡️ standing" : "⚠️ standing", icon: m.positive ? "🛡️" : "⚠️", art: ["card", m.art ?? (m.kind === "union" ? "union_drive" : m.kind)] });
+    if (show.persistent) for (const m of me.modifiers ?? []) out.push({ kind: "mod", type: "Persistent", title: m.name, sub: m.positive ? "🛡️ standing" : "⚠️ standing", icon: m.positive ? "🛡️" : "⚠️", art: ["card", m.art ?? MOD_ART[m.kind] ?? m.kind] });
     if (show.playable) for (const c of me.hand ?? []) out.push({ kind: "play", type: "Playable", title: c.name, sub: c.type === "favor" ? "🪙 political currency" : "🃏 hand card", icon: c.type === "favor" ? "🪙" : "🃏", art: ["card", c.art ?? c.id ?? c.type] });
     if (show.global) for (const g of view.globalEffects ?? []) out.push({ kind: "global", id: g.id, type: "Global", title: g.name, sub: g.kind === "union" ? "until busted" : `${g.turnsLeft} round(s) left`, icon: "🌐", art: ["card", g.art ?? (g.kind === "union" ? "union_drive" : g.kind === "boom" ? "county_fair" : "downtown_storm")] });
     return out;

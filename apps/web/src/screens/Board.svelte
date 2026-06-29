@@ -5,14 +5,10 @@
   import { seasonFor, findBuilding } from "@boty/engine";
   import Shop from "../components/Shop.svelte";
   import Art from "../components/Art.svelte";
-  import Popup from "../components/Popup.svelte";
   import Settings from "../components/Settings.svelte";
-  import EntityCard from "../components/EntityCard.svelte";
-  import HandView from "../components/HandView.svelte";
   import RivalShop from "../components/RivalShop.svelte";
   import Rules from "../components/Rules.svelte";
-  import Confirm from "../components/Confirm.svelte";
-  import Dice from "../components/Dice.svelte";
+  // Popup / EntityCard / HandView / Confirm / Dice now live as global overlays in App.svelte.
   import Flash from "../components/Flash.svelte";
 
   // Which play-area is showing on a phone. On wide screens all three are columns and this is moot.
@@ -79,14 +75,11 @@
     <div class="turn-strip" class:mine={!onlineWaiting}>{onlineWaiting ? `⏳ ${activeName} is up — they're playing` : `🎯 Your turn, ${me?.name ?? "you"} — make your move!`}</div>
   {/if}
 
-  <Popup />
   <Settings />
-  <EntityCard />
-  <HandView />
   <RivalShop />
   <Rules />
-  <Confirm />
-  <Dice />
+  <!-- Popup / EntityCard / HandView / Confirm / Dice moved to App.svelte global overlays so they
+       also work on the Reckoning (Last Licks) and Gala screens — suing/selling there needs them. -->
 
   {#if s.globalEffects?.length}
     <div class="town-banner">

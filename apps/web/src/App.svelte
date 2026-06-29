@@ -22,6 +22,11 @@
   import PoachModal from "./components/PoachModal.svelte";
   import MayorModal from "./components/MayorModal.svelte";
   import ReferralModal from "./components/ReferralModal.svelte";
+  import Popup from "./components/Popup.svelte";
+  import EntityCard from "./components/EntityCard.svelte";
+  import HandView from "./components/HandView.svelte";
+  import Confirm from "./components/Confirm.svelte";
+  import Dice from "./components/Dice.svelte";
 
   // One soft click for EVERY button press, app-wide (capture phase, so it still fires when a modal
   // stops propagation). Card opens / litigation / the Gala layer their own accent (flip/gavel/chime)
@@ -58,7 +63,12 @@
     <Gala />
   {/if}
 
-  <!-- Overlays render above any screen -->
+  <!-- Overlays render above any screen (incl. Reckoning/Last Licks + Gala) -->
+  <Popup />
+  <EntityCard />
+  <HandView />
+  <Confirm />
+  <Dice />
   <CardModal />
   <SettleModal />
   <CourtModal />
