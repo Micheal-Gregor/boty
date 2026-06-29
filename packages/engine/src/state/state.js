@@ -128,6 +128,7 @@ export function createPayable({ vendor, amount, dueTurn, isNpc, creditorId = nul
     creditor_id: creditorId, // player id for player-vs-player payables
     job_id: jobId, // the routed job this AP pays for (player payables)
     pending, // a routed-job AP sits pending until the job completes (then it comes due)
+    accrued: false, // true once booked to the ledger (Dr expense / Cr AP); drives how it's cleared
     amount,
     due_turn: dueTurn,
     turns_dodged: 0,

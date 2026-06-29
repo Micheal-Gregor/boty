@@ -101,6 +101,35 @@ function removeAp(player, ap) {
   player.payables = player.payables.filter((a) => a.id !== ap.id);
 }
 
+/** Incur a bill: create the payable AND accrue it (Dr the expense split / Cr AP) so it sits on the
+ *  balance sheet until paid. `debits` is the expense lines (their sum must equal the amount). A PENDING
+ *  player AP is left un-accrued — it books at delivery (legacy cash-basis for now). */
+export function incurPayable(state, player, opts) {
+  const ap = createPayable(opts);
+  if (!ap.pending && opts.debits?.length) {
+    post(state, player, opts.memo ?? `Bill — ${ap.vendor}`, [...opts.debits, { acct: ACCT.AP, amt: -ap.amount }]);
+    ap.accrued = true;
+  }
+  player.payables.push(ap);
+  return ap;
+}
+
+/** Settle a payable off the books. ACCRUED bill → Dr AP / Cr Cash (paid), any shortfall to Other
+ *  income (forgiven/settled below face). A not-accrued (legacy/pending) AP keeps the old cash-basis
+ *  Dr COGS-Sub / Cr Cash when paid, or just drops when forgiven. */
+export function clearPayable(state, player, ap, { cashAmt = null, reason = "Paid" } = {}) {
+  if (ap.accrued) {
+    const lines = [{ acct: ACCT.AP, amt: ap.amount }];
+    if (cashAmt) lines.push({ acct: ACCT.CASH, amt: -cashAmt });
+    const gain = ap.amount - (cashAmt ?? 0);
+    if (Math.abs(gain) > 0.001) lines.push({ acct: ACCT.OTHER_INCOME, amt: -gain });
+    post(state, player, `${reason} — ${ap.vendor}`, lines);
+  } else if (cashAmt) {
+    cashOut(state, player, ACCT.COGS_SUB, cashAmt, `${reason} — ${ap.vendor}`);
+  }
+  removeAp(player, ap);
+}
+
 function dodgeNpc(state, player, ap) {
   const e = state.economy;
   ap.turns_dodged += 1;

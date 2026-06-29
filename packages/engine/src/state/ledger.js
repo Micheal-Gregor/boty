@@ -11,8 +11,8 @@ export const ACCT = {
   AP: 2000, LOC: 2100, DEFERRED_REV: 2200, TAXES_PAYABLE: 2300,
   CAPITAL: 3000, RETAINED: 3100, DRAWS: 3900,
   REVENUE: 4000, OTHER_INCOME: 4100,
-  COGS_LABOUR: 5000, COGS_EQUIP: 5100, COGS_SUB: 5200,
-  RENT: 6000, WAGES_IDLE: 6100, INSURANCE: 6200, UTILITIES: 6300, LICENSES: 6400,
+  COGS_LABOUR: 5000, COGS_EQUIP: 5100, COGS_SUB: 5200, COGS_MATERIALS: 5300,
+  RENT: 6000, WAGES_IDLE: 6100, INSURANCE: 6200, UTILITIES: 6300, LICENSES: 6400, PERMITS: 6450,
   TRAINING: 6500, MEALS: 6600, MARKETING: 6700, PROF_FEES: 6800, LEGAL: 6900,
   DEPRECIATION: 7000, BAD_DEBT: 7100, REPAIRS: 7200,
 };
@@ -23,8 +23,8 @@ export const ACCT_NAME = {
   2000: "Accounts payable", 2100: "Line of credit", 2200: "Customer deposits", 2300: "Taxes payable",
   3000: "Owner's capital", 3100: "Retained earnings", 3900: "Owner's draws",
   4000: "Contract revenue", 4100: "Other income",
-  5000: "COGS — labour", 5100: "COGS — equipment", 5200: "COGS — subcontract",
-  6000: "Rent", 6100: "Wages — idle", 6200: "Insurance", 6300: "Utilities", 6400: "Licenses & taxes",
+  5000: "COGS — labour", 5100: "COGS — equipment", 5200: "COGS — subcontract", 5300: "COGS — materials",
+  6000: "Rent", 6100: "Wages — idle", 6200: "Insurance", 6300: "Utilities", 6400: "Licenses & taxes", 6450: "Permits",
   6500: "Training", 6600: "Meals & entertainment", 6700: "Advertising", 6800: "Professional fees",
   6900: "Legal & settlements", 7000: "Depreciation", 7100: "Bad debt", 7200: "Repairs & maintenance",
 };
