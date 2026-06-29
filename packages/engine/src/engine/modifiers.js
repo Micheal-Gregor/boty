@@ -12,7 +12,7 @@ import { post, cashOut, balances, ACCT } from "../state/ledger.js";
 /** Buyable persistent services. `premium` is charged each upkeep (overhead account). */
 export const SERVICES = {
   insurance: { name: "Insurance policy", account: ACCT.INSURANCE, premium: 1, deductible: 0.5, positive: true },
-  marketing: { name: "Marketing campaign", account: ACCT.MARKETING, premium: 2, inject: "marketing_lead", duration: 3, positive: true },
+  marketing: { name: "Marketing campaign", account: ACCT.MARKETING, premium: 2, inject: "marketing_lead", duration: 3, positive: true, art: "marketing_campaign" },
   accountant: { name: "Accountant on retainer", account: ACCT.PROF_FEES, premium: 1, positive: true },
   training: { name: "Training program", account: ACCT.TRAINING, premium: 1, speed: 1, positive: true },
   private_security: { name: "Private security", account: ACCT.PROF_FEES, premium: 1, positive: true }, // prevents theft + boosts the sabotage-catch (effects in economy.security)
@@ -32,7 +32,7 @@ export function buyService(state, player, kind) {
   const def = SERVICES[kind];
   if (!def) throw new GameError(`No such service "${kind}"`);
   if (hasModifier(player, kind)) throw new GameError(`${player.name} already carries ${def.name}`);
-  player.modifiers.push({ id: kind, kind, name: def.name, scope: "self", positive: def.positive, turnsLeft: def.duration ?? null });
+  player.modifiers.push({ id: kind, kind, name: def.name, scope: "self", positive: def.positive, turnsLeft: def.duration ?? null, art: def.art ?? null });
   const span = def.duration ? ` for ${def.duration} turns` : "";
   return `${player.name} signed up for ${def.name} (${w(def.premium)}/turn)${span}`;
 }

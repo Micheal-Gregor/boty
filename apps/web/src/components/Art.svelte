@@ -90,18 +90,23 @@
   function onEnded() { if (loopFrom && vid) { vid.currentTime = loopFrom; vid.play().catch(() => {}); } }
 </script>
 
-{#if anim}
-  <div class="art-anim" class:sm={small} class:playable={animatable} onclick={toggle} role="button" tabindex="0">
-    <video bind:this={vid} class="art-vid" class:sm={small} poster={still} loop={!loopFrom} autoplay={autoplay} muted onended={onEnded} onloadeddata={paintPoster} onplay={() => (playing = true)} onpause={() => (playing = false)} playsinline preload="metadata">
-      <source src={anim} />
-    </video>
-    {#if animatable && !playing}<span class="play-hint">▶</span>{/if}
-  </div>
-{:else if still}
-  <img class="art-img" class:sm={small} src={still} alt={label} />
-{:else}
-  <div class="art-slot" class:sm={small}>[art: {label}]</div>
-{/if}
+<!-- Key on the art id so a NEW <video>/<img> element is built when the art changes. Without this, a
+     reused <video> keeps its previously-loaded clip when only <source src> changes (Svelte doesn't
+     reload it) — which made one card show another card's animation while flipping through reveals. -->
+{#key akey}
+  {#if anim}
+    <div class="art-anim" class:sm={small} class:playable={animatable} onclick={toggle} role="button" tabindex="0">
+      <video bind:this={vid} class="art-vid" class:sm={small} poster={still} loop={!loopFrom} autoplay={autoplay} muted onended={onEnded} onloadeddata={paintPoster} onplay={() => (playing = true)} onpause={() => (playing = false)} playsinline preload="metadata">
+        <source src={anim} />
+      </video>
+      {#if animatable && !playing}<span class="play-hint">▶</span>{/if}
+    </div>
+  {:else if still}
+    <img class="art-img" class:sm={small} src={still} alt={label} />
+  {:else}
+    <div class="art-slot" class:sm={small}>[art: {label}]</div>
+  {/if}
+{/key}
 
 <style>
   .art-anim { position: relative; line-height: 0; cursor: default; }
