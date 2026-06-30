@@ -144,15 +144,16 @@ function resumeMusic() {
   if (isMuted || !musicOn || !unlocked) return;
   if (musicEl) { if (musicEl.paused) musicEl.play().catch(() => {}); return; }
   if (musicMode === "season") spin(musicId ?? seasonId, musicLoop);
-  else if (musicMode === "loop" && musicId) spin(musicId, true);
+  else if (musicMode === "loop" && musicId) spin(musicId, musicLoop);
 }
 
-/** Loop a single track by id — the front-of-house themes (intro, gala). */
-export function playMusic(id, vol = 0.28) {
+/** Play a single track by id — the front-of-house themes (intro, gala) loop; pass {loop:false} for a
+ *  one-shot (e.g. the bankruptcy ballad — plays through once, then falls silent until the next cue). */
+export function playMusic(id, vol = 0.28, { loop = true } = {}) {
   if (!id) return;
   if (musicMode === "loop" && musicId === id && musicEl) return; // already on it
   musicMode = "loop"; seasonId = null; queue = []; musicBaseVol = vol;
-  spin(id, true);
+  spin(id, loop);
 }
 
 /** Play a season's theme once, then shuffle through the jukebox queue until the season changes. */

@@ -15,5 +15,8 @@
     "tune": "npm run tune --workspace @boty/engine",
     "start": "npm start --workspace @boty/engine"
   },
-  "license": "UNLICENSED"
+  "license": "UNLICENSED",
+  "devDependencies": {
+    "@playwright/test": "^1.61.1"
+  }
 }

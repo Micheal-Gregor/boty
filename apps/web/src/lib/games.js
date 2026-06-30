@@ -141,6 +141,15 @@ export async function writeGameState(patch) {
   return { error: error?.message ?? null };
 }
 
+/** Read the current game row fresh. The store polls this as a fallback for Realtime messages that
+ *  never arrive (a dropped channel, a flaky link) — without it, a single missed update wedges the
+ *  deterministic lockstep forever. Returns the row, or null on any error (the next poll retries). */
+export async function fetchGameRow() {
+  const g = get(onlineGame); if (!g) return null;
+  const { data, error } = await supabase.from("games").select("*").eq("id", g.id).maybeSingle();
+  return error ? null : data;
+}
+
 // --- internals -------------------------------------------------------------------------------
 async function enterGame(game) {
   onlineGame.set(game);

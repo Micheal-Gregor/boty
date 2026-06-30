@@ -16,9 +16,10 @@ export const INTENTS = new Set([
   "playRush", "playBuyTime", "playSabotage", "favorSabotage", "playFavor",
   "sue", "sueDamages", "respondToThreat", "offerSettlement", "respondSettlement", "favorDropSuit",
   "resolveCourt", "resolveSettle", "resolvePoach", "resolveMayor", "resolveReferral", "decideRouting",
-  "autoResolveCourt", "autoResolveSettle", "autoResolvePoach", "autoResolveMayor", "autoResolveReferral", "autoResolveDamages",
+  "settleEstateClaim", "courtEstateClaim",
+  "autoResolveCourt", "autoResolveSettle", "autoResolvePoach", "autoResolveMayor", "autoResolveReferral", "autoResolveDamages", "autoResolveEstate",
   "improveShop", "relocate", "startExpansion",
-  "seatReckoning", "closeBooks", "endTurn",
+  "seatReckoning", "advanceReckoning", "closeBooks", "endTurn",
 ]);
 
 /** Wrap a Game so each successful mutating call is appended to `moves`. Reads pass through untouched.

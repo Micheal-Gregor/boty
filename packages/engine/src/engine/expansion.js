@@ -64,7 +64,7 @@ function spawnContracts(state, mover, targetName, value, work, deadline) {
     const taker = mover.service === trade ? mover : state.players.find((p) => p !== mover && !p.bankrupt && p.service === trade);
     if (!taker) continue; // no one runs this trade → the contract lapses (the insurance covers it)
     const job = createJob(
-      { id: `ready_${trade}`, name: `Ready ${targetName} — ${trade} fit-out`, value, work_amount: work, deadline, terms: 1, min_tradesmen: 1, max_tradesmen: 1, required_equipment: null, droppable: false }, // sticky: a fit-out is a commitment to someone's move — can't be walked away from
+      { id: `ready_${mover.id}_${trade}`, name: `Ready ${targetName} — ${trade} fit-out`, value, work_amount: work, deadline, terms: 1, min_tradesmen: 1, max_tradesmen: 1, required_equipment: null, droppable: false }, // id unique per MOVER (two movers' same-trade fit-outs mustn't collide → crossed lawsuits/sues); sticky — a fit-out is a commitment, can't be walked away from
       state.turn,
     );
     job.readying = true;

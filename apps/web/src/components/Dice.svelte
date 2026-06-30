@@ -1,5 +1,6 @@
 <script>
   import { ui, rollDie, diceNext, cancelDice } from "../lib/store.js";
+  import { cashText } from "../lib/money.js";
   const d = $derived($ui.dice);
 
   // Standard d6 pip layout on a 3×3 grid (cell indices 0–8).
@@ -27,9 +28,9 @@
     <div class="dice-box">
       {#if d.stepIdx === 0 && d.value == null && !d.noCancel}<button class="x" onclick={cancelDice} title="Cancel">✕</button>{/if}
       <h2>{d.title}</h2>
-      <p class="sub">{d.sub}</p>
+      <p class="sub">{$cashText(d.sub)}</p>
       {#if d.steps > 1}<p class="step">Roll {d.stepIdx + 1} of {d.steps}</p>{/if}
-      <p class="prompt">{d.prompt}</p>
+      <p class="prompt">{$cashText(d.prompt)}</p>
 
       <div class="die-wrap">
         {#if d.value == null}
@@ -46,7 +47,7 @@
       {:else if revealing}
         <p class="hint">rolling…</p>
       {:else}
-        <p class="result {d.tone}">{d.result}</p>
+        <p class="result {d.tone}">{$cashText(d.result)}</p>
         <button class="go {d.tone}" onclick={diceNext}>{d.finished ? "Done" : "Roll again ▶"}</button>
       {/if}
     </div>

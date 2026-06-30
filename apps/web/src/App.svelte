@@ -19,6 +19,7 @@
   import CourtModal from "./components/CourtModal.svelte";
   import RoutingModal from "./components/RoutingModal.svelte";
   import SettleModal from "./components/SettleModal.svelte";
+  import EstateModal from "./components/EstateModal.svelte";
   import CardModal from "./components/CardModal.svelte";
   import PoachModal from "./components/PoachModal.svelte";
   import MayorModal from "./components/MayorModal.svelte";
@@ -30,6 +31,7 @@
   import Dice from "./components/Dice.svelte";
   import Settings from "./components/Settings.svelte";
   import UsernamePrompt from "./components/UsernamePrompt.svelte";
+  import ObserverBanner from "./components/ObserverBanner.svelte";
 
   // One soft click for EVERY button press, app-wide (capture phase, so it still fires when a modal
   // stops propagation). Card opens / litigation / the Gala layer their own accent (flip/gavel/chime)
@@ -69,6 +71,7 @@
   {/if}
 
   <!-- Overlays render above any screen (incl. Reckoning/Last Licks + Gala) -->
+  <ObserverBanner />
   <Popup />
   <EntityCard />
   <HandView />
@@ -78,6 +81,7 @@
   <UsernamePrompt />
   <CardModal />
   <SettleModal />
+  <EstateModal />
   <CourtModal />
   <RoutingModal />
   <TargetPicker />

@@ -1,19 +1,13 @@
 <script>
-  import { ui, playSabotage, playSue, playFavor, favorDropSuitUI, favorSabotageUI, cancelPick } from "../lib/store.js";
+  import { ui, playSue, playFavor, favorDropSuitUI, favorSabotageUI, cancelPick } from "../lib/store.js";
   import { money } from "../lib/money.js";
+  import Art from "./Art.svelte";
 
   const s = $derived($ui.view);
   const me = $derived(s ? s.players[s.activePlayerIndex] : null);
   const meId = $derived(me?.id ?? null);
   const type = $derived($ui.picking);
 
-  const sabTargets = $derived(
-    type === "sabotage" && s
-      ? s.players.filter((p) => p.id !== meId).flatMap((p) =>
-          p.jobs.filter((j) => ["Queued", "OnHold", "Active"].includes(j.state)).map((j) => ({ owner: p, job: j })),
-        )
-      : [],
-  );
   const sueTargets = $derived(
     type === "sue" && s
       ? s.players.filter((p) => p.id !== meId).flatMap((p) =>
@@ -63,18 +57,8 @@
 {#if type}
   <div class="overlay" onclick={cancelPick}>
     <div class="modal" onclick={(e) => e.stopPropagation()}>
-      {#if type === "sabotage"}
-        <h2>⚔️ Sabotage — pick a rival's job</h2>
-        {#each sabTargets as t}
-          <button class="target" onclick={() => playSabotage(t.job.id)}>
-            {t.owner.name}: {t.job.name}
-            <span class="muted">[{t.job.state}] {t.job.work_done}/{t.job.work_amount}</span>
-          </button>
-        {:else}
-          <p class="muted">No rival jobs to sabotage right now.</p>
-        {/each}
-      {:else if type === "favor"}
-        <h2>🪙 Favor — call in a quiet word</h2>
+      {#if type === "favor"}
+        <h2><span class="fav-ico"><Art kind="card" id="favor" label="Favor" /></span> Favor — call in a quiet word</h2>
         <div class="tabbar">
           {#each favorTabs as g}
             <button class="tab" class:on={g.key === activeFavorTab} onclick={() => (favorTab = g.key)}>
@@ -110,6 +94,9 @@
 {/if}
 
 <style>
+  h2 { display: flex; align-items: center; gap: 8px; }
+  .fav-ico { width: 30px; height: 30px; flex: none; border-radius: 5px; overflow: hidden; background: var(--panel-2, #1b1f27); }
+  .fav-ico :global(img), .fav-ico :global(video), .fav-ico :global(.art-anim) { width: 100%; height: 100%; object-fit: cover; display: block; }
   .tabbar { display: flex; gap: 4px; margin: 4px 0 10px; flex-wrap: wrap; }
   .tab { flex: 1; min-width: 0; padding: 6px 8px; font-size: 0.82em; border: 1px solid var(--line, #2a3140); border-radius: 8px 8px 0 0; background: rgba(255,255,255,0.03); color: var(--muted, #9aa4b2); cursor: pointer; white-space: nowrap; }
   .tab.on { color: var(--text, #e8edf4); background: rgba(224,179,65,0.14); border-color: var(--accent, #e0b341); border-bottom-color: transparent; font-weight: 600; }

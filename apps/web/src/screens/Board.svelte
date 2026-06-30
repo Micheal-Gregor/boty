@@ -1,5 +1,5 @@
 <script>
-  import { ui, act, endTurn, isAI, viewCard, cardInLine, skipAITurns, openSettings, openHand, openRivals, openRules, openEntity, borrowCredit, isOnline, myTurn } from "../lib/store.js";
+  import { ui, act, endTurn, isAI, viewCard, cardInLine, skipAITurns, openSettings, openHand, openRivals, openRules, openEntity, borrowCredit, isOnline, myTurn, confirmQuit } from "../lib/store.js";
   import { money, cashText } from "../lib/money.js";
   import { muted, toggleMute, playSfx, playSeasonMusic } from "../lib/sound.js";
   import { seasonFor, findBuilding } from "@boty/engine";
@@ -63,11 +63,12 @@
     <span class="season">{season?.name}</span>
     <span class="round">round {s.turn} / {econ.max_turns}</span>
     <span class="turn">▶ {me.name}'s turn</span>
-    <button class="mute" aria-label="toggle sound" title={$muted ? "sound off" : "sound on"} onclick={toggleMute}>{$muted ? "🔇" : "🔊"}</button>
-    <button class="mute key" aria-label="view rivals" title="rivals' shops" onclick={openRivals}>👥</button>
+    <button class="mute key rivals" aria-label="view rivals" title="rivals' shops" onclick={openRivals}>👥</button>
     <button class="mute key" aria-label="open hand" title="open hand" onclick={openHand}>🃏</button>
-    <button class="mute" aria-label="rules" title="how to play" onclick={openRules}>❔</button>
+    <button class="mute" aria-label="toggle sound" title={$muted ? "sound off" : "sound on"} onclick={toggleMute}>{$muted ? "🔇" : "🔊"}</button>
     <button class="mute" aria-label="settings" title="settings" onclick={openSettings}>⚙️</button>
+    <button class="mute" aria-label="quit to menu" title="quit to menu" onclick={confirmQuit}>🚪</button>
+    <button class="mute" aria-label="rules" title="how to play" onclick={openRules}>❔</button>
   </header>
 
   {#if isOnline()}

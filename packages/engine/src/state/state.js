@@ -259,7 +259,12 @@ export function createGame(economy, playerSeeds, options = {}) {
     pendingThreat: null, // active response window, if any
     pendingCourt: [], // NPC court cases awaiting the defendant's lawyer decision
     pendingDamages: [], // botched routed jobs the hirer may sue over (damages → the bank)
+    damagesSeq: 0, // per-game counter so each damages claim has a UNIQUE jobId (a job can be sabotaged+caught more than once)
     pendingSettle: [], // natural-6 settlement offers awaiting accept/decline
+    estateClaims: [], // a folded shop's lawsuits, handed to the bank/steward: each live party settles 50% or goes to court on their turn
+    estateSeq: 0, // per-game counter for estate-claim ids (lockstep-safe)
+    reckoningOrder: null, // Final Reckoning: the FIXED trailing-first standings order, captured at year-end (synced so every client steps Last Licks in lockstep)
+    reckoningIdx: -1, // which seat in reckoningOrder is taking Last Licks now
     pendingPoach: [], // a rival is luring a worker — counter-offer (+roll) or let them go
     pendingMayor: [], // the Mayor's re-election drive — buy a Favor (10W) or pass
     pendingReferral: [], // a brokered job offered to a contractor — they accept (referrer gets a fee) or refuse

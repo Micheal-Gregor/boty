@@ -124,3 +124,25 @@ export function tickProjects(state, player) {
   }
   return lines;
 }
+
+/** A shop folded with projects in flight. Projects it LED are wound up by the bank (crew freed, pending
+ *  sub-payables voided — the subs' accrued pay is covered by the estate backstop). Projects where it was
+ *  a SUB have its phase finished by the bank so the lead can still deliver — no collapse, no town
+ *  penalty. Called from the bankruptcy wind-down; x.bankrupt is already true. */
+export function settleProjectsForBankrupt(state, x) {
+  const lines = [];
+  for (const project of [...(state.projects ?? [])]) {
+    if (project.leadId === x.id) {
+      removeProjectJobs(state, project.id);
+      state.projects = state.projects.filter((p) => p.id !== project.id);
+      lines.push(`   ↳ the bank winds up ${x.name}'s "${project.name}" project`);
+    } else {
+      const mine = project.phases.filter((ph) => ph.subId === x.id && !ph.done);
+      if (!mine.length) continue;
+      for (const ph of mine) ph.done = true;
+      lines.push(`   ↳ the bank finishes ${x.name}'s phase of "${project.name}" so it can still deliver`);
+      if (project.phases.every((ph) => ph.done)) completeProject(state, project);
+    }
+  }
+  return lines;
+}

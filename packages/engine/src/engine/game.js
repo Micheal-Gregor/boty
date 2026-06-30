@@ -54,6 +54,10 @@ export class Game {
   runProgress() {
     if (this.state.over) return [];
     if (this.state.pendingSettle.length) throw new GameError("Answer the settlement offer first");
+    if (this.estateCases.length) {
+      if ((this.state.humanIds ?? []).includes(this.currentPlayer.id)) throw new GameError("Settle the estate claim first");
+      this.autoResolveEstate(); // a non-human seat takes the bank's guaranteed 50% so play never stalls (deterministic)
+    }
     if (this.state.pendingPoach.length) throw new GameError("Answer the poaching offer first");
     if (this.state.pendingRouting?.length) throw new GameError("Decide the contract routing first");
     if (this.state.pendingMayor.length) throw new GameError("Answer the Mayor's drive first");
@@ -68,8 +72,15 @@ export class Game {
 
   /** Phase 5 — advance to the next solvent player and run their upkeep + draw. */
   advanceTurn() {
-    const next = advance(this.state);
-    if (next) return this.#beginTurn(next.player);
+    // A player can FOLD during their own upkeep (can't cover overhead). Never leave the turn with a
+    // just-bankrupt shop as the active seat — it can neither act nor end its turn, which deadlocks the
+    // whole table (online, nobody else can advance past it). Keep advancing to the next solvent player.
+    let next;
+    while ((next = advance(this.state))) {
+      const ctx = this.#beginTurn(next.player);
+      if (!next.player.bankrupt) return ctx; // a solvent shop is up — their turn begins
+      // else: folded at upkeep — loop; advance() now skips them as bankrupt
+    }
     // The year is up (advance set over). If everyone's bankrupt, it's truly over; otherwise
     // open the Final Reckoning — a last litigation round before the books close.
     if (this.state.players.every((p) => p.bankrupt)) {
@@ -77,7 +88,23 @@ export class Game {
     }
     this.state.over = false;
     this.state.phase = "reckoning";
-    return { reckoning: true, order: this.reckoningOrder() };
+    this.state.reckoningOrder = this.reckoningOrder(); // FIX the order now — cash shifts during Last Licks, so every client must step the same sequence
+    this.state.reckoningIdx = -1;
+    return { reckoning: true, order: this.state.reckoningOrder };
+  }
+
+  /** Advance Last Licks to the next solvent HUMAN seat (bots take no last licks), or close the books
+   *  when every human has had their turn. A recorded intent, so all clients step it in lockstep. */
+  advanceReckoning() {
+    if (this.state.phase !== "reckoning") throw new GameError("Not in the Final Reckoning");
+    const order = this.state.reckoningOrder ?? [];
+    const humans = this.state.humanIds ?? [];
+    let idx = (this.state.reckoningIdx ?? -1) + 1;
+    while (idx < order.length && !(humans.includes(order[idx]) && this.state.players.some((p) => p.id === order[idx] && !p.bankrupt))) idx++;
+    this.state.reckoningIdx = idx;
+    if (idx >= order.length) return this.closeBooks();
+    this.seatReckoning(order[idx]);
+    return { seat: order[idx], idx };
   }
 
   // --- The Final Reckoning (end of round max_turns) --------------------------------------
@@ -162,6 +189,7 @@ export class Game {
       canAct, // a bankrupt player has no action phase
       court: [...this.state.pendingCourt], // NPC court cases to resolve before acting
       settle: [...this.state.pendingSettle], // natural-6 settlement offers to answer
+      estate: this.estateCases.map((c) => ({ ...c })), // a folded shop's lawsuit handed to the bank — settle or court
     };
   }
 
@@ -170,6 +198,7 @@ export class Game {
   #act(fn, finalLegal = false) {
     if (this.state.over) throw new GameError("The game is over");
     if (this.state.pendingSettle.length) throw new GameError("Answer the settlement offer first");
+    if (this.estateCases.length && (this.state.humanIds ?? []).includes(this.currentPlayer.id)) throw new GameError("Settle the estate claim first");
     if (this.state.pendingPoach.length) throw new GameError("Answer the poaching offer first");
     if (this.state.pendingRouting?.length) throw new GameError("Decide the contract routing first");
     if (this.state.pendingMayor.length) throw new GameError("Answer the Mayor's drive first");
@@ -339,6 +368,69 @@ export class Game {
       const player = this.state.players.find((p) => p.id === c.playerId);
       lines.push(this.resolveSettle(c.payableId, { accept: take && player.cash >= c.settle }));
     }
+    return lines;
+  }
+
+  // --- Estate claims: a folded shop's lawsuits, handed to the bank/steward. On the live party's turn
+  //     they settle for 50% or refuse → immediate court (full claim or nothing + a 1W fee). The bank is
+  //     the off-ledger counterparty, so postings hit only the live party (the estate's books are wiped).
+  get estateCases() { return (this.state.estateClaims ?? []).filter((c) => c.partyId === this.currentPlayer.id); }
+
+  #takeEstateClaim(id) {
+    const list = this.state.estateClaims ?? [];
+    const i = list.findIndex((c) => c.id === id && c.partyId === this.currentPlayer.id);
+    if (i < 0) throw new GameError(`No estate claim "${id}" for you`);
+    return list.splice(i, 1)[0];
+  }
+
+  /** Settle an estate claim for 50%: you pay the bank (you owed) or take its offer (it owed you). */
+  settleEstateClaim(id) {
+    const c = this.#takeEstateClaim(id);
+    const party = this.#playerById(c.partyId);
+    if (c.owes) {
+      const paid = Math.max(0, Math.min(c.settle, party.cash));
+      cashOut(this.state, party, ACCT.LEGAL, paid, `Estate settlement — ${c.jobName}`);
+      const line = `🤝 ${party.name} settles ${c.fromName}'s estate claim on ${c.jobName} — pays ${w(paid)} to the bank.`;
+      this.state.log.push(line);
+      return line;
+    }
+    cashIn(this.state, party, ACCT.OTHER_INCOME, c.settle, `Estate settlement — ${c.jobName}`);
+    const line = `🤝 ${party.name} takes the estate's ${w(c.settle)} settlement on ${c.jobName}.`;
+    this.state.log.push(line);
+    return line;
+  }
+
+  /** Refuse the 50% and let the court decide: a d6 — over 3 the full claim transfers, else nothing;
+   *  a 1W legal fee either way. `roll` lets the UI supply the player's own die (lockstep-safe). */
+  courtEstateClaim(id, { roll = null } = {}) {
+    const c = this.#takeEstateClaim(id);
+    const party = this.#playerById(c.partyId);
+    const FEE = this.state.economy.civil.legal_fee;
+    const r = roll != null ? roll : this.state.die();
+    const full = r > 3; // the claim is enforced in full
+    cashOut(this.state, party, ACCT.LEGAL, FEE, `Estate court — fee (${c.jobName})`);
+    let line;
+    if (c.owes) {
+      const paid = full ? Math.max(0, Math.min(c.value, party.cash)) : 0;
+      if (paid > 0) cashOut(this.state, party, ACCT.LEGAL, paid, `Estate court loss — ${c.jobName}`);
+      line = full
+        ? `⚖️ Court upholds ${c.fromName}'s estate claim — ${party.name} pays the full ${w(paid)} (rolled ${r}); ${w(FEE)} fee.`
+        : `⚖️ Court dismisses ${c.fromName}'s estate claim — ${party.name} pays nothing (rolled ${r}); ${w(FEE)} fee.`;
+    } else {
+      const got = full ? c.value : 0;
+      if (got > 0) cashIn(this.state, party, ACCT.OTHER_INCOME, got, `Estate court award — ${c.jobName}`);
+      line = full
+        ? `⚖️ Court awards ${party.name} the full ${w(got)} on ${c.jobName} (rolled ${r}); ${w(FEE)} fee.`
+        : `⚖️ ${party.name} gambled and lost — court dismisses the ${c.jobName} claim, nothing (rolled ${r}); ${w(FEE)} fee.`;
+    }
+    this.state.log.push(line);
+    return { line, full, roll: r };
+  }
+
+  /** AI/CLI/harness: take the guaranteed 50% on every estate claim (no court gamble — deterministic). */
+  autoResolveEstate() {
+    const lines = [];
+    for (const c of [...this.estateCases]) lines.push(this.settleEstateClaim(c.id));
     return lines;
   }
 
@@ -657,16 +749,22 @@ export class Game {
     const e = this.state.economy;
     const hirer = this.#playerById(t.hirerId);
     const contractor = this.#playerById(t.contractorId);
-    // recipientId set (e.g. a civic PM suing a defaulter) → damages are RECOVERED by that player,
-    // capped at what the loser can cover (no money creation). Otherwise they're a sink to the bank.
+    // recipientId set (e.g. a civic PM suing a defaulter) → damages are RECOVERED by that player.
+    // The loser owes the FULL award either way: the cashOut can drive them negative, and they FOLD at
+    // their next upkeep (a suit CAN bankrupt a rival). A player-plaintiff still only RECOVERS what the
+    // loser could actually cover — no money is created — while a bank suit is a pure sink.
     const recipient = t.recipientId ? this.#playerById(t.recipientId) : null;
-    const payout = (loser) => (recipient ? Math.max(0, Math.min(t.value, loser.cash)) : t.value);
     const toWhom = recipient ? recipient.name : "the bank";
+    const award = (label) => {
+      const recovered = recipient ? Math.max(0, Math.min(t.value, contractor.cash)) : t.value; // read BEFORE the charge
+      cashOut(this.state, contractor, ACCT.LEGAL, t.value, `Damages — ${label}`);
+      if (recipient) cashIn(this.state, recipient, ACCT.OTHER_INCOME, recovered, `Damages from ${contractor.name}`);
+      return { recovered, under: contractor.cash < 0 && !contractor.bankrupt };
+    };
+    const fold = (under) => (under ? ` — ${contractor.name} can't cover it and folds at the next upkeep` : "");
     if (!contest) {
-      const paid = payout(contractor);
-      cashOut(this.state, contractor, ACCT.LEGAL, paid, "Damages — conceded");
-      if (recipient) cashIn(this.state, recipient, ACCT.OTHER_INCOME, paid, `Damages from ${contractor.name}`);
-      return `🏳️ ${contractor.name} concedes — ${w(paid)} in damages to ${toWhom}.`;
+      const { recovered, under } = award("conceded");
+      return `🏳️ ${contractor.name} concedes — ${w(recovered)} in damages to ${toWhom}${fold(under)}.`;
     }
     let defLawyers = 0;
     if (ownLawyer) {
@@ -682,10 +780,8 @@ export class Game {
     if (res.getsAway) {
       return `⚖️ ${contractor.name} WALKS the damages suit (rolled ${res.roll} ≤ ${g}, ${getawayOdds(g)}) — no damages; ${w(FEE)} fee each.`;
     }
-    const paid = payout(contractor);
-    cashOut(this.state, contractor, ACCT.LEGAL, paid, "Damages — lost");
-    if (recipient) cashIn(this.state, recipient, ACCT.OTHER_INCOME, paid, `Damages from ${contractor.name}`);
-    return `⚖️ ${hirer.name} WINS — ${contractor.name} pays ${w(paid)} in damages to ${toWhom} (rolled ${res.roll} > ${g}); ${w(FEE)} fee each.`;
+    const { recovered, under } = award("lost");
+    return `⚖️ ${hirer.name} WINS — ${contractor.name} pays ${w(recovered)} in damages to ${toWhom} (rolled ${res.roll} > ${g}); ${w(FEE)} fee each${fold(under)}.`;
   }
 
   /** Auto-resolve pending damages claims for AI/CLI/harness: the hirer sues if it can spare a fee. */
@@ -732,7 +828,7 @@ export class Game {
     const attacker = this.#playerById(t.attackerId);
     if (!victim || !attacker || victim.bankrupt || attacker.bankrupt) return "";
     const value = c.sabotage_damages ?? 4;
-    this.state.pendingDamages.push({ hirerId: victim.id, contractorId: attacker.id, jobId: `sab_${job.id}`, jobName: job.name, value, recipientId: victim.id });
+    this.state.pendingDamages.push({ hirerId: victim.id, contractorId: attacker.id, jobId: `sab_${job.id}_${++this.state.damagesSeq}`, jobName: job.name, value, recipientId: victim.id });
     return ` — but ${attacker.name} is CAUGHT red-handed; ${victim.name} may sue for ${w(value)} damages`;
   }
 

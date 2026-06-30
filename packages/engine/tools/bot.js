@@ -183,15 +183,18 @@ export function botActions(game, strategy = "balanced", opts = {}) {
   const stuck = p.payables.some((a) => !a.pending && state.turn >= a.due_turn && p.cash < a.amount);
   if (stuck && p.cash < over() && !p.invoices.length) tryDo(() => game.drawCredit());
 
-  // 8. Hobble the front-runner: spend a FAVOR to sabotage a RICHER bot rival's best job (Sabotage is
-  //    folded into Favor now). Never aimed at a human seat (that needs their live response).
+  // 8. Hobble the front-runner: spend a FAVOR to sabotage the RICHEST rival's best job — ANYONE, humans
+  //    included (the bots play rough; it keeps human play honest). A bot or online target's defence
+  //    auto-resolves here; a LOCAL human owner answers the Rush modal instead (the store pauses for them).
   if (hand(p, "favor")) {
-    const mark = richestRival(true);
+    const mark = richestRival();
     if (mark && mark.cash > p.cash) {
       const job = [...mark.jobs]
         .filter((j) => ["Queued", "OnHold", "Active"].includes(j.state))
         .sort((a, b) => b.value - a.value)[0];
-      if (job && tryDo(() => game.favorSabotage(job.id))) settleBotThreat();
+      if (job && tryDo(() => game.favorSabotage(job.id))) {
+        if (!humanIds.has(mark.id) || !allowSueHumans) settleBotThreat(); // human + local → leave the Rush response to them
+      }
     }
   }
 

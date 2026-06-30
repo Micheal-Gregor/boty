@@ -16,9 +16,16 @@ import { npcIntroFor } from "./townsfolk.js";
 import { crewIdentity } from "./crew.js";
 import { session as authSession, user as authUser } from "./auth.js";
 import { supabaseReady } from "./supabase.js";
-import { onlineGame, onlineSeats, writeGameState, replaceSeats } from "./games.js";
+import { onlineGame, onlineSeats, writeGameState, replaceSeats, fetchGameRow, leaveGame } from "./games.js";
+import { flow } from "./flowlog.js";
 
 const { economy, decks, flavor } = loadContent();
+// DEV ONLY: ?maxturns=N shortens the year so the two-tab E2E (and quick manual tests) reach the Final
+// Reckoning fast. Patched on the shared economy before any game is built, so all clients agree.
+if (import.meta.env.DEV && typeof location !== "undefined") {
+  const mt = parseInt(new URLSearchParams(location.search).get("maxturns"), 10);
+  if (mt > 0) economy.max_turns = mt;
+}
 setMoneyRate(economy.w_to_usd); // wire the W→$ display rate from the economy data
 const AI_DELAY = 650; // ms between AI seats, so you can watch the table move
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
@@ -28,7 +35,7 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
  * won't see the change. `rev` bumps on every change. */
 export const ui = writable({
   screen: "loading", game: null, view: null, ctx: null, flavor, economy, error: null, rev: 0,
-  aiActing: null, threat: null, picking: null, reckoning: null, final: null, court: null, damages: null, settle: null, routingDecision: null,
+  aiActing: null, threat: null, picking: null, reckoning: null, final: null, court: null, damages: null, settle: null, estate: null, routingDecision: null,
   cardView: null, popups: [], settingsOpen: false, flash: null, entityCard: null, handView: false, rivalView: false,
   rulesOpen: false, confirm: null,
 });
@@ -146,6 +153,7 @@ export function closeRivals() { push({ rivalView: false }); }
 
 // The end-of-year report behind the win screen — standings, consolation awards, full per-player books.
 let outcomeRecorded = false;
+let bankruptcySounded = false; // the bankruptcy ballad plays once per game, only on the folded player's own client
 /** Online only: record MY win/loss to my profile (the leaderboard) at game end — once per game. */
 function recordMyOutcome() {
   if (!online || mySeat < 0 || outcomeRecorded || !game) return;
@@ -197,7 +205,7 @@ export function closeEntity() { push({ entityCard: null }); }
 // --- The pop-up QUEUE (E5 §2): modals shown one at a time, in order, easy close/next. ----------
 let lastRoundShown = 0;
 let firstRollShown = false; // the opening "who goes first" dice reveal — shown once per game
-function enqueuePopup(p) { ui.update((v) => ({ ...v, rev: v.rev + 1, popups: [...v.popups, p] })); }
+function enqueuePopup(p) { flow("popup", { kind: p?.kind, name: p?.name ?? p?.title ?? null, who: p?.who ?? p?.rival ?? null }); ui.update((v) => ({ ...v, rev: v.rev + 1, popups: [...v.popups, p] })); }
 
 // The opening dice ceremony: a d6 was re-rolled until it landed on a seated player (the engine did this
 // deterministically at game build; we just read state.firstRoll). Returns the pop-up once, then null.
@@ -445,7 +453,7 @@ function viewOf() {
     })),
   ];
   return {
-    lawsuits, pmContracts,
+    lawsuits, pmContracts, observer: iAmOut(), // observer: this client has folded — read-only, watch or leave
     turn: s.turn, activePlayerIndex: s.activePlayerIndex, meIndex: mi, over: s.over, phase: s.phase,
     mustStaffBoon: game.unstaffedBoon.length > 0, // Chief Boon's mandatory job blocks end-turn until staffed
     log: s.log.slice(-8),
@@ -477,16 +485,22 @@ function viewOf() {
 // resolve) one — it would diverge their game. They still get the informational alert pop-ups
 // (the "audit" trail) to catch up. (v1: every decision is the active player's; the cross-player
 // response windows come with networked PvP.)
-const DECISION_KEYS = ["court", "poach", "mayor", "settle", "referral", "damages", "threat", "dice"];
+const DECISION_KEYS = ["court", "poach", "mayor", "settle", "estate", "referral", "damages", "threat", "dice"];
 function push(patch = {}) {
   ui.update((v) => {
     const next = { ...v, game, view: viewOf(), rev: v.rev + 1, ...patch };
     if (online && !myTurn()) for (const k of DECISION_KEYS) next[k] = null;
     return next;
   });
+  // "Cash Is a Fact" — the bankruptcy ballad. Plays ONCE, only on the client whose own shop folded
+  // (iAmOut is per-client). Self-resets while you're still in the game, so it's ready for the next one.
+  if (!iAmOut()) bankruptcySounded = false;
+  else if (!bankruptcySounded) { bankruptcySounded = true; playMusic("Cash_Is_a_Fact", 0.35, { loop: false }); }
   if (online) { surfaceRoundStart(); surfaceActiveDraws(); } // round card (round tick) + the active player's fortune reveal — both guarded
   if (online && pending.length) flushMoves(); // persist any moves I just recorded (online only)
   checkInvariants({ state: game?.state, popups: get(ui).popups, online }); // dev-only: shout if the flow breaks
+  flow("state", { ms: Date.now() % 1e7, seat: mySeat, online, screen: get(ui).screen, turn: game?.state?.turn, phase: game?.state?.phase, active: game?.state?.activePlayerIndex, mine: myTurn(), reckIdx: game?.state?.reckoningIdx, moves: log?.length ?? 0, threat: !!game?.state?.pendingThreat,
+    suits: (game?.state?.pendingDamages ?? []).map((c) => `${c.contractorId}>${c.recipientId ?? c.hirerId}:${(c.jobName || "").slice(0, 22)}`) });
 }
 function fail(msg) { ui.update((v) => ({ ...v, rev: v.rev + 1, error: msg })); }
 
@@ -506,8 +520,19 @@ let mySeat = -1;         // my seat index (== activePlayerIndex when it's my tur
 let isHostClient = false;
 let hostDriving = false; // guard so the host runs the AI loop only once at a time
 
-/** True for local play, or in online play when it's my seat's turn (used to gate the UI). */
-export const myTurn = () => !online || !!(realGame && !realGame.state.over && realGame.state.activePlayerIndex === mySeat && !ai[realGame.currentPlayer.id]);
+/** Every human seat has folded (offline / one-screen play). */
+function humansAllOut() {
+  if (!game) return false;
+  const humans = game.state.humanIds ?? [];
+  return humans.length > 0 && humans.every((id) => game.state.players.find((p) => p.id === id)?.bankrupt);
+}
+/** THIS client is out — its shop has folded (online: my own seat; offline: every human seat). An observer
+ *  now: no actions, just watch the rest play out or leave. Closing the fold popup was the last act. */
+export const iAmOut = () => !!game && (online ? mySeat >= 0 && !!game.state.players[mySeat]?.bankrupt : humansAllOut());
+
+/** True for local play, or in online play when it's my seat's turn (used to gate the UI). A folded seat
+ *  is never "my turn" — a bankrupt shop has no moves left. */
+export const myTurn = () => !iAmOut() && (!online || !!(realGame && !realGame.state.over && realGame.state.activePlayerIndex === mySeat && !ai[realGame.currentPlayer.id]));
 export const isOnline = () => online;
 
 // Diagnostics: type botyState() in the browser console (both windows) to compare clients.
@@ -561,7 +586,7 @@ function subscribeOnlineRoom() {
   });
 }
 
-function resetOnline() { online = false; realGame = null; pending = []; log = []; onlineCfg = null; mySeat = -1; isHostClient = false; hostDriving = false; }
+function resetOnline() { online = false; realGame = null; pending = []; log = []; onlineCfg = null; mySeat = -1; isHostClient = false; hostDriving = false; confirmedLen = 0; writeInFlight = false; stopOnlineTick(); }
 
 // Online round start: when the round ticks over, FLUSH the previous round's piled-up pop-ups and
 // lead with the townfolk story card — a clean reset for the new round on every client. (Local play
@@ -569,6 +594,7 @@ function resetOnline() { online = false; realGame = null; pending = []; log = []
 function surfaceRoundStart() {
   if (!game || !online) return;
   const s = game.state;
+  if (s.phase === "reckoning" || s.over) return; // Last Licks / year-end isn't a new round — no round card (the year ticks to max+1)
   if (s.turn <= lastRoundShown) return;
   lastRoundShown = s.turn;
   const view = get(ui).view;
@@ -588,6 +614,7 @@ let lastTurnStartKey = "";
 function surfaceActiveDraws() {
   if (!game || !online) return;
   const s = game.state;
+  if (s.phase === "reckoning" || s.over) return; // Last Licks / year-end doesn't draw — don't re-surface a stale round draw
   const key = `${s.turn}:${s.activePlayerIndex}`;
   if (key === lastTurnStartKey) return;
   const actor = s.players[s.activePlayerIndex];
@@ -621,6 +648,7 @@ function buildOnlineGame(row) {
   mySeat = onlineCfg.seats.findIndex((s) => s.user_id === me?.id);
   isHostClient = row.host_id === me?.id;
   online = true;
+  flow("players", { mySeat, isHost: isHostClient, seats: realGame.state.players.map((p, i) => ({ seat: i, id: p.id, name: p.name, trade: p.service, ai: !!ai[p.id] })) });
   outcomeRecorded = false; // a new (or rebuilt) online game — its result hasn't been recorded yet
   declinedDamages.clear();
   dealTownlife();
@@ -639,14 +667,20 @@ function buildOnlineGame(row) {
   if (isHostClient && row.active_seat !== realGame.state.activePlayerIndex) {
     writeGameState({ state: { ...onlineCfg, moves: [...log] }, active_seat: realGame.state.activePlayerIndex });
   }
+  confirmedLen = log.length; // we built from this row, so its moves are already persisted
+  startOnlineTick();         // begin the flaky-link poll/retry safety net for this game
   push({ screen: "board", error: null, aiActing: null, threat: null, picking: null, reckoning: null, final: null, court: null }); // push fires the round-1 dice + townfolk card
   surfaceNewOutcomes();
+  if (realGame.state.phase === "reckoning") { resumeReckoning(); return; } // reconnected mid Last Licks → render the live seat
+  if (passStuckFoldedSeat()) return; // reconnected into a row stuck on a folded active seat — pass it
   maybeDriveAI();
   surfaceDecisionsAfterReveal(); // if the game opens on my turn, surface decisions AFTER the reveals
 }
 
 function syncFromRow(row) {
   const moves = row.state?.moves ?? [];
+  flow("sync", { seat: mySeat, movesIn: moves.length, have: log.length, rowActive: row.active_seat, status: row.status });
+  if (moves.length >= log.length) confirmedLen = Math.max(confirmedLen, log.length); // the row carries (at least) all our moves
   if (moves.length > log.length) {
     try { replay(realGame, moves, log.length); }
     catch (e) {
@@ -658,10 +692,12 @@ function syncFromRow(row) {
       return;
     }
     log = [...moves];
-    push({ aiActing: null }); // push fires the townfolk card if a new round began in these moves
+    push({ aiActing: aiBanner() }); // watchers see the bots' turns too: "🤖 playing" when an AI holds the seat, else cleared
     surfaceNewOutcomes();
     if (realGame.state.over) { playSfx("chime", 0.5); playMusic("gala", 0.3); recordMyOutcome(); return push({ screen: "gala", final: finalReport() }); }
   }
+  if (realGame.state.phase === "reckoning") { if (get(ui).screen !== "reckoning") resumeReckoning(); return; } // Last Licks — render the live seat; no AI driving / decisions
+  if (passStuckFoldedSeat()) return; // a folded shop was stuck as the active seat — we passed it
   maybeDriveAI();
   surfaceDecisionsAfterReveal(); // a remote update advanced the turn to me → surface decisions after the reveals
 }
@@ -671,20 +707,77 @@ function syncFromRow(row) {
 // otherwise the host's rapid AI-turn writes could reorder, leave active_seat stale, and 403 the
 // next player's legitimate write (the desync we saw).
 let writeChain = Promise.resolve();
+let confirmedLen = 0;     // # of moves known PERSISTED to the DB; if log races ahead, the tick re-sends
+let writeInFlight = false; // a persist() promise is pending — don't pile concurrent writes of the same log
+
+// Reject (don't hang) if a write stalls — a hung fetch on a flaky link would otherwise block the whole
+// serialized writeChain forever, which is exactly how the table froze. The full-log payload is
+// idempotent, so a later retry safely supersedes a write that's secretly still in flight.
+function withTimeout(p, ms) {
+  return Promise.race([p, new Promise((_, rej) => setTimeout(() => rej(new Error("write timed out")), ms))]);
+}
+
+// Persist the ENTIRE move log (idempotent — last write wins). On success, advance confirmedLen so the
+// tick stops retrying; on any failure, confirmedLen stays behind and the tick re-sends. Serialized so
+// writes always land in order.
+function persistLog() {
+  const n = log.length;
+  const payload = { state: { ...onlineCfg, moves: [...log] }, active_seat: realGame.state.activePlayerIndex };
+  writeInFlight = true;
+  writeChain = writeChain
+    .then(() => withTimeout(writeGameState(payload), 8000))
+    .then((r) => { if (r?.error) throw new Error(r.error); confirmedLen = Math.max(confirmedLen, n); })
+    .catch((e) => console.error("[online] write failed (tick will retry):", e?.message ?? e))
+    .finally(() => { writeInFlight = false; });
+}
+
 function flushMoves() {
   if (!online || !pending.length) return;
   const row = get(onlineGame);
   const canWrite = isHostClient || (row && row.active_seat === mySeat);
+  flow("flush", { seat: mySeat, pending: pending.length, have: log.length, rowActive: row?.active_seat, canWrite, engineActive: realGame?.state?.activePlayerIndex });
   if (!canWrite) { // shouldn't happen (act() gates input), but never write illegally — keep the moves to retry
     if (realGame.state.activePlayerIndex === mySeat) console.warn("[online] my move couldn't flush (row active_seat stale) — will retry");
     return;
   }
   log.push(...pending); pending.length = 0;
-  const payload = { state: { ...onlineCfg, moves: [...log] }, active_seat: realGame.state.activePlayerIndex };
-  writeChain = writeChain
-    .then(() => writeGameState(payload))
-    .then((r) => { if (r?.error) console.error("[online] write rejected:", r.error); })
-    .catch((e) => console.error("[online] write failed:", e?.message ?? e));
+  persistLog();
+}
+
+// Robustness net for flaky links. Every few seconds while online: (1) PULL the row fresh in case
+// Realtime dropped a message or the channel went silent — the deadlock we kept hitting — and (2) if our
+// local moves never confirmed (a write failed or hung), re-send them. Both are safe: pulls only re-sync
+// on real change, and the write is full-log idempotent.
+let onlineTick = null;
+async function onlinePoll() {
+  if (!online) return;
+  let row = null;
+  try { row = await fetchGameRow(); } catch { /* transient — next tick retries */ }
+  if (online && row) {
+    const cur = get(onlineGame);
+    const dbMoves = row.state?.moves?.length ?? 0;
+    if (dbMoves >= log.length) confirmedLen = Math.max(confirmedLen, log.length); // the DB has all our moves
+    // Re-sync only on genuine change (new moves / turn handoff / status) so we don't re-run sync side-effects every tick.
+    if (dbMoves > log.length || row.active_seat !== cur?.active_seat || row.status !== cur?.status) onlineGame.set(row);
+  }
+  // Our moves outran what's confirmed in the DB → a prior write failed; re-send if we're still allowed to write.
+  if (online && log.length > confirmedLen && !writeInFlight) {
+    const r = get(onlineGame);
+    if (isHostClient || (r && r.active_seat === mySeat)) {
+      flow("retry", { seat: mySeat, have: log.length, confirmed: confirmedLen, rowActive: r?.active_seat });
+      persistLog();
+    }
+  }
+}
+function startOnlineTick() { if (!onlineTick) onlineTick = setInterval(onlinePoll, 2500); }
+function stopOnlineTick() { if (onlineTick) { clearInterval(onlineTick); onlineTick = null; } }
+
+// The "🤖 playing" banner payload when an AI holds the active seat (else null) — so watchers see the
+// bots take their turns online, not just the host. Reads the AI's draw + its recent log lines.
+function aiBanner() {
+  if (!realGame || realGame.state.over || realGame.state.phase === "reckoning") return null;
+  const p = realGame.currentPlayer;
+  return p && ai[p.id] ? { name: p.name, drew: (p.drewThisTurn ?? []).map((d) => d.name), lines: realGame.state.log.slice(-4) } : null;
 }
 
 // Host only: drive the deterministic AI seats and persist each, until a human is up or the game ends.
@@ -695,6 +788,23 @@ async function maybeDriveAI() {
   hostDriving = true;
   try { await advanceUntilHuman(null); } finally { hostDriving = false; }
 }
+
+/** Recovery: a folded shop is stuck as the active seat — it can neither act nor end its turn, so the
+ *  table can't advance on its own (the host only drives AI seats). Whoever may write — the host, or that
+ *  seat's own client — passes the turn; the engine's advanceTurn skips folded seats. This rescues a row
+ *  left stuck from before that engine fix, and any edge where a fold lands on the active seat. */
+function passStuckFoldedSeat() {
+  if (!online || !realGame || realGame.state.over) return false;
+  if (!realGame.state.players[realGame.state.activePlayerIndex]?.bankrupt) return false;
+  if (!(isHostClient || realGame.state.activePlayerIndex === mySeat)) return false; // RLS admits only these writers
+  let ctx;
+  try { ctx = game.endTurn(); } // recorded; advanceTurn skips the folded seat → the next solvent player is up
+  catch (e) { console.warn("[online] couldn't pass a stuck folded seat:", e?.message ?? e); return false; }
+  if (ctx?.reckoning) { enterReckoning(ctx.order); return true; }
+  if (ctx?.over) { surfaceNewOutcomes(); playSfx("chime", 0.5); playMusic("gala", 0.3); recordMyOutcome(); push({ screen: "gala", ctx, final: finalReport() }); return true; }
+  push({ aiActing: aiBanner() }); surfaceNewOutcomes(); maybeDriveAI();
+  return true;
+}
 export const isAI = (playerId) => !!ai[playerId];
 
 // --- Shell navigation (front-of-house: loading → login → menu → play / history / faq / credits) ---
@@ -703,8 +813,32 @@ const signedIn = () => !supabaseReady || !!get(authSession); // guest mode if no
 /** The loading splash's Enter button — the user gesture that unlocks audio and starts the intro theme.
  *  Routes to the login gate unless the tester is already signed in. */
 export function enterApp() { unlockAudio(); playMusic("intro", 0.3); push({ screen: signedIn() ? "menu" : "login" }); }
-/** Back to the main menu (intro theme resumes). */
-export function backToMenu() { playMusic("intro", 0.3); push({ screen: "menu" }); }
+/** Back to the main menu (intro theme resumes). Force-closes EVERY overlay/pop-up/window first so
+ *  nothing left open in the game bleeds onto the menu (or the next game). */
+export function backToMenu() {
+  diceState = null; confirmCb = confirmAltCb = null; // drop any in-flight dice / confirm callbacks
+  playMusic("intro", 0.3);
+  push({
+    screen: "menu", popups: [], dice: null, confirm: null, aiActing: null, threat: null, picking: null,
+    reckoning: null, final: null, court: null, damages: null, settle: null, estate: null, routingDecision: null,
+    cardView: null, entityCard: null, handView: false, rivalView: false, rulesOpen: false, settingsOpen: false, flash: null,
+  });
+}
+
+/** Quit the current game and return to the menu. Online: leave the room first (a guest frees their
+ *  seat; the host closes it for the table — the host drives the AI, so the match can't go on without
+ *  them), which teardown→resetOnline clears. Offline: just drop back; the next New Game rebuilds. */
+export function quitToMenu() {
+  if (online) { try { leaveGame(); } catch (e) { console.warn("[quit] leaveGame failed:", e?.message ?? e); } }
+  backToMenu();
+}
+/** Quit button: confirm before bailing — leaving a game can't be undone. */
+export function confirmQuit() {
+  const body = online
+    ? (isHostClient ? "Leave this game and return to the menu. As host, this closes the room for everyone." : "Leave this game and return to the menu — you'll drop out of the match.")
+    : "Leave this game and return to the main menu. This game's progress will be lost.";
+  openConfirm({ title: "Quit to menu?", body, yes: "Quit" }, quitToMenu);
+}
 
 // Reactively follow auth: a magic-link sign-in advances the gate to the menu; signing out from the
 // menu drops back to the gate. (We don't yank a player mid-game on a transient session change.)
@@ -746,6 +880,7 @@ export function newGame(seats, difficulty = "standard") {
 
 /** Run an engine action for the current (human) player, catching illegal moves. */
 export function act(fn) {
+  if (iAmOut()) return; // you've folded — observer only, no actions
   if (game && ai[game.currentPlayer.id]) return; // a rival is acting — ignore stray human input
   if (online && game.state.activePlayerIndex !== mySeat) return; // online: not your turn — ignore
   const before = game ? game.state.log.length : 0;
@@ -764,18 +899,21 @@ export function act(fn) {
 // --- Threats (Sabotage / Sue) + the response window --------------------------------------
 
 export function startPick(type) {
-  if (online) return fail("Sue / Sabotage / Favor aren't enabled in online play yet — coming soon.");
+  if (online && !myTurn()) return; // online: only the active player opens a Favor / Sue pick
   push({ picking: type, error: null });
 }
 export function cancelPick() { push({ picking: null }); }
 
-export function playSabotage(jobId) {
+export function playSue(debtorId, payableId, slick = false) {
+  if (online && !myTurn()) return;
   push({ picking: null });
-  try { game.playSabotage(jobId); } catch (e) { return fail(e?.message ?? String(e)); }
+  try { game.sue(debtorId, payableId, { slick }); } catch (e) { return fail(e?.message ?? String(e)); }
   resolveThreat();
 }
-/** Spend a Favor to sabotage a rival's job (Sabotage is folded into Favor). Opens the same response
- *  window (the owner may Rush) + the caught roll (raised by their Security — cancel it with a Favor first). */
+
+/** Spend a Favor to sabotage a rival's job — Sabotage lives on the Favor card only (no separate card).
+ *  Opens the response window: a LOCAL human owner Rushes via the modal; an AI or an ONLINE owner auto-
+ *  resolves (Rush if held), then the caught roll (raised by their Security — cancel it with a Favor first). */
 export function favorSabotageUI(jobId) {
   if (online && !myTurn()) return;
   push({ picking: null });
@@ -783,14 +921,9 @@ export function favorSabotageUI(jobId) {
   resolveThreat();
 }
 
-export function playSue(debtorId, payableId, slick = false) {
-  push({ picking: null });
-  try { game.sue(debtorId, payableId, { slick }); } catch (e) { return fail(e?.message ?? String(e)); }
-  resolveThreat();
-}
-
 /** Play a Favor on a rival's standing modifier. */
 export function playFavor(targetId, modId) {
+  if (online && !myTurn()) return;
   push({ picking: null });
   let line;
   try { line = game.playFavor(targetId, modId); } catch (e) { return fail(e?.message ?? String(e)); } // the Favor showcase popup plays its sound on display
@@ -806,7 +939,10 @@ function resolveThreat() {
   const t = game.state.pendingThreat;
   if (!t) return push({ error: null });
   const targetId = t.type === "sabotage" ? t.ownerId : t.type === "damages" ? t.contractorId : t.debtorId;
-  if (!ai[targetId]) { playSfx("gavel", 0.5); return push({ error: null, threat: viewThreat(t) }); } // human defends via modal
+  // A LOCAL human defends via the modal (same screen). ONLINE the defender is a different client who
+  // isn't the active player and can't write a response, so their defence auto-resolves (fight if they can
+  // afford it, play their Slick Lawyer if held) and the SUER rolls the verdict — recorded, replays clean.
+  if (!ai[targetId] && !online) { playSfx("gavel", 0.5); return push({ error: null, threat: viewThreat(t) }); }
   const target = player(targetId);
   if (t.type === "sabotage") { aiRespond(t, targetId); push({ error: null, threat: null }); surfaceNewOutcomes(); refreshDamages(); return; }
   const canFight = target.cash >= economy.civil.legal_fee;
@@ -940,7 +1076,9 @@ function afterAct() {
 // --- Turn flow ---------------------------------------------------------------------------
 
 export function endTurn() {
+  if (iAmOut()) return; // you've folded — observer only
   if (online && !myTurn()) return; // online: only the active player resolves their own decisions
+  if (game.estateCases.length) return fail("Settle the bank's estate claim first");
   if (game.state.pendingSettle.length) return fail("Answer the settlement offer first");
   if (game.state.pendingPoach.length) return fail("Answer the poaching offer first");
   if (game.state.pendingMayor.length) return fail("Answer the Mayor's drive first");
@@ -956,7 +1094,7 @@ export function endTurn() {
     if (ctx.over) { surfaceNewOutcomes(); playSfx("chime", 0.5); playMusic("gala", 0.3); recordMyOutcome(); return push({ screen: "gala", ctx, final: finalReport() }); } // fire the bankruptcy/loan-call popup over the gala
     if ((game.state.humanIds ?? []).includes(ender.id) && ender.lastProgress?.length) // your jobs' begin → crew → jobsite card → end
       enqueuePopup({ kind: "jobreport", jobs: ender.lastProgress.map((r) => ({ ...r })) });
-    if (online) { push({ aiActing: null }); surfaceNewOutcomes(); maybeDriveAI(); surfaceDecisionsAfterReveal(); } // flush my turn (push fires the round card if the round ticked); host drives the next AI seats
+    if (online) { push({ aiActing: aiBanner() }); surfaceNewOutcomes(); maybeDriveAI(); surfaceDecisionsAfterReveal(); } // flush my turn; show the bot's "🤖 playing" banner if my turn handed off to an AI; host drives the next AI seats
     else advanceUntilHuman(ctx);
   };
   if (!get(settings).confirmEndTurn) return proceed(); // quick-end mode
@@ -1019,17 +1157,24 @@ function waitForPopups() {
  */
 async function advanceUntilHuman(initialCtx) {
   skipAI = false;
-  // Observer mode: every human seat has folded → the human(s) are OUT. Show the fold popup once, then
-  // race to game-over with no rival-turn ceremony and no further pop-ups (the player is done).
-  const humansAllOut = () => {
-    const humans = game.state.humanIds ?? [];
-    return humans.length > 0 && humans.every((id) => game.state.players.find((p) => p.id === id)?.bankrupt);
-  };
   let lastCtx = initialCtx;
   while (!game.state.over) {
     const p = game.currentPlayer;
-    if (!ai[p.id]) break; // human is up
-    if (!skipAI && humansAllOut()) { surfaceNewOutcomes(); skipAI = true; } // fold popup, then fast-forward
+    if (!ai[p.id]) {
+      if (!p.bankrupt) break; // a solvent human is up — hand them their turn
+      // A human folded at their own upkeep. Surface their 💀 once (closing it is the last act), then
+      // advance PAST them — they're an observer now, never handed an interactive turn. If every human is
+      // out, race to game-over with no further ceremony.
+      const itsMe = !online || (mySeat >= 0 && game.state.players[mySeat]?.id === p.id);
+      if (itsMe && !skipAI) { surfaceNewOutcomes(); await waitForPopups(); }
+      if (humansAllOut()) skipAI = true;
+      const c2 = game.endTurn();
+      if (c2.reckoning) { push({ aiActing: null }); return enterReckoning(c2.order); }
+      if (c2.over) { surfaceNewOutcomes(); playSfx("chime", 0.5); playMusic("gala", 0.3); recordMyOutcome(); return push({ aiActing: null, screen: "gala", ctx: c2, final: finalReport() }); }
+      lastCtx = c2;
+      continue;
+    }
+    if (!skipAI && humansAllOut()) { surfaceNewOutcomes(); skipAI = true; } // all humans folded mid-AI-loop → fast-forward
     if (maybeShowRoundCard()) await waitForPopups(); // round kicks off for everyone BEFORE the lead (even an AI) plays
     if (game.state.over) return;
     const drew = (lastCtx?.drawn ?? []).map((d) => d.name); // what the deck just dealt this rival
@@ -1055,6 +1200,7 @@ async function advanceUntilHuman(initialCtx) {
 
     const before = game.state.log.length;
     if (game.settleCases.length) game.autoResolveSettle();
+    if (game.estateCases.length) game.autoResolveEstate(); // a bot takes the bank's 50% on any estate claim
     if (game.courtCases.length) game.autoResolveCourt();
     if (game.damagesCases.length) game.autoResolveDamages();
     if (game.poachCases.length) game.autoResolvePoach();
@@ -1105,6 +1251,7 @@ function surfaceTurnDecisions() {
   const myReferrals = game.referralCases.filter((r) => r.contractor_id === meLive().id);
   push({
     settle: game.settleCases.length ? [...game.settleCases] : null,
+    estate: game.estateCases.length ? [...game.estateCases] : null,
     court: game.courtCases.length ? [...game.courtCases] : null,
     // damages claims are NOT force-surfaced anymore — they live in the Lawsuits panel (sue any turn)
     poach: game.poachCases.length ? [...game.poachCases] : null,
@@ -1172,33 +1319,82 @@ export function resolveSettleUI(payableId, accept) {
   push({ settle: game.settleCases.length ? [...game.settleCases] : null });
 }
 
+/** Estate claim (a folded shop's lawsuit, now run by the bank/steward): take the 50% settlement. */
+export function settleEstateUI(id) {
+  if (online && !myTurn()) return; // online: only the active player resolves their own decisions
+  try { game.settleEstateClaim(id); } catch (e) { return fail(e?.message ?? String(e)); }
+  surfaceNewOutcomes();
+  push({ estate: game.estateCases.length ? [...game.estateCases] : null });
+}
+
+/** Estate claim: refuse the 50% and let the court decide — roll the die, the full claim or nothing
+ *  (plus a 1W fee either way). The bank doesn't mess around — it resolves immediately on your roll. */
+export function refuseEstateUI(id) {
+  if (online && !myTurn()) return; // online: only the active player resolves their own decisions
+  const c = game.estateCases.find((x) => x.id === id);
+  if (!c) return;
+  push({ estate: null });
+  openDice({
+    title: `Estate court — ${c.jobName}`, noCancel: true,
+    sub: c.owes ? `Refused ${c.settle} W — over 3 you pay the full ${c.value} W` : `Refused ${c.settle} W — over 3 you win the full ${c.value} W`,
+    steps: [{ prompt: `Roll: does the claim stand?`,
+      resolve: (v) => {
+        const full = v > 3;
+        if (c.owes) return full
+          ? { text: `⚖️ Rolled ${v} — it stands. You pay the full ${c.value} W (+1 W fee).`, stop: true, tone: "bad" }
+          : { text: `⚖️ Rolled ${v} — dismissed! You pay nothing (just the 1 W fee).`, stop: true, tone: "good" };
+        return full
+          ? { text: `⚖️ Rolled ${v} — you win the full ${c.value} W (−1 W fee).`, stop: true, tone: "good" }
+          : { text: `⚖️ Rolled ${v} — dismissed. You get nothing (−1 W fee).`, stop: true, tone: "bad" };
+      } }],
+    onDone: ([roll]) => {
+      try { game.courtEstateClaim(id, { roll }); } catch (e) { return fail(e?.message ?? String(e)); }
+      surfaceNewOutcomes();
+      push({ estate: game.estateCases.length ? [...game.estateCases] : null });
+    },
+  });
+}
+
 // --- The Final Reckoning (Last Licks) ----------------------------------------------------
 
 let reckon = null; // { order, idx }
 
-function enterReckoning(order) {
-  reckon = { order, idx: -1 };
+// Final Reckoning (Last Licks) — turn-based across clients. The engine's advanceReckoning steps to the
+// next solvent HUMAN seat (recorded, so every client stays in lockstep, bots skipped); each seat's own
+// client takes its licks and passes it on. Whoever hits year-end kicks off the first step; the others
+// join via syncFromRow → resumeReckoning. (order arg is legacy — the order now lives in engine state.)
+function enterReckoning() {
+  reckon = { active: true };
   push({ screen: "reckoning", reckoning: reckon, aiActing: null });
-  advanceSeat();
+  stepReckoning(); // advance to the first human seat
 }
 
-function advanceSeat() {
-  reckon.idx += 1;
-  if (reckon.idx >= reckon.order.length) {
-    game.closeBooks();
+/** A client that SYNCED into an in-progress reckoning: switch to the screen, render the live seat (no
+ *  advance — whoever's seat it is drives the stepping). */
+function resumeReckoning() {
+  flow("reckResume", { seat: mySeat, active: game?.state?.activePlayerIndex, reckIdx: game?.state?.reckoningIdx });
+  reckon = { active: true };
+  push({ screen: "reckoning", reckoning: reckon, aiActing: null });
+}
+
+/** Step Last Licks to the next seat (recorded) — or close the books → the Gala. */
+function stepReckoning() {
+  flow("reckStep", { seat: mySeat, fromIdx: game?.state?.reckoningIdx, active: game?.state?.activePlayerIndex });
+  try { game.advanceReckoning(); } catch (e) { flow("reckStepErr", { msg: e?.message ?? String(e) }); return fail(e?.message ?? String(e)); }
+  if (game.state.over) { // every human's had their turn → books closed
     reckon = null;
-    playSfx("chime", 0.5);
-    playMusic("gala", 0.3); recordMyOutcome(); return push({ screen: "gala", final: finalReport(), reckoning: null });
+    playSfx("chime", 0.5); playMusic("gala", 0.3); recordMyOutcome();
+    return push({ screen: "gala", final: finalReport(), reckoning: null });
   }
-  const id = reckon.order[reckon.idx];
-  game.seatReckoning(id);
-  if (ai[id]) return advanceSeat(); // AI seats take no last licks (bots don't litigate)
-  push({ reckoning: { ...reckon } }); // human seat: render the reckoning screen
+  flow("reckStepped", { seat: mySeat, toIdx: game?.state?.reckoningIdx, active: game?.state?.activePlayerIndex });
+  push({ reckoning: { active: true } }); // render the new active seat (push flushes the move online)
 }
 
 export function reckoningDone() {
+  flow("reckDone", { seat: mySeat, active: game?.state?.activePlayerIndex, gatedNotMine: online && game.state.activePlayerIndex !== mySeat, threat: !!game?.state?.pendingThreat });
+  if (online && game.state.activePlayerIndex !== mySeat) return; // only the seat taking licks passes it on
   if (game.state.pendingThreat) return fail("Resolve the response window first");
-  advanceSeat();
+  stepReckoning();
 }
 
 export function restart() {
@@ -1209,7 +1405,10 @@ export function restart() {
 
 // Dev-only debug hook for manual/automated testing in the browser console.
 if (typeof window !== "undefined" && import.meta.env?.DEV) {
-  window.__boty = { ui, getGame: () => game, refresh: () => push({}) };
+  window.__boty = {
+    ui, getGame: () => game, refresh: () => push({}),
+    info: () => ({ online, mySeat, myTurn: myTurn(), active: realGame?.state?.activePlayerIndex, phase: realGame?.state?.phase, reckIdx: realGame?.state?.reckoningIdx, order: realGame?.state?.reckoningOrder ?? null, players: realGame?.state?.players?.map((p) => ({ id: p.id, name: p.name })) ?? null, moves: log.length }),
+  };
 }
 
 // Start reacting to the online room — registered LAST so every binding it touches is initialized

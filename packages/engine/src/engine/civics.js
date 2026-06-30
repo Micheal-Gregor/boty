@@ -90,3 +90,29 @@ export function tickCivics(state) {
   }
   return lines;
 }
+
+/** A shop folded mid-civic. The county finishes its contracted slot(s) so the town isn't penalised for
+ *  a default no one could prevent; any civic that's now fully delivered pays out (PM bonus if the PM is
+ *  still standing) and clears. Called from the bankruptcy wind-down — x.bankrupt is already true. */
+export function settleCivicsForBankrupt(state, x) {
+  const lines = [];
+  for (const civic of [...(state.civics ?? [])]) {
+    const mine = civic.contracts.filter((c) => c.player_id === x.id && !c.done);
+    if (!mine.length) continue;
+    for (const c of mine) c.done = true;
+    lines.push(`   ↳ the county finishes ${x.name}'s ${civic.name} slot so the town isn't penalised`);
+    if (civic.contracts.every((c) => c.done)) {
+      const total = civic.contracts.reduce((s, c) => s + c.value, 0);
+      const pm = state.players.find((p) => p.id === civic.pm_id);
+      if (pm && !pm.bankrupt) {
+        cashIn(state, pm, ACCT.OTHER_INCOME, Math.round(total * 0.2), `PM bonus — ${civic.name}`);
+        for (let i = 0; i < (civic.favor_reward ?? 0); i++) pm.hand.push({ id: "favor", type: "favor", name: "Favor" });
+        lines.push(`🏛️ ${civic.name} delivered in full — ${pm.name} (PM) takes the bonus + favour(s)`);
+      } else {
+        lines.push(`🏛️ ${civic.name} delivered in full (county-completed).`);
+      }
+      state.civics = state.civics.filter((c) => c.id !== civic.id);
+    }
+  }
+  return lines;
+}

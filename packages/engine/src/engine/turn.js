@@ -14,8 +14,8 @@ import { tickDefects } from "./defects.js";
 import { tickModifiers, chargeInterest, premiumsFor } from "./modifiers.js";
 import { tickExpansion } from "./expansion.js";
 import { chargeLevy, tickGlobals, levyDue } from "./globals.js";
-import { tickProjects } from "./projects.js";
-import { tickCivics } from "./civics.js";
+import { tickProjects, settleProjectsForBankrupt } from "./projects.js";
+import { tickCivics, settleCivicsForBankrupt } from "./civics.js";
 import { returnCrew, tickTheftEscalation } from "./crew.js";
 import { post, balances, ACCT } from "../state/ledger.js";
 
@@ -98,62 +98,94 @@ export function runUpkeep(state, player) {
 }
 
 /**
- * Unwind a folded shop's entanglements with the rest of the table so nothing dangles:
- *  • Contracts it was building FOR others (its jobs with hirer_id) die — each hirer's matching
- *    payable clears (no delivery, no debt; and it's judgment-proof, so no damages either).
- *  • Contracts others were building FOR it (their jobs with hirer_id === it) are voided too and
- *    dropped from the contractor's queue (the client is gone).
- *  • Debts it owed are written off — player creditors lose the receivable, NPC/collections die.
- *  • Debts players owed IT are forgiven (a defunct shop can't collect; already-factored debts
- *    have moved to the collections agency — creditor_id null — and are left untouched).
- *  • Its own jobs/invoices/defects and any pending litigation touching it are cleared.
+ * Wind up a folded shop's estate through the bank/steward so nothing dangles AND no rival catches a
+ * break — folding mustn't be a free escape hatch for the rest of the table:
+ *  • RECEIVABLES — what rivals owed X — are COLLECTED in full by the bank (no forgiven debt).
+ *  • PAYABLES — what X owed — are PAID in full by the bank (creditors are made whole, not stiffed).
+ *  • Contracts X was building for hirers are DELIVERED by the bank (the hirer pays for the work).
+ *  • Civic + project obligations are taken over by the county/bank so shared contracts still deliver
+ *    (no town penalty for a default nobody could prevent) — see settleCivics/ProjectsForBankrupt.
+ *  • LAWSUITS touching X are resolved: the estate offers 50% to settle; refused, it's a coin-flip in
+ *    court — the whole claim or nothing, plus a 1W legal fee. The bank stands in for the folded shop.
+ *  • X's own jobs/invoices/defects and any in-flight litigation UI state are then cleared.
+ * (clearPayable settles an accrued bill on BOTH sides at the given cashAmt; a pending/undelivered one
+ *  is simply removed — so paying the full amount collects/pays real debts and voids un-earned ones.)
  */
 function settleBankruptcy(state, x) {
   const lines = [];
 
-  // 1. Contracts X was building for others → void; clear the hirer's matching liability.
+  // 1. RECEIVABLES — what rivals owed X: the bank collects in full, so a fold isn't a free pass.
+  for (const p of state.players) {
+    if (p === x) continue;
+    let took = 0;
+    for (const ap of p.payables.filter((a) => a.creditor_id === x.id)) {
+      if (ap.accrued) took += ap.amount;
+      clearPayable(state, p, ap, { cashAmt: ap.amount, reason: "Estate collects" });
+    }
+    if (took) lines.push(`   ↳ the bank collects ${p.name}'s ${w(took)} owed to ${x.name}`);
+  }
+
+  // 2. PAYABLES — what X owed others: the bank pays in full, so creditors aren't stiffed.
+  let paid = 0;
+  for (const ap of [...x.payables]) {
+    if (ap.accrued && ap.creditor_id && ap.creditor_id !== x.id) paid += ap.amount;
+    clearPayable(state, x, ap, { cashAmt: ap.amount, reason: "Estate pays" });
+  }
+  if (paid) lines.push(`   ↳ the bank settles ${x.name}'s ${w(paid)} owed to the table`);
+  x.payables = [];
+
+  // 3a. Contracts X was building for hirers → the bank delivers; the hirer pays for the finished work.
   for (const job of x.jobs.filter((j) => j.hirer_id)) {
     const hirer = state.players.find((p) => p.id === job.hirer_id);
     if (!hirer) continue;
     const owed = hirer.payables.filter((a) => a.job_id === job.id);
-    for (const ap of owed) clearPayable(state, hirer, ap, { cashAmt: 0, reason: "Contractor folded" });
-    if (owed.length) {
-      lines.push(`   ↳ ${x.name}'s ${job.name} contract dies with the shop — ${hirer.name}'s ${w(job.value)} liability cleared`);
-    }
+    for (const ap of owed) clearPayable(state, hirer, ap, { cashAmt: ap.amount, reason: "Estate delivers" });
+    if (owed.length) lines.push(`   ↳ the bank delivers ${x.name}'s ${job.name} — ${hirer.name} pays ${w(job.value)} for the work`);
   }
-
-  // 2. Contracts OTHERS were building for X → void and drop from their queues (free their crew).
+  // Contracts OTHERS were building for X → drop them + free crew (their accrued pay came via step 2).
   for (const p of state.players) {
     if (p === x) continue;
     const voided = p.jobs.filter((j) => j.hirer_id === x.id);
-    for (const job of voided) {
-      for (const tid of job.assigned_tradesmen) {
-        const t = p.tradesmen.find((w) => w.id === tid);
-        if (t) t.assignedJob = null;
+    for (const job of voided) for (const tid of job.assigned_tradesmen) { const tm = p.tradesmen.find((w) => w.id === tid); if (tm) tm.assignedJob = null; }
+    if (voided.length) { p.jobs = p.jobs.filter((j) => j.hirer_id !== x.id); lines.push(`   ↳ ${p.name}'s ${voided.length} contract(s) for ${x.name} close out (paid via the estate)`); }
+  }
+
+  // 3b. Civic + project obligations → taken over by the county/bank so shared contracts still deliver.
+  lines.push(...settleCivicsForBankrupt(state, x));
+  lines.push(...settleProjectsForBankrupt(state, x));
+
+  // 4. LAWSUITS touching X → handed to the bank/steward as ESTATE CLAIMS. On each live counterparty's
+  //    OWN turn they choose: settle for 50%, or refuse → immediate court (the full claim or nothing,
+  //    plus a 1W legal fee). The bank stands in for the folded shop — postings hit only the live party.
+  const HALF = (n) => Math.max(1, Math.ceil(n / 2));
+  state.estateClaims ??= [];
+  const mine = state.pendingDamages.filter((c) => c.contractorId === x.id || (c.recipientId ?? c.hirerId) === x.id);
+  for (const c of mine) {
+    const claim = c.value ?? 0;
+    if (claim <= 0) continue;
+    if (c.contractorId === x.id) {
+      // X was the defendant → a live plaintiff is OWED by the estate (they may receive).
+      const plaintiff = state.players.find((p) => p.id === (c.recipientId ?? c.hirerId) && !p.bankrupt);
+      if (plaintiff) {
+        state.estateClaims.push({ id: `est${++state.estateSeq}`, fromName: x.name, jobName: c.jobName, value: claim, partyId: plaintiff.id, owes: false, settle: HALF(claim) });
+        lines.push(`   ⚖️ ${plaintiff.name}'s ${c.jobName} claim passes to the bank — settle or court on their next turn`);
+      }
+    } else {
+      // X was the plaintiff → a live defendant OWES the estate (they may pay).
+      const defendant = state.players.find((p) => p.id === c.contractorId && !p.bankrupt);
+      if (defendant) {
+        state.estateClaims.push({ id: `est${++state.estateSeq}`, fromName: x.name, jobName: c.jobName, value: claim, partyId: defendant.id, owes: true, settle: HALF(claim) });
+        lines.push(`   ⚖️ ${x.name}'s estate will pursue ${defendant.name} over ${c.jobName} — settle or court on their next turn`);
       }
     }
-    if (voided.length) {
-      p.jobs = p.jobs.filter((j) => j.hirer_id !== x.id);
-      lines.push(`   ↳ ${p.name} loses ${voided.length} contract(s) for the folded ${x.name}`);
-    }
   }
+  state.pendingDamages = state.pendingDamages.filter((c) => !mine.includes(c));
 
-  // 3. Debts players owed X are forgiven (defunct shop can't collect).
-  for (const p of state.players) {
-    if (p === x) continue;
-    const owed = p.payables.filter((a) => a.creditor_id === x.id);
-    for (const ap of owed) clearPayable(state, p, ap, { cashAmt: 0, reason: "Creditor folded" });
-    if (owed.length) lines.push(`   ↳ ${p.name}'s debt to ${x.name} is written off`);
-  }
-
-  // 4. X's own books are wiped, and any litigation touching X is dropped. Clear each payable so an
-  //    accrued bill comes off AP (Dr AP / Cr Other income — forgiven in the fold), keeping AP reconciled.
-  for (const ap of [...x.payables]) clearPayable(state, x, ap, { cashAmt: 0, reason: "Forgiven (bankrupt)" });
-  x.payables = [];
+  // 5. Wipe X's remaining books + any in-flight litigation UI state still pointing at X.
   x.invoices = [];
   x.jobs = [];
   x.defects = [];
-  state.pendingDamages = state.pendingDamages.filter((c) => c.hirerId !== x.id && c.contractorId !== x.id);
+  state.estateClaims = state.estateClaims.filter((c) => c.partyId !== x.id); // a now-folded party can't answer an estate claim
   state.pendingCourt = state.pendingCourt.filter((c) => c.playerId !== x.id);
   state.pendingSettle = state.pendingSettle.filter((c) => c.playerId !== x.id);
   state.pendingThreat = state.pendingThreat && [state.pendingThreat.ownerId, state.pendingThreat.debtorId, state.pendingThreat.contractorId].includes(x.id) ? null : state.pendingThreat;

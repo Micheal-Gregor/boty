@@ -96,8 +96,8 @@
       <span class="wh-readying">🏗️ readying {player.pendingExpansion.targetName} — move in next round</span>
     {:else}
       <span class="wh-actions">
-        {#if player.bbbThisTurn}<button class="mini" title="Capital project: deposit + insurance now, six trade contracts to the town, +1 capacity next round (the fee capitalises)" onclick={() => act((g) => g.startExpansion("improve"))}>⬆️ Upgrade</button>{/if}
-        {#if nextBuilding}<button class="mini" onclick={() => openConfirm({ title: `Move to the ${nextBuilding.name}?`, body: `Readying it is a capital project: you pay a deposit + insurance now, and trade contracts go out to the town for the fit-out. You start paying the NEW shop's higher rent right away — and you can't move in until every fit-out contract is finished, so dragging it out (or a stalling crew) bites. At move-in you pay the balance; can't cover it and you forfeit the deposit.`, yes: "Start the move" }, () => act((g) => g.startExpansion(nextBuilding.id)))}>Move → {nextBuilding.name}</button>{/if}
+        {#if player.bbbThisTurn}<button class="mini cta" title="Capital project: deposit + insurance now, six trade contracts to the town, +1 capacity next round (the fee capitalises)" onclick={() => act((g) => g.startExpansion("improve"))}>⬆️ Upgrade</button>{/if}
+        {#if nextBuilding}<button class="mini cta" onclick={() => openConfirm({ title: `Move to the ${nextBuilding.name}?`, body: `Readying it is a capital project: you pay a deposit + insurance now, and trade contracts go out to the town for the fit-out. You start paying the NEW shop's higher rent right away — and you can't move in until every fit-out contract is finished, so dragging it out (or a stalling crew) bites. At move-in you pay the balance; can't cover it and you forfeit the deposit.`, yes: "Start the move" }, () => act((g) => g.startExpansion(nextBuilding.id)))}>Move → {nextBuilding.name}</button>{/if}
       </span>
     {/if}
   </div>
@@ -311,10 +311,9 @@
     <div class="cardlist">
       {#each player.hand as c}
         <div class="cardrow">
-          <span class="cardname">🃏 {c.name}</span>
+          <span class="cardname"><span class="card-thumb"><Art kind="card" id={c.art ?? c.type} label={c.name} /></span> {c.name}</span>
           <span class="muted">{handDesc[c.type] ?? c.text ?? ""}</span>
-          {#if c.type === "sabotage"}<button class="mini hostile" onclick={() => startPick("sabotage")}>⚔️ Play…</button>{/if}
-          {#if c.type === "favor"}<button class="mini hostile" onclick={() => startPick("favor")}>🪙 Play…</button>{/if}
+          {#if c.type === "favor"}<button class="mini hostile" onclick={() => startPick("favor")}>Play…</button>{/if}
         </div>
       {/each}
     </div>
@@ -346,8 +345,10 @@
   .slots .add { align-self: center; padding: 8px 12px; }
   .buy-col { display: flex; flex-direction: column; gap: 4px; justify-content: center; }
   .cardlist { display: flex; flex-direction: column; gap: 5px; }
-  .cardrow { display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap; }
-  .cardrow .cardname { font-weight: 600; min-width: 130px; }
+  .cardrow { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+  .cardrow .cardname { font-weight: 600; min-width: 130px; display: inline-flex; align-items: center; gap: 6px; }
+  .card-thumb { width: 26px; height: 26px; flex: none; border-radius: 4px; overflow: hidden; background: var(--panel-2, #1b1f27); }
+  .card-thumb :global(img), .card-thumb :global(video), .card-thumb :global(.art-anim) { width: 100%; height: 100%; object-fit: cover; display: block; }
   .cardrow.bbb .cardname { color: var(--accent); }
   .bbb-buys { display: flex; gap: 4px; flex-wrap: wrap; }
   .bbb-card { background: var(--panel-2, #1b1f27); border-left: 3px solid var(--accent, #e0b341); border-radius: 8px; padding: 8px 10px; margin: 5px 0; display: flex; flex-direction: column; gap: 5px; }
@@ -362,6 +363,9 @@
   .warehouse { display: flex; justify-content: space-between; align-items: center; gap: 8px; flex-wrap: wrap; margin: 4px 0 4px; padding: 6px 8px; background: var(--panel-2, #1b1f27); border-radius: 8px; }
   .wh-name { font-weight: 600; }
   .wh-actions { display: flex; gap: 4px; flex-wrap: wrap; }
+  /* Capital-project actions (Upgrade / Move) — accent-filled so they're not missed, like the other CTAs. */
+  .mini.cta { background: var(--accent, #e0b341); color: #1a1a1a; border-color: var(--accent, #e0b341); font-weight: 700; }
+  .mini.cta:hover { background: #edc24f; border-color: #edc24f; }
   .wh-readying { font-size: 0.85em; color: var(--accent, #e0b341); font-weight: 600; }
   .project-card { margin: 6px 0; padding: 8px 10px; background: var(--panel-2, #1b1f27); border-left: 3px solid var(--accent, #e0b341); border-radius: 8px; }
   .proj-head { margin-bottom: 4px; }
