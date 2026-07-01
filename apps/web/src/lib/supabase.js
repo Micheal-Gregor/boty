@@ -10,8 +10,11 @@ import { makeMockSupabase } from "./supabase-mock.js";
 // Per-tab identity is the ?user= param. See supabase-mock.js.
 const useMock = !!import.meta.env.DEV && typeof location !== "undefined" && new URLSearchParams(location.search).get("mock") === "1";
 
-const url = import.meta.env.VITE_SUPABASE_URL;
-const anonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
+// .trim() defends against a trailing newline/space sneaking in when the values are pasted into a host's
+// env-var UI — a stray "\n" on the anon key survives into the Realtime WebSocket URL as "%0A", making
+// the JWT invalid so the socket endlessly fails to connect (REST/login tolerates it; Realtime doesn't).
+const url = import.meta.env.VITE_SUPABASE_URL?.trim();
+const anonKey = import.meta.env.VITE_SUPABASE_ANON_KEY?.trim();
 
 export const supabaseReady = useMock || !!(url && anonKey);
 
