@@ -49,6 +49,13 @@ main { max-width: 1200px; margin: 0 auto; padding: 16px; }
 .banner { display: flex; flex-wrap: wrap; gap: 6px 16px; align-items: baseline; background: var(--panel); padding: 10px 14px; border-radius: 8px; margin-bottom: 12px; }
 .banner .town { font-weight: 700; color: var(--accent); }
 .banner .turn { margin-left: auto; font-weight: 600; }
+/* Phone: the ribbon doesn't fit on one line, so stack it into three tidy rows —
+   row 1 town + season + round, row 2 the active player's turn, row 3 the icon buttons.
+   A full-width .turn forces the wrap points; desktop (wider than 600px) is untouched. */
+@media (max-width: 600px) {
+  .board .banner .turn { margin-left: 0; width: 100%; order: 0; }
+  .board .banner .mute { margin-top: 2px; }
+}
 /* Tab shell — phones show one play-area at a time with a bottom tab bar; wide screens
    fan the three areas out into columns and drop the bar. */
 .tabview { display: none; background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 12px; }
@@ -132,7 +139,11 @@ button.thumb { background: none; border: none; color: var(--ink); font: inherit;
 .fill { height: 100%; background: var(--good); }
 .job-actions { display: flex; gap: 5px; flex-wrap: wrap; margin-top: 4px; }
 
+/* AR and AP are boxed and sit side-by-side on desktop (unchanged); on a phone they don't both fit, so
+   they stack — AR box over AP box (see the max-width rule below). */
 .ledger { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.ledger > .ar, .ledger > .ap { background: var(--panel-2); border: 1px solid var(--line); border-radius: 8px; padding: 6px 10px 8px; }
+@media (max-width: 600px) { .ledger { grid-template-columns: 1fr; } }
 .line { display: flex; gap: 6px; align-items: center; font-size: 0.82rem; margin: 3px 0; }
 .hand { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; }
 .chip { background: var(--panel-2); border: 1px solid var(--line); border-radius: 12px; padding: 3px 10px; font-size: 0.8rem; }
