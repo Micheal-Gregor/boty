@@ -87,7 +87,8 @@
         <p class="pop-effect">{p.removed ? "➖" : "➕"} {p.count} {p.add === "networking_lunch" ? (p.count === 1 ? "networking lunch" : "networking lunches") : (p.count === 1 ? "job" : "jobs")} — {p.reason}</p>
 
       {:else if p.kind === "alert"}
-        {#if p.art}<div class="pop-art"><Art kind="card" id={p.art} label={p.title} autoplay={$settings.animateCards} /></div>{/if}
+        {#if p.artKind}<div class="pop-art"><Art kind={p.artKind} id={p.artId} label={p.title} autoplay={$settings.animateCards} /></div>
+        {:else if p.art}<div class="pop-art"><Art kind="card" id={p.art} label={p.title} autoplay={$settings.animateCards} /></div>{/if}
         <h2>{p.title}</h2>
         <p class="pop-effect">{$cashText(p.body)}</p>
 

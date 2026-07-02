@@ -794,7 +794,10 @@ export class Game {
       if (hirer.cash <= this.state.economy.civil.legal_fee * 2) continue; // skip if too poor to bother
       this.sueDamages(c.jobId);
       const contractor = this.#playerById(c.contractorId);
-      lines.push(this.respondToThreat({ contest: cards.hasCardType(contractor, "slick_lawyer") }));
+      // A defender who holds a Slick Lawyer gets it AUTO-PLAYED (contest WITH the lawyer) — online they
+      // can't tap it during the suer's turn, so applying it for them keeps the defense fair.
+      const hasLawyer = cards.hasCardType(contractor, "slick_lawyer");
+      lines.push(this.respondToThreat({ contest: hasLawyer, ownLawyer: hasLawyer }));
     }
     return lines;
   }

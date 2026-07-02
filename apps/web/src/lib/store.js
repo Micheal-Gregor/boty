@@ -295,7 +295,8 @@ const ALERTS = [
   [/⚖️ (.+?) fired .+? SUED AND WON/, "⚖️ Wrongful termination", (m) => `${m[1]} fired a worker who sued and won — a costly payout on the books.`],
   [/^⚖️ (.+?(?:WINS|WALKS).+)$/, "⚖️ Court verdict", (m) => m[1]], // a sue/damages suit is decided — surface the outcome
   [/🌐 (.+?) grips Maple Hollow/, "🌐 Town penalty", (m) => `${m[1]} — a town-wide levy now hits every shop in Maple Hollow.`],
-  [/🏗️ (.+?) moved into (.+?) \(from/, "🏗️ Moved in", (m) => `${m[1]} finished readying and moved into ${m[2]}.`],
+  [/🏗️ (.+?) moved into (.+?) \(from/, "🏗️ Moved in", (m) => `${m[1]} finished readying and moved into ${m[2]}.`,
+    (m) => { const mv = game?.state?.players?.find((p) => p.name === m[1]); return mv ? { kind: `shop/${artSlug(mv.service)}`, id: mv.building } : null; }], // show the NEW shop image
   [/⚠ (.+?) couldn't cover the .* balance on (.+?) —/, "⚠ Move forfeited", (m) => `${m[1]} couldn't close out ${m[2]} — the deposit is lost.`],
 ];
 // Sounds are no longer fired off the log scan (that played them all at once at round start, and ahead
@@ -308,7 +309,7 @@ function surfaceNewOutcomes() {
     // The Slick Lawyer showcase: whoever plays one, EVERY client reveals the (forced) animation.
     const law = /🧑‍⚖️ (.+?) plays a Slick Lawyer/.exec(log[i]);
     if (law) enqueuePopup({ kind: "card", cardId: "slick_lawyer", art: "slick_lawyer", name: "Slick Lawyer", forceAnim: true, flavor: "Objection!", text: `${law[1]} brings in the Slick Lawyer.` }); // its gavel plays on display
-    for (const [re, title, body, art] of ALERTS) { const m = re.exec(log[i]); if (m) { enqueuePopup({ kind: "alert", title, body: body(m), art: art ?? null }); break; } } // the alert's sting plays on display (soundForPopup), not here — so a skipped one is silent
+    for (const [re, title, body, art] of ALERTS) { const m = re.exec(log[i]); if (m) { const dyn = typeof art === "function" ? art(m) : null; enqueuePopup(dyn ? { kind: "alert", title, body: body(m), artKind: dyn.kind, artId: dyn.id } : { kind: "alert", title, body: body(m), art: art ?? null }); break; } } // the alert's sting plays on display (soundForPopup), not here — so a skipped one is silent
   }
   lastScanned = log.length;
   surfaceDeckEvents();
