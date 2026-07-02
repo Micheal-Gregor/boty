@@ -205,6 +205,7 @@ export function closeEntity() { push({ entityCard: null }); }
 // --- The pop-up QUEUE (E5 §2): modals shown one at a time, in order, easy close/next. ----------
 let lastRoundShown = 0;
 let firstRollShown = false; // the opening "who goes first" dice reveal — shown once per game
+let reckIntroShown = false; // the Last Licks intro — shown once per game (enter on the trigger client, resume on the others)
 function enqueuePopup(p) { flow("popup", { kind: p?.kind, name: p?.name ?? p?.title ?? null, who: p?.who ?? p?.rival ?? null }); ui.update((v) => ({ ...v, rev: v.rev + 1, popups: [...v.popups, p] })); }
 
 // The opening dice ceremony: a d6 was re-rolled until it landed on a seated player (the engine did this
@@ -466,6 +467,7 @@ function viewOf() {
     season: seasonFor({ turn: s.turn, economy, flavor }),
     players: s.players.map((p) => ({
       id: p.id, name: p.name, service: p.service, cash: p.cash, bankrupt: p.bankrupt, building: p.building, capacityBonus: p.capacityBonus ?? 0, bbbThisTurn: !!p.bbbThisTurn, pendingExpansion: p.pendingExpansion ? { ...p.pendingExpansion } : null,
+      drewThisTurn: (p.drewThisTurn ?? []).map((d) => ({ ...d })), // online Fortune tab reads this (replay loses the turn ctx)
       tradesmen: p.tradesmen.map((t) => {
         const tool = p.equipment.find((e) => e.assigned_to === t.id);
         return { ...t, productivity: workerProductivity(economy, p, t.id), tool: tool ? findEquipment(economy, tool.defId).name : null };
@@ -662,6 +664,7 @@ function buildOnlineGame(row) {
   // every remote sync that rebuilt the game re-fired the round-1 card and re-scanned the whole log.
   lastRoundShown = moves.length ? realGame.state.turn : realGame.state.turn - 1;
   lastScanned = moves.length ? log.length : 0;
+  if (!moves.length) reckIntroShown = false; // fresh game → the Last Licks intro is allowed to fire again
   // Self-heal: if the row's active_seat doesn't match the engine's real lead (e.g. a game started
   // before the first-player roll, or any drift), the host corrects it so the true active player can write.
   if (isHostClient && row.active_seat !== realGame.state.activePlayerIndex) {
@@ -867,7 +870,7 @@ export function newGame(seats, difficulty = "standard") {
   ai = {};
   declinedDamages.clear();
   dealTownlife(); // secretly deal this game's 6-of-12-per-season story of Maple Hollow
-  lastScanned = 0; lastRoundShown = 0; firstRollShown = false;
+  lastScanned = 0; lastRoundShown = 0; firstRollShown = false; reckIntroShown = false;
   game.state.players.forEach((p, i) => { ai[p.id] = seats[i].strategy ?? null; });
   game.state.humanIds = game.state.players.filter((p) => !ai[p.id]).map((p) => p.id); // human seats DEFER contract routing to a modal
   const ctx = game.start();
@@ -1233,7 +1236,7 @@ async function advanceUntilHuman(initialCtx) {
   // Online: the host has only been DRIVING the AI. The human now up runs their own turn — surface
   // their decisions on THEIR client (this one if it's the host's turn; otherwise the remote client
   // does it via syncFromRow). Stop here; no host-side turn-start ceremony for a remote player.
-  if (online) { push({ aiActing: null }); surfaceDecisionsAfterReveal(); return; }
+  if (online) { push({ aiActing: null }); surfaceNewOutcomes(); surfaceDecisionsAfterReveal(); return; } // surface what resolved during the rivals' round + your upkeep (e.g. a completed move-in) NOW, not on your next click
   enqueueTurnStart(lastCtx); // the human is up — round intro + summary + card reveals
   push({ aiActing: null, ctx: lastCtx, error: null });
   // STACK RULES: read every card you drew FIRST (the Resolve reveals), THEN the response windows
@@ -1363,8 +1366,16 @@ let reckon = null; // { order, idx }
 // next solvent HUMAN seat (recorded, so every client stays in lockstep, bots skipped); each seat's own
 // client takes its licks and passes it on. Whoever hits year-end kicks off the first step; the others
 // join via syncFromRow → resumeReckoning. (order arg is legacy — the order now lives in engine state.)
+// Show the Last Licks intro once per game — on the client that hits year-end (enterReckoning) and on
+// each client that syncs into it (resumeReckoning). enqueuePopup renders over the reckoning screen.
+function showReckoningIntro() {
+  if (reckIntroShown) return;
+  reckIntroShown = true;
+  enqueuePopup({ kind: "reckoning" });
+}
 function enterReckoning() {
   reckon = { active: true };
+  showReckoningIntro();
   push({ screen: "reckoning", reckoning: reckon, aiActing: null });
   stepReckoning(); // advance to the first human seat
 }
@@ -1374,6 +1385,7 @@ function enterReckoning() {
 function resumeReckoning() {
   flow("reckResume", { seat: mySeat, active: game?.state?.activePlayerIndex, reckIdx: game?.state?.reckoningIdx });
   reckon = { active: true };
+  showReckoningIntro();
   push({ screen: "reckoning", reckoning: reckon, aiActing: null });
 }
 
@@ -1400,6 +1412,7 @@ export function reckoningDone() {
 export function restart() {
   game = null;
   declinedDamages.clear();
+  if (online) { quitToMenu(); return; } // after an online game, go to the MAIN MENU (leave the room) — not the local "play this device" setup
   push({ screen: "setup", ctx: null, final: null, threat: null, picking: null, reckoning: null, aiActing: null, error: null, court: null, damages: null, settle: null, cardView: null });
 }
 

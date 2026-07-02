@@ -91,6 +91,12 @@
         <h2>{p.title}</h2>
         <p class="pop-effect">{$cashText(p.body)}</p>
 
+      {:else if p.kind === "reckoning"}
+        <div class="pop-art"><Art kind="card" id="gala_setup" label="The hall is set for the Gala" autoplay /></div>
+        <h2>🎉 Last Licks — the year is closing</h2>
+        <p class="pop-flavor">The work's done and the Better Business Bureau is dressing the hall for the Business of the Year gala. Time for one last play.</p>
+        <p class="pop-effect">Each shop gets <strong>one final turn</strong>. No new jobs — but you can still <strong>Rush</strong> or <strong>Buy Time</strong> a job, call in a <strong>Favor</strong> (or ⚔️ Sabotage a rival), and <strong>Sue</strong> to collect a debt. When everyone's had their licks, the books close and the winner's crowned.</p>
+
       {:else if p.kind === "card"}
         {#if p.who}<div class="pop-rival">{p.isAi ? "🤖" : "👤"} {p.who} drew — not your card:</div>{:else if p.rival}<div class="pop-rival">🤖 {p.rival} drew:</div>{/if}
         <div class="pop-art" class:others={p.who}><Art kind="card" id={p.art ?? p.cardId} label={p.name} autoplay={p.forceAnim || $settings.animateCards} /></div>

@@ -640,6 +640,7 @@ export class Game {
     const ap = debtor.payables.find((a) => a.id === payableId);
     if (!ap || ap.is_npc || ap.creditor_id !== creditor.id) throw new GameError(`No suable player-payable "${payableId}" owed to ${creditor.name}`);
     if (!ap.sue_window_remaining || ap.sue_window_remaining <= 0) throw new GameError(`The sue window on ${payableId} is closed`);
+    ap.sue_window_remaining = 0; // filing spends your one shot at this debt — win or LOSE, you can't re-sue it (no double jeopardy)
 
     let creditorLawyers = 0;
     if (opts.slick) { cards.playLawyer(this.state, creditor); creditorLawyers = 1; }
