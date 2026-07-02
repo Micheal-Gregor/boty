@@ -1,6 +1,7 @@
 <script>
   import { ui, respond } from "../lib/store.js";
   import { money } from "../lib/money.js";
+  import Art from "./Art.svelte";
   const t = $derived($ui.threat);
 </script>
 
@@ -9,6 +10,7 @@
     <div class="modal threat">
       {#if t.type === "sabotage"}
         <h2>⚔️ {t.targetName}, you're being sabotaged!</h2>
+        <div class="threat-art"><Art kind="card" id="sabotage" label="Sabotage" autoplay /></div>
         <p>Your <strong>{t.jobName}</strong> is under attack — a word to the inspector, a bolt left loose.</p>
         <div class="row">
           <button disabled={!t.canCounter} onclick={() => respond({ counter: true })}>🛡️ Counter with Rush</button>
@@ -39,3 +41,7 @@
     </div>
   </div>
 {/if}
+
+<style>
+  .threat-art { max-width: 260px; margin: 8px auto 4px; border-radius: 10px; overflow: hidden; line-height: 0; }
+</style>

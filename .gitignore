@@ -19,6 +19,14 @@ npm-debug.log*
 test-results/
 playwright-report/
 
+# A separate PHP project ("American Checkers") got dropped into the sound assets by mistake —
+# it's 143 non-game files (composer/phpunit/vendor). Never commit or ship it. Move it out of the repo.
+apps/web/src/assets/sound/sfx/American Checkers/
+
+# Secrets/credentials notes — never commit these to the repo.
+Site Keys.txt
+*Site Keys*.txt
+
 # OS / editor
 .DS_Store
 Thumbs.db
