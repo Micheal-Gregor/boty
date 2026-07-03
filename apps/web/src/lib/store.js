@@ -293,8 +293,9 @@ const ALERTS = [
   [/🏛️ civic project "(.+?)" delivered/, "🏛️ Civic job delivered", (m) => `${m[1]} was delivered — favours earned.`],
   [/🌐 Town labor union grips/, "🪙 Union drive", () => `The trades unionised — every firing is far riskier now (+2 to their odds). A Favor busts it.`, "union_drive"],
   [/⚖️ (.+?) fired .+? SUED AND WON/, "⚖️ Wrongful termination", (m) => `${m[1]} fired a worker who sued and won — a costly payout on the books.`],
-  [/^⚖️ (.+?(?:WINS|WALKS).+)$/, "⚖️ Court verdict", (m) => m[1]], // a sue/damages suit is decided — surface the outcome
-  [/🌐 (.+?) grips Maple Hollow/, "🌐 Town penalty", (m) => `${m[1]} — a town-wide levy now hits every shop in Maple Hollow.`],
+  [/^⚖️ (.+?(?:WINS|WALKS).+)$/, "⚖️ Court verdict", (m) => m[1], "courthouse_day"], // a sue/damages suit is decided — surface the outcome, under the courthouse
+  [/🌐 (.+?) grips Maple Hollow/, "🌐 Town penalty", (m) => `${m[1]} — a town-wide levy now hits every shop in Maple Hollow.`,
+    (m) => { const g = game?.state?.globalEffects?.find((e) => e.name === m[1]); return g?.art ? { kind: "card", id: g.art } : null; }], // show the levy's own image (storm / opera scandal / firehouse / hospital)
   [/🏗️ (.+?) moved into (.+?) \(from/, "🏗️ Moved in", (m) => `${m[1]} finished readying and moved into ${m[2]}.`,
     (m) => { const mv = game?.state?.players?.find((p) => p.name === m[1]); return mv ? { kind: `shop/${artSlug(mv.service)}`, id: mv.building } : null; }], // show the NEW shop image
   [/⚠ (.+?) couldn't cover the .* balance on (.+?) —/, "⚠ Move forfeited", (m) => `${m[1]} couldn't close out ${m[2]} — the deposit is lost.`],
