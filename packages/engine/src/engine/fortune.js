@@ -274,7 +274,7 @@ export function resolveCard(state, player, card) {
       // headcount is unchanged, but it's a churn cost and the replacement is idle — any job the
       // retiree was on loses a worker. A penalty that grows in nuisance the more crews you run.
       if (player.tradesmen.length === 0) return { type: "retirement", name: card.name, text: "no staff to retire" };
-      const retiree = player.tradesmen[0];
+      const retiree = player.tradesmen[Math.floor(state.rng() * player.tradesmen.length)]; // a RANDOM worker retires, not always the first
       releaseTradesman(state, player, retiree.id);
       for (const e of player.equipment) if (e.assigned_to === retiree.id) e.assigned_to = null; // free their tool — else it looks taken by a ghost
       player.tradesmen = player.tradesmen.filter((t) => t.id !== retiree.id);

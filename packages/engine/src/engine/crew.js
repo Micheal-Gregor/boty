@@ -9,16 +9,21 @@ import { bearLoss } from "./modifiers.js";
 import { releaseTradesman, isSidelined } from "./jobs.js";
 import { injectById } from "./livingdeck.js";
 
-/** Pick a worker to hit: an idle, available one first, else any available one. */
-function pickWorker(player, turn) {
-  const avail = player.tradesmen.filter((t) => !isSidelined(t, turn));
-  return avail.find((t) => t.assignedJob == null) ?? avail[0] ?? null;
+/** Pick a worker to hit — RANDOMLY (via the seeded, replay-safe state.rng), not always the first.
+ *  Prefers an idle worker so an event doesn't needlessly pull someone off a job, but randomises the
+ *  choice within that group; falls back to a random available worker. */
+function pickWorker(state, player) {
+  const avail = player.tradesmen.filter((t) => !isSidelined(t, state.turn));
+  if (!avail.length) return null;
+  const idle = avail.filter((t) => t.assignedJob == null);
+  const pool = idle.length ? idle : avail;
+  return pool[Math.floor(state.rng() * pool.length)];
 }
 
 /** Resolve a drawn crew event against the player. Returns a summary (for the Fortune feed). */
 export function applyCrewEvent(state, player, card) {
   const turn = state.turn;
-  const t = pickWorker(player, turn);
+  const t = pickWorker(state, player);
   if (!t) return { type: "crew", name: card.name, text: "no crew on hand to affect" };
 
   if (card.effect === "sideline" || card.effect === "injury") {
