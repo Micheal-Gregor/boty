@@ -1,5 +1,5 @@
 <script>
-  import { backToMenu } from "../lib/store.js";
+  import { backToMenu, startTutorial } from "../lib/store.js";
   import Shell from "./Shell.svelte";
 
   const faqs = [
@@ -18,6 +18,13 @@
   <div class="page">
     <button class="back" onclick={backToMenu}>← Menu</button>
     <h1>How to Play &amp; FAQ</h1>
+    <div class="tut-cta">
+      <div>
+        <strong>New here? Take the tutorial.</strong>
+        <p>A short, guided 6-round solo run — hire a crew, work a job, pay your bills, and reach the Gala, with a coach walking you through each step.</p>
+      </div>
+      <button class="tut-btn" onclick={startTutorial}>🎓 Start Tutorial</button>
+    </div>
     {#each faqs as [q, a]}
       <section class="qa"><h2>{q}</h2><p>{a}</p></section>
     {/each}
@@ -29,6 +36,11 @@
   .back { background: none; border: 1px solid var(--line, #2a2f3a); color: var(--muted, #9aa0aa); border-radius: 8px; padding: 6px 12px; cursor: pointer; margin-bottom: 12px; }
   .back:hover { color: var(--accent, #e0b341); border-color: var(--accent, #e0b341); }
   h1 { margin: 0 0 16px; }
+  .tut-cta { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; margin: 0 0 20px; padding: 14px 16px; background: rgba(224,179,65,0.10); border: 1px solid var(--accent, #e0b341); border-radius: 12px; }
+  .tut-cta > div { flex: 1 1 240px; }
+  .tut-cta strong { color: var(--accent, #e0b341); }
+  .tut-cta p { margin: 4px 0 0; color: #cdd2da; font-size: 0.9rem; line-height: 1.45; }
+  .tut-btn { flex: 0 0 auto; font-size: 1.02rem; font-weight: 800; padding: 12px 20px; border-radius: 10px; }
   .qa { margin: 0 0 16px; }
   .qa h2 { font-size: 1.05rem; margin: 0 0 4px; color: var(--accent, #e0b341); }
   .qa p { color: #cdd2da; line-height: 1.55; margin: 0; }

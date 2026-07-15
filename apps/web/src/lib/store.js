@@ -36,7 +36,7 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 export const ui = writable({
   screen: "loading", game: null, view: null, ctx: null, flavor, economy, error: null, rev: 0,
   aiActing: null, threat: null, picking: null, reckoning: null, final: null, court: null, damages: null, settle: null, estate: null, routingDecision: null,
-  cardView: null, popups: [], settingsOpen: false, flash: null, entityCard: null, handView: false, rivalView: false, assignWorker: null,
+  cardView: null, popups: [], settingsOpen: false, flash: null, entityCard: null, handView: false, rivalView: false, assignWorker: null, tutorial: null,
   rulesOpen: false, confirm: null,
 });
 
@@ -837,7 +837,7 @@ export function backToMenu() {
   push({
     screen: "menu", popups: [], dice: null, confirm: null, aiActing: null, threat: null, picking: null,
     reckoning: null, final: null, court: null, damages: null, settle: null, estate: null, routingDecision: null,
-    cardView: null, entityCard: null, handView: false, rivalView: false, rulesOpen: false, settingsOpen: false, flash: null, assignWorker: null,
+    cardView: null, entityCard: null, handView: false, rivalView: false, rulesOpen: false, settingsOpen: false, flash: null, assignWorker: null, tutorial: null,
   });
 }
 
@@ -893,6 +893,36 @@ export function newGame(seats, difficulty = "standard") {
   if (db) enqueuePopup({ kind: "deckbuilt", size: db.size, reserve: db.reserve, pool: db.pool }); // "a unique deck dealt for this game"
   advanceUntilHuman(ctx);
 }
+
+// --- Guided tutorial: a short solo run (6 rounds) with step-by-step coaching pop-ups. -----------
+const TUTORIAL_STEPS = [
+  { title: "🎓 Welcome to your shop", text: "You run a one-person trade in Maple Hollow — six short rounds to learn the ropes. Start by bringing on help: open the 🏪 Your Shop tab and tap ➕ Hire to take on a tradesperson." },
+  { title: "Take a job & assign", text: "Your Fortune deck deals work each round. Open a job in your shop and tap Assign — or open a worker and use 📌 Assign to a job. Assigned crew chip away at the work every turn." },
+  { title: "Grow & get paid", text: "Room to grow? Tap ⬆️ Upgrade (or Move → a bigger shop) for more crew capacity. When a job finishes it bills the client — that invoice (your AR) is collected for you automatically a turn or two later." },
+  { title: "Pay your bills", text: "Vendor bills (AP) come due in the Payables box — pay them before they age, or a creditor can drag you to court. Cash in on time, cash out on time: that's the whole game." },
+  { title: "Weather a shock", text: "Bad-luck cards happen. If a job falls behind, play Rush to claw back time, or Buy Time to extend a deadline — from the job's buttons or your 🃏 hand." },
+  { title: "Close the year 🏆", text: "End your turns to reach the Gala, where the Better Business Bureau names the year's most profitable shop Business of the Year. That's the goal — now go run it for real!" },
+];
+export function startTutorial() {
+  online = false; unlockAudio();
+  const tutEconomy = { ...economy, max_turns: 6 }; // a short 6-round year → straight to a mini gala (no engine changes)
+  resetIds();
+  game = new Game(tutEconomy, [{ name: "You", service: "mechanic" }], { ...decks, difficulty: "steady", seed: (Math.random() * 2 ** 32) >>> 0, rotateFirst: true });
+  game.state.flavor = flavor;
+  ai = {}; declinedDamages.clear(); dealTownlife();
+  lastScanned = 0; lastRoundShown = 0; firstRollShown = false; reckIntroShown = false;
+  game.state.humanIds = game.state.players.map((p) => p.id);
+  const ctx = game.start();
+  push({ screen: "board", ctx, tutorial: { step: 0, ...TUTORIAL_STEPS[0] }, error: null, aiActing: null, threat: null, picking: null, reckoning: null, final: null, court: null });
+  advanceUntilHuman(ctx); // solo → hands the turn straight to you
+}
+export function nextTutorial() {
+  const t = get(ui).tutorial; if (!t) return;
+  const n = t.step + 1;
+  if (n >= TUTORIAL_STEPS.length) return push({ tutorial: null });
+  push({ tutorial: { step: n, ...TUTORIAL_STEPS[n] } });
+}
+export function skipTutorial() { push({ tutorial: null }); }
 
 /** Run an engine action for the current (human) player, catching illegal moves. */
 export function act(fn) {
