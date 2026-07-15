@@ -3,7 +3,7 @@
   import Shell from "./Shell.svelte";
 </script>
 
-<Shell bg="title" label="Business of the Year">
+<Shell bg="title" label="Business of the Year" framed>
   <div class="splash">
     <p class="bbb">🎀 The Maple Hollow Better Business Bureau presents</p>
     <h1>Business of the Year</h1>

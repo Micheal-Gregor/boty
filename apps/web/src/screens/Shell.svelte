@@ -3,10 +3,12 @@
   // dark scrim, with the page content centered on top. Until you drop a background, a Maple-Hollow
   // dusk gradient stands in.
   import Art from "../components/Art.svelte";
-  let { bg = "menu", label = "Maple Hollow", loopFrom = 0, children } = $props();
+  // `framed` (loading / gala): on a wide screen, present in a centered portrait column so portrait-
+  // composed art shows in full instead of being cropped edge-to-edge. Mobile is unchanged.
+  let { bg = "menu", label = "Maple Hollow", loopFrom = 0, framed = false, children } = $props();
 </script>
 
-<section class="shell">
+<section class="shell" class:framed>
   <div class="shell-bg"><Art kind="screen" id={bg} {label} autoplay animatable={false} {loopFrom} /></div>
   <div class="shell-scrim"></div>
   <div class="shell-body">{@render children()}</div>
@@ -23,4 +25,13 @@
   .shell-bg :global(.art-slot) { position: absolute; inset: 0; width: 100%; height: 100%; border: 0; color: transparent; background: radial-gradient(120% 100% at 50% 0%, #2a3550 0%, #161a22 55%, #0d0f14 100%); }
   .shell-scrim { position: fixed; inset: 0; z-index: 1; pointer-events: none; background: linear-gradient(180deg, rgba(0,0,0,0.35), rgba(0,0,0,0.65)); }
   .shell-body { position: relative; z-index: 2; margin: auto; box-sizing: border-box; width: 100%; max-width: 720px; padding: 28px 20px; }
+  /* Framed (loading / gala): on a wide screen, centre everything in a ~540px portrait column with a
+     dark surround, so portrait-composed art reads in full instead of being cropped edge-to-edge. The
+     soft shadow blends the column into the gutter. Phones (< 820px) stay full-bleed. */
+  @media (min-width: 820px) {
+    .shell.framed { background: radial-gradient(135% 100% at 50% -8%, #232c42 0%, #0d0f14 66%); }
+    .shell.framed .shell-bg, .shell.framed .shell-scrim { left: 50%; right: auto; width: min(540px, 100%); transform: translateX(-50%); }
+    .shell.framed .shell-bg { box-shadow: 0 0 80px 24px rgba(0,0,0,0.55); }
+    .shell.framed .shell-body { max-width: 540px; }
+  }
 </style>

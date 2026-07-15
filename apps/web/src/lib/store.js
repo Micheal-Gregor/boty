@@ -36,7 +36,7 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 export const ui = writable({
   screen: "loading", game: null, view: null, ctx: null, flavor, economy, error: null, rev: 0,
   aiActing: null, threat: null, picking: null, reckoning: null, final: null, court: null, damages: null, settle: null, estate: null, routingDecision: null,
-  cardView: null, popups: [], settingsOpen: false, flash: null, entityCard: null, handView: false, rivalView: false,
+  cardView: null, popups: [], settingsOpen: false, flash: null, entityCard: null, handView: false, rivalView: false, assignWorker: null,
   rulesOpen: false, confirm: null,
 });
 
@@ -201,6 +201,17 @@ function flashError(msg) {
 // --- Interactive entity cards (E5 §4): open a worker / tool / job as its action surface. -------
 export function openEntity(kind, id) { playSfx("flip", 0.3); push({ entityCard: { kind, id } }); }
 export function closeEntity() { push({ entityCard: null }); }
+
+// Worker-first assignment: pick a tradesperson, then tap a job to place THEM on it (control over which
+// worker goes where). startAssignWorker closes the card + arms the mode; the Shop highlights the jobs
+// with an open slot and routes a tap to placeWorkerOnJob.
+export function startAssignWorker(workerId) { closeEntity(); push({ assignWorker: workerId }); }
+export function placeWorkerOnJob(jobId) {
+  const wid = get(ui).assignWorker; if (!wid) return;
+  act((g) => g.assignJob(jobId, wid)); // the specific worker → this job
+  push({ assignWorker: null });
+}
+export function cancelAssignWorker() { push({ assignWorker: null }); }
 
 // --- The pop-up QUEUE (E5 §2): modals shown one at a time, in order, easy close/next. ----------
 let lastRoundShown = 0;
@@ -826,7 +837,7 @@ export function backToMenu() {
   push({
     screen: "menu", popups: [], dice: null, confirm: null, aiActing: null, threat: null, picking: null,
     reckoning: null, final: null, court: null, damages: null, settle: null, estate: null, routingDecision: null,
-    cardView: null, entityCard: null, handView: false, rivalView: false, rulesOpen: false, settingsOpen: false, flash: null,
+    cardView: null, entityCard: null, handView: false, rivalView: false, rulesOpen: false, settingsOpen: false, flash: null, assignWorker: null,
   });
 }
 

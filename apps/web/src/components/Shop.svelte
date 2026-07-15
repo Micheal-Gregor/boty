@@ -1,5 +1,5 @@
 <script>
-  import { ui, act, startPick, playSue, openEntity, openConfirm, confirmSell, confirmFire, confirmDispose, sueDamagesUI, offerSettlementUI, respondSettlementUI, favorDropSuitUI } from "../lib/store.js";
+  import { ui, act, startPick, playSue, openEntity, openConfirm, confirmSell, confirmFire, confirmDispose, sueDamagesUI, offerSettlementUI, respondSettlementUI, favorDropSuitUI, placeWorkerOnJob, cancelAssignWorker } from "../lib/store.js";
   import { money } from "../lib/money.js";
   import { findBuilding, findEquipment, SERVICES } from "@boty/engine";
   import { crewIdentity } from "../lib/crew.js";
@@ -23,6 +23,9 @@
   );
 
   const canAssign = (j) => ["Queued", "OnHold", "Active"].includes(j.state) && j.assigned_tradesmen.length < j.max_tradesmen && idle > 0;
+  // Worker-first assign mode: any job with an open slot is a valid target for the picked worker.
+  const hasOpenSlot = (j) => ["Queued", "OnHold", "Active"].includes(j.state) && j.assigned_tradesmen.length < j.max_tradesmen;
+  const assigningName = $derived($ui.assignWorker ? crewIdentity($ui.assignWorker).name : null);
   const canSell = (j) => !j.hirer_id && j.droppable && (j.state === "Queued" || j.state === "OnHold"); // sticky jobs (Boon) can't be sold
   const reqs = (j) => [
     j.required_equipment ? `needs ${j.required_equipment}` : null,
@@ -170,10 +173,15 @@
       <span class="sortbar">sort:{#each jobSortOpts as [val, label]}<button class="sort-btn" class:on={jobSort === val} onclick={() => (jobSort = val)}>{label}</button>{/each}</span>
     {/if}
   </h3>
+  {#if $ui.assignWorker}
+    <div class="assign-banner">📌 Placing <strong>{assigningName}</strong> — tap a highlighted job
+      <button class="mini" onclick={cancelAssignWorker}>Cancel</button>
+    </div>
+  {/if}
   <div class="jobs">
     {#each sortedJobs as j (j.id)}
-      <div class="card job">
-        <button class="thumb" onclick={() => openEntity("job", j.id)}>
+      <div class="card job" class:assign-target={$ui.assignWorker && hasOpenSlot(j)} class:assign-dim={$ui.assignWorker && !hasOpenSlot(j)}>
+        <button class="thumb" onclick={() => ($ui.assignWorker ? (hasOpenSlot(j) && placeWorkerOnJob(j.id)) : openEntity("job", j.id))}>
           <div class="card-name">{j.name} <span class="state">[{j.state}]</span>{#if j.readying} <span class="routed">🏗️ fit-out</span>{:else if j.project_id} <span class="routed">🏛️ project phase</span>{:else if j.political} <span class="routed">🏛️ civic</span>{:else if j.hirer_id} <span class="routed">⇄ contract</span>{/if}</div>
           <div class="bar"><div class="fill" style="width:{Math.min(100, (100 * j.work_done) / j.work_amount)}%"></div></div>
           <div class="muted">
@@ -342,6 +350,12 @@
   .line.aged.pending .when { color: #6f93c9; font-style: italic; }
   .defect-card { border-left: 3px solid #e0564b; }
   .slot .mini { margin-top: 4px; width: 100%; }
+  /* Worker-first assign mode: banner + highlight the jobs with an open slot, dim the rest. */
+  .assign-banner { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin: 4px 0 8px; padding: 8px 10px; background: rgba(224,179,65,0.14); border: 1px solid var(--accent, #e0b341); border-radius: 8px; font-size: 0.9em; }
+  .assign-banner .mini { margin-left: auto; }
+  .card.job.assign-target { border-color: var(--accent, #e0b341); box-shadow: 0 0 0 2px rgba(224,179,65,0.35); cursor: pointer; }
+  .card.job.assign-target .thumb { cursor: pointer; }
+  .card.job.assign-dim { opacity: 0.4; }
   .slots .add { align-self: center; padding: 8px 12px; }
   .buy-col { display: flex; flex-direction: column; gap: 4px; justify-content: center; }
   .cardlist { display: flex; flex-direction: column; gap: 5px; }

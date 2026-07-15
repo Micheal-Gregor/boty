@@ -12,7 +12,7 @@
   let tab = $state("winner");
 </script>
 
-<Shell bg="gala" label="Award night" loopFrom={6}>
+<Shell bg="gala" label="Award night" loopFrom={6} framed>
   <section class="gala">
   <h1>🏆 The {award} Gala</h1>
   <p class="muted">{final.bureau ?? "The Better Business Bureau"} reviews the year's open books…</p>

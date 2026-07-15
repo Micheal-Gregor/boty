@@ -1,5 +1,5 @@
 <script>
-  import { ui, act, closeEntity, confirmFire, confirmDispose, confirmSell, playFavor } from "../lib/store.js";
+  import { ui, act, closeEntity, confirmFire, confirmDispose, confirmSell, playFavor, startAssignWorker } from "../lib/store.js";
   import { money } from "../lib/money.js";
   import { findEquipment } from "@boty/engine";
   import { crewIdentity } from "../lib/crew.js";
@@ -50,6 +50,8 @@
   const workScore = (j) => j.assigned_tradesmen.reduce((s, tid) => s + (me.tradesmen.find((t) => t.id === tid)?.productivity ?? 0), 0);
   const sellPrice = (j) => Math.max(1, Math.floor(j.value * econ.sell_rate));
   const canAssignJob = (j) => ["Queued", "OnHold", "Active"].includes(j.state) && j.assigned_tradesmen.length < j.max_tradesmen && freeWorkers.length > 0;
+  // Jobs with an open crew slot — for the worker-first "assign to a job" flow.
+  const openSlotJobs = $derived(me ? me.jobs.filter((j) => ["Queued", "OnHold", "Active"].includes(j.state) && j.assigned_tradesmen.length < j.max_tradesmen) : []);
 
   function go(fn) { picking = false; act(fn); }
 </script>
@@ -80,6 +82,9 @@
           </div>
         {/if}
         <div class="ent-actions">
+          {#if worker.assignedJob == null && !sidelined(worker) && openSlotJobs.length > 0}
+            <button class="cta" onclick={() => startAssignWorker(worker.id)}>📌 Assign to a job</button>
+          {/if}
           <button onclick={() => (picking = !picking)}>🔧 Assign equipment</button>
           {#if worker.tool}<button onclick={() => go((g) => g.unassignEquipment(me.equipment.find((e) => e.assigned_to === worker.id).id))}>Unassign</button>{/if}
           <button class="hostile" onclick={() => confirmFire(worker.id)}>Fire</button>
