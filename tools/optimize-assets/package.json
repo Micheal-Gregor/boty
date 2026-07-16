@@ -1,0 +1,12 @@
+{
+  "name": "boty-optimize-assets",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Reusable batch image/video compressor (sharp + ffmpeg-static). Walks a folder, downsizes + re-encodes PNG/JPG→WebP and shrinks MP4, in place, with a dry-run size report.",
+  "bin": { "optimize-assets": "optimize.mjs" },
+  "dependencies": {
+    "sharp": "^0.33.5",
+    "ffmpeg-static": "^5.2.0"
+  }
+}
