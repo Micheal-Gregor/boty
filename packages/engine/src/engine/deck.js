@@ -18,16 +18,20 @@ export function makeRng(seed = (Math.random() * 2 ** 32) >>> 0) {
 export class Deck {
   // `refill` (Model 2): the held-out reserve + a fresh spine, dealt as the SECOND deck the first time
   // the starting deck runs dry — so the rare reshuffle brings in cards held out of the first pass.
-  constructor(cards, rng = makeRng(), refill = null) {
+  // `ordered` (the tutorial's stacked deck): draw in the exact source order, never shuffled — so a
+  // scripted lesson deals its cards in the sequence the author chose.
+  constructor(cards, rng = makeRng(), refill = null, ordered = false) {
     this.source = [...cards];
     this.refill = refill && refill.length ? [...refill] : null;
     this.rng = rng;
+    this.ordered = ordered;
     this.pile = [];
     this.reshuffle();
   }
 
   reshuffle() {
     this.pile = [...this.source];
+    if (this.ordered) { this.pile.reverse(); return; } // draw() pops from the end → yields source order
     // Fisher–Yates with the injected rng.
     for (let i = this.pile.length - 1; i > 0; i--) {
       const j = Math.floor(this.rng() * (i + 1));

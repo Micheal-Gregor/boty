@@ -204,10 +204,14 @@ export function createGame(economy, playerSeeds, options = {}) {
   // Deal ONE unique deck for this game from the master pool — the same composition for everyone (fair),
   // built once with the game seed. Then each player shuffles their OWN copy, so every seat starts from
   // a unique order. The held-out reserve (+ a fresh spine) refills the rare 2nd pass (Model 2).
-  const built = buildGameDeck(fortuneCards, undefined, economy.deck_size ?? 60, makeRng(seed === undefined ? undefined : seed + 100));
-  const refill = built.reserve.length ? [...built.reserve, ...built.spine] : null;
+  // `scriptedDeck` (the tutorial): a fixed, ordered list dealt in author order, never shuffled, no
+  // refill. Otherwise deal the normal unique-per-game shuffled composition.
+  const built = options.scriptedDeck
+    ? { deck: options.scriptedDeck, reserve: [], spine: [] }
+    : buildGameDeck(fortuneCards, undefined, economy.deck_size ?? 60, makeRng(seed === undefined ? undefined : seed + 100));
+  const refill = (!options.scriptedDeck && built.reserve.length) ? [...built.reserve, ...built.spine] : null;
   players.forEach((p, i) => {
-    p.deck = new Deck(built.deck, makeRng(seed === undefined ? undefined : seed + i), refill);
+    p.deck = new Deck(built.deck, makeRng(seed === undefined ? undefined : seed + i), refill, !!options.scriptedDeck);
   });
 
   // Difficulty (Stage 8): the tier sets the word-of-mouth odds (read live off state.difficulty) and a

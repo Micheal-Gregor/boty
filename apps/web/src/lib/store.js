@@ -268,6 +268,7 @@ function enqueueTurnStart(ctx) {
     enqueuePopup({ kind: "card", cardId: d.cardId, art: d.art ?? null, name: d.name, flavor: d.flavor, text: d.text, rule: ruleFor(def), routing: d.routing ?? null, ownContract: true });
     if (d.drawnCard) enqueuePopup({ kind: "card", cardId: d.drawnCard.cardId, art: d.drawnCard.cardId, name: d.drawnCard.name, flavor: d.drawnCard.flavor, text: d.drawnCard.text }); // the drawn civil event, as its own card
   }
+  enqueueTutorialStep(); // tutorial: this round's coaching card goes LAST — surfaces after the draws clear
 }
 
 // Rule explainers — fire for the cards that carry a special rule (E5 §5); the self-evident ones
@@ -678,6 +679,7 @@ function buildOnlineGame(row) {
   lastRoundShown = moves.length ? realGame.state.turn : realGame.state.turn - 1;
   lastScanned = moves.length ? log.length : 0;
   if (!moves.length) reckIntroShown = false; // fresh game → the Last Licks intro is allowed to fire again
+  tutorialMode = false; // an online game is never the tutorial
   // Self-heal: if the row's active_seat doesn't match the engine's real lead (e.g. a game started
   // before the first-player roll, or any drift), the host corrects it so the true active player can write.
   if (isHostClient && row.active_seat !== realGame.state.activePlayerIndex) {
@@ -832,7 +834,7 @@ export function enterApp() { unlockAudio(); playMusic("intro", 0.3); push({ scre
 /** Back to the main menu (intro theme resumes). Force-closes EVERY overlay/pop-up/window first so
  *  nothing left open in the game bleeds onto the menu (or the next game). */
 export function backToMenu() {
-  diceState = null; confirmCb = confirmAltCb = null; // drop any in-flight dice / confirm callbacks
+  diceState = null; confirmCb = confirmAltCb = null; tutorialMode = false; // drop any in-flight dice / confirm callbacks; leave tutorial mode
   playMusic("intro", 0.3);
   push({
     screen: "menu", popups: [], dice: null, confirm: null, aiActing: null, threat: null, picking: null,
@@ -871,7 +873,7 @@ const handHas = (p, type) => p.hand.some((c) => c.type === type);
 
 /** Start a new game. seats: [{ name, service, strategy|null }]. difficulty: steady|standard|cutthroat. */
 export function newGame(seats, difficulty = "standard") {
-  online = false; // a local/hotseat game — not the online transport
+  online = false; tutorialMode = false; // a local/hotseat game — not the online transport, not the tutorial
   unlockAudio(); // the Start click is our user gesture — lets the browser make sound
   game = new Game(economy, seats.map((s) => ({ name: s.name, service: s.service })), {
     ...decks,
@@ -894,35 +896,45 @@ export function newGame(seats, difficulty = "standard") {
   advanceUntilHuman(ctx);
 }
 
-// --- Guided tutorial: a short solo run (6 rounds) with step-by-step coaching pop-ups. -----------
-const TUTORIAL_STEPS = [
-  { title: "🎓 Welcome to your shop", text: "You run a one-person trade in Maple Hollow — six short rounds to learn the ropes. Start by bringing on help: open the 🏪 Your Shop tab and tap ➕ Hire to take on a tradesperson." },
-  { title: "Take a job & assign", text: "Your Fortune deck deals work each round. Open a job in your shop and tap Assign — or open a worker and use 📌 Assign to a job. Assigned crew chip away at the work every turn." },
-  { title: "Grow & get paid", text: "Room to grow? Tap ⬆️ Upgrade (or Move → a bigger shop) for more crew capacity. When a job finishes it bills the client — that invoice (your AR) is collected for you automatically a turn or two later." },
-  { title: "Pay your bills", text: "Vendor bills (AP) come due in the Payables box — pay them before they age, or a creditor can drag you to court. Cash in on time, cash out on time: that's the whole game." },
-  { title: "Weather a shock", text: "Bad-luck cards happen. If a job falls behind, play Rush to claw back time, or Buy Time to extend a deadline — from the job's buttons or your 🃏 hand." },
-  { title: "Close the year 🏆", text: "End your turns to reach the Gala, where the Better Business Bureau names the year's most profitable shop Business of the Year. That's the goal — now go run it for real!" },
+// --- Guided tutorial: a short solo run over a STACKED (scripted, ordered) deck — one card dealt per
+// round in this exact sequence — with a MODAL coaching card each round, shown only AFTER that round's
+// draw pop-ups clear (so new players read it) and closable ONLY by its button. Edit this array to
+// re-stack the lesson: `card` is the Fortune card id dealt that round; the deck + round count follow it.
+const TUTORIAL_SCRIPT = [
+  { card: "small_business_grant", title: "🎓 Welcome — hire your first crew", text: "You run a one-person shop in Maple Hollow, and you just landed a small-business grant. First, bring on help: open the 🏪 Your Shop tab and tap ➕ Hire to take on a tradesperson." },
+  { card: "j1", title: "Take the job & assign", text: "A Service call just came in. Put your crew on it: open the job and tap Assign — or open a worker and use 📌 Assign to a job. Assigned crew chip away at the work every turn." },
+  { card: "old_client", title: "Grow & get paid", text: "An old client just settled up — that's cash in (your accounts receivable). Now grow: tap ⬆️ Upgrade for more crew capacity so you can take on bigger work." },
+  { card: "vendor_contract", title: "Pay your bills", text: "A vendor bill (accounts payable) is due — you'll see it in the Payables box. Pay it before it ages, or the vendor can take you to court. Cash in on time, cash out on time — that's the whole game." },
+  { card: "bad_weather", title: "Weather a shock", text: "Bad weather set you back. If a job's fallen behind its deadline, play Rush to claw back lost time, or Buy Time to extend the deadline — from the job's buttons or your 🃏 hand." },
+  { card: "tax_refund", title: "Close the year 🏆", text: "Last round! End your turn to reach the Gala, where the Better Business Bureau crowns the year's most profitable shop Business of the Year. You've got the loop now — go run it for real!" },
 ];
+let tutorialMode = false;
+let tutorialRoundShown = 0;
 export function startTutorial() {
-  online = false; unlockAudio();
-  const tutEconomy = { ...economy, max_turns: 6 }; // a short 6-round year → straight to a mini gala (no engine changes)
+  online = false; tutorialMode = true; tutorialRoundShown = 0; unlockAudio();
+  const tutEconomy = { ...economy, max_turns: TUTORIAL_SCRIPT.length, draw_cap: 1 }; // one scripted card per round → mini gala
+  const scriptedDeck = TUTORIAL_SCRIPT.map((s) => cardById.get(s.card)).filter(Boolean); // stack the lesson deck, in order
   resetIds();
-  game = new Game(tutEconomy, [{ name: "You", service: "mechanic" }], { ...decks, difficulty: "steady", seed: (Math.random() * 2 ** 32) >>> 0, rotateFirst: true });
+  game = new Game(tutEconomy, [{ name: "You", service: "mechanic" }], { ...decks, difficulty: "steady", seed: (Math.random() * 2 ** 32) >>> 0, rotateFirst: true, scriptedDeck });
   game.state.flavor = flavor;
   ai = {}; declinedDamages.clear(); dealTownlife();
   lastScanned = 0; lastRoundShown = 0; firstRollShown = false; reckIntroShown = false;
   game.state.humanIds = game.state.players.map((p) => p.id);
   const ctx = game.start();
-  push({ screen: "board", ctx, economy: tutEconomy, tutorial: { step: 0, ...TUTORIAL_STEPS[0] }, error: null, aiActing: null, threat: null, picking: null, reckoning: null, final: null, court: null });
-  advanceUntilHuman(ctx); // solo → hands the turn straight to you
+  push({ screen: "board", ctx, economy: tutEconomy, error: null, aiActing: null, threat: null, picking: null, reckoning: null, final: null, court: null });
+  advanceUntilHuman(ctx); // solo → your turn; the round's coaching card is enqueued AFTER the draws (enqueueTurnStart)
 }
-export function nextTutorial() {
-  const t = get(ui).tutorial; if (!t) return;
-  const n = t.step + 1;
-  if (n >= TUTORIAL_STEPS.length) return push({ tutorial: null });
-  push({ tutorial: { step: n, ...TUTORIAL_STEPS[n] } });
+// Queue this round's coaching card. A MODAL pop-up (button-only close): enqueued LAST at turn-start so
+// it sits behind the round card + draws and surfaces once they're dismissed.
+function enqueueTutorialStep() {
+  if (!tutorialMode || !game) return;
+  const s = game.state;
+  if (s.over || s.phase === "reckoning" || s.turn <= tutorialRoundShown || s.turn > TUTORIAL_SCRIPT.length) return;
+  tutorialRoundShown = s.turn;
+  const step = TUTORIAL_SCRIPT[s.turn - 1];
+  enqueuePopup({ kind: "tutorial", modal: true, title: step.title, text: step.text, step: s.turn, total: TUTORIAL_SCRIPT.length });
 }
-export function skipTutorial() { push({ tutorial: null }); }
+export function skipTutorial() { tutorialMode = false; ui.update((v) => ({ ...v, rev: v.rev + 1, popups: v.popups.filter((p) => p.kind !== "tutorial") })); }
 
 /** Run an engine action for the current (human) player, catching illegal moves. */
 export function act(fn) {

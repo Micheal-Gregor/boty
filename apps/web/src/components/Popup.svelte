@@ -1,5 +1,5 @@
 <script>
-  import { ui, dismissPopup, skipAITurns, soundForPopup } from "../lib/store.js";
+  import { ui, dismissPopup, skipAITurns, soundForPopup, skipTutorial } from "../lib/store.js";
   import { money, cashText } from "../lib/money.js";
   import { settings } from "../lib/settings.js";
   import { playSfx, playSting } from "../lib/sound.js";
@@ -28,8 +28,8 @@
 </script>
 
 {#if p}
-  <div class="pop-overlay" onclick={dismissPopup}>
-    <div class="pop" onclick={(e) => e.stopPropagation()}>
+  <div class="pop-overlay" class:modal={p.modal} onclick={() => { if (!p.modal) dismissPopup(); }}>
+    <div class="pop" class:tut={p.kind === "tutorial"} onclick={(e) => e.stopPropagation()}>
       {#if p.kind === "round"}
         {#if p.townlife}
           <div class="pop-art"><Art kind="townlife" id={p.townlife} label={p.season?.name} autoplay /></div>
@@ -92,6 +92,11 @@
         <h2>{p.title}</h2>
         <p class="pop-effect">{$cashText(p.body)}</p>
 
+      {:else if p.kind === "tutorial"}
+        <div class="tut-step">Tutorial · step {p.step} of {p.total}</div>
+        <h2>{p.title}</h2>
+        <p class="pop-effect">{p.text}</p>
+
       {:else if p.kind === "reckoning"}
         <div class="pop-art"><Art kind="card" id="gala_setup" label="The hall is set for the Gala" autoplay /></div>
         <h2>🎉 Last Licks — the year is closing</h2>
@@ -148,7 +153,8 @@
 
       <div class="pop-foot">
         {#if p.rival}<button class="skip-rivals" onclick={skipAITurns}>Skip rivals ▶▶</button>{/if}
-        <button class="pop-close" onclick={dismissPopup}>{more ? "Next ▶" : "Continue ▶"}</button>
+        {#if p.kind === "tutorial"}<button class="skip-rivals" onclick={() => { skipTutorial(); dismissPopup(); }}>Skip tutorial</button>{/if}
+        <button class="pop-close" onclick={dismissPopup}>{p.kind === "tutorial" ? "Got it ▶" : more ? "Next ▶" : "Continue ▶"}</button>
       </div>
     </div>
   </div>
@@ -157,6 +163,8 @@
 <style>
   .pop-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.55); display: flex; align-items: center; justify-content: center; z-index: 60; padding: 16px; }
   .pop { background: var(--panel, #161a22); border: 1px solid var(--accent, #e0b341); border-radius: 14px; padding: 18px 20px; max-width: 420px; width: 100%; max-height: 90vh; overflow-y: auto; box-shadow: 0 12px 40px rgba(0,0,0,0.5); }
+  .pop.tut { border-width: 2px; box-shadow: 0 12px 44px rgba(224,179,65,0.28); }
+  .tut-step { font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.06em; color: var(--accent, #e0b341); font-weight: 700; margin-bottom: 6px; }
   .pop h2 { margin: 0 0 6px; }
   .pop h3 { margin: 14px 0 6px; font-size: 0.95em; }
   .pop-art { margin-bottom: 10px; border-radius: 10px; overflow: hidden; text-align: center; }

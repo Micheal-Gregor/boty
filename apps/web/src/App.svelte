@@ -25,7 +25,6 @@
   import MayorModal from "./components/MayorModal.svelte";
   import ReferralModal from "./components/ReferralModal.svelte";
   import Popup from "./components/Popup.svelte";
-  import TutorialCoach from "./components/TutorialCoach.svelte";
   import EntityCard from "./components/EntityCard.svelte";
   import HandView from "./components/HandView.svelte";
   import Confirm from "./components/Confirm.svelte";
@@ -90,5 +89,4 @@
   <PoachModal />
   <MayorModal />
   <ReferralModal />
-  <TutorialCoach />
 </main>
