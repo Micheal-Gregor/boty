@@ -189,6 +189,7 @@
             {#if reqs(j)} · ⟨{reqs(j)}⟩{/if}{#if !j.droppable} · ⚲sticky{/if}
           </div>
         </button>
+        {#if !$ui.assignWorker}
         <div class="job-actions">
           {#if canAssign(j)}<button class="mini" onclick={() => act((g) => g.assignJob(j.id))}>Assign</button>{/if}
           {#if j.state === "Active"}<button class="mini" onclick={() => act((g) => g.holdJob(j.id))}>Hold</button>{/if}
@@ -199,6 +200,7 @@
           {#if handHas("rush")}<button class="mini" onclick={() => act((g) => g.playRush(j.id))}>Rush</button>{/if}
           {#if handHas("buy_time")}<button class="mini" onclick={() => act((g) => g.playBuyTime(j.id))}>Buy Time</button>{/if}
         </div>
+        {/if}
       </div>
     {:else}
       <p class="muted">No jobs in queue.</p>
