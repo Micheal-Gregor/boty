@@ -685,7 +685,7 @@ function buildOnlineGame(row) {
   }
   confirmedLen = log.length; // we built from this row, so its moves are already persisted
   startOnlineTick();         // begin the flaky-link poll/retry safety net for this game
-  push({ screen: "board", error: null, aiActing: null, threat: null, picking: null, reckoning: null, final: null, court: null }); // push fires the round-1 dice + townfolk card
+  push({ screen: "board", economy, error: null, aiActing: null, threat: null, picking: null, reckoning: null, final: null, court: null }); // push fires the round-1 dice + townfolk card (economy reset — a prior tutorial may have set the 6-round one)
   surfaceNewOutcomes();
   if (realGame.state.phase === "reckoning") { resumeReckoning(); return; } // reconnected mid Last Licks → render the live seat
   if (passStuckFoldedSeat()) return; // reconnected into a row stuck on a folded active seat — pass it
@@ -887,7 +887,7 @@ export function newGame(seats, difficulty = "standard") {
   game.state.players.forEach((p, i) => { ai[p.id] = seats[i].strategy ?? null; });
   game.state.humanIds = game.state.players.filter((p) => !ai[p.id]).map((p) => p.id); // human seats DEFER contract routing to a modal
   const ctx = game.start();
-  push({ screen: "board", ctx, error: null, aiActing: null, threat: null, picking: null, reckoning: null, final: null, court: null });
+  push({ screen: "board", ctx, economy, error: null, aiActing: null, threat: null, picking: null, reckoning: null, final: null, court: null }); // reset the display economy (a prior tutorial may have set the 6-round one)
   const fr = buildFirstRoll(); if (fr) enqueuePopup(fr); // the opening "who goes first" dice
   const db = game.state.deckBuild;
   if (db) enqueuePopup({ kind: "deckbuilt", size: db.size, reserve: db.reserve, pool: db.pool }); // "a unique deck dealt for this game"
@@ -913,7 +913,7 @@ export function startTutorial() {
   lastScanned = 0; lastRoundShown = 0; firstRollShown = false; reckIntroShown = false;
   game.state.humanIds = game.state.players.map((p) => p.id);
   const ctx = game.start();
-  push({ screen: "board", ctx, tutorial: { step: 0, ...TUTORIAL_STEPS[0] }, error: null, aiActing: null, threat: null, picking: null, reckoning: null, final: null, court: null });
+  push({ screen: "board", ctx, economy: tutEconomy, tutorial: { step: 0, ...TUTORIAL_STEPS[0] }, error: null, aiActing: null, threat: null, picking: null, reckoning: null, final: null, court: null });
   advanceUntilHuman(ctx); // solo → hands the turn straight to you
 }
 export function nextTutorial() {
