@@ -85,7 +85,10 @@ export async function refreshInvites() {
   const names = await namesFor([...new Set(rows.map((r) => r.from_user))]);
   const { data: gs } = await supabase.from("games").select("id, code, status").in("id", rows.map((r) => r.game_id));
   const game = Object.fromEntries((gs ?? []).map((g) => [g.id, g]));
-  gameInvites.set(rows.filter((r) => game[r.game_id]?.status === "lobby").map((r) => ({ id: r.id, gameId: r.game_id, code: game[r.game_id].code, fromName: names[r.from_user] ?? "a friend" })));
+  // Show invites to a LOBBY (join) or an in-progress game (return/resume) — not finished ones.
+  gameInvites.set(rows
+    .filter((r) => ["lobby", "active", "paused"].includes(game[r.game_id]?.status))
+    .map((r) => ({ id: r.id, gameId: r.game_id, code: game[r.game_id].code, status: game[r.game_id].status, fromName: names[r.from_user] ?? "a friend" })));
 }
 
 export async function inviteFriend(gameId, toUserId) {

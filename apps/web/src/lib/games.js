@@ -145,11 +145,29 @@ export async function endGame() {
 }
 
 /** Resume a game you still hold a seat in (chosen from the Resume list). Re-enters its room + transport;
- *  the store rebuilds the engine from the move log, and the host reclaims your seat on your next turn. */
+ *  the store rebuilds the engine from the move log, and the host reclaims your seat on your next turn.
+ *  When the HOST resumes, the other seated players get an auto-invite ("come back") — a badge on 👥. */
 export async function resumeGame(row) {
   if (!supabaseReady) return fail("Online play isn't configured.");
   lobbyError.set(null); lobbyNote.set(null);
   await enterGame(row);
+  const me = get(user);
+  if (me && row.host_id === me.id && (row.status === "active" || row.status === "paused")) {
+    const { data: seats } = await supabase.from("game_seats").select("user_id, is_ai").eq("game_id", row.id);
+    for (const s of (seats ?? [])) {
+      if (s.user_id && !s.is_ai && s.user_id !== me.id) {
+        // idempotent: unique (game_id, to_user) — a still-standing invite just no-ops
+        await supabase.from("game_invites").insert({ game_id: row.id, from_user: me.id, to_user: s.user_id }).then(() => {}, () => {});
+      }
+    }
+  }
+}
+
+/** Resume a game by id (used when a player clicks an in-progress "return" invite). */
+export async function resumeById(gameId) {
+  if (!supabaseReady) return;
+  const { data } = await supabase.from("games").select("*").eq("id", gameId).maybeSingle();
+  if (data) await resumeGame(data);
 }
 
 /** Replace the seat rows with a contiguous 0..n-1 set (called at Start). Keeps the engine's seat

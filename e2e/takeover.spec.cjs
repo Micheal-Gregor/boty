@@ -34,6 +34,28 @@ async function step(page) {
 }
 const atGala = (page) => page.locator("h1", { hasText: /Gala/i }).isVisible().catch(() => false);
 
+// When the HOST resumes a saved game, the other seated players get an auto "return" invite (the badge on
+// 👥 Players) so they're pinged to come back — not left to remember to check Resume themselves.
+test("host resuming a saved game auto-invites the other seated players", async ({ browser }) => {
+  const ctx = await browser.newContext();
+  await ctx.addInitScript(() => {
+    if (!localStorage.getItem("mock:tbl:games")) {
+      localStorage.setItem("mock:tbl:games", JSON.stringify([{ id: "g1", code: "MAPLE-TEST", host_id: "alice", status: "active", difficulty: "standard", active_seat: 0, state: { seed: 1, seats: [{ name: "alice", trade: "mechanic", user_id: "alice", is_ai: false }, { name: "bob", trade: "plumber", user_id: "bob", is_ai: false }], moves: [] } }]));
+      localStorage.setItem("mock:tbl:game_seats", JSON.stringify([
+        { game_id: "g1", seat: 0, user_id: "alice", display_name: "alice", trade: "mechanic", is_ai: false },
+        { game_id: "g1", seat: 1, user_id: "bob", display_name: "bob", trade: "plumber", is_ai: false },
+      ]));
+    }
+  });
+  const alice = await ctx.newPage();
+  await setup(alice, "alice"); // enter + Play Online → the Resume list shows the saved game
+  await alice.getByRole("button", { name: /resume ▶/i }).first().click();
+  await alice.waitForTimeout(1500); // let the auto-invite insert land
+
+  const invites = await alice.evaluate(() => JSON.parse(localStorage.getItem("mock:tbl:game_invites") || "[]"));
+  expect(invites.some((i) => i.to_user === "bob" && i.game_id === "g1"), "the host's resume created a return-invite for bob").toBe(true);
+});
+
 // Single active session per player: the SAME account opening the game in a second tab makes the older
 // tab read-only, so one profile's two sessions can't write the move log at once and desync the game.
 test("same account in two tabs → the older tab goes read-only", async ({ browser }) => {

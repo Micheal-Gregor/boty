@@ -1,6 +1,6 @@
 <script>
   import { backToMenu, goScreen } from "../lib/store.js";
-  import { joinByCode } from "../lib/games.js";
+  import { joinByCode, resumeById } from "../lib/games.js";
   import { myProfile, friends, friendRequests, gameInvites, leaderboard, sendFriendRequest, acceptRequest, removeFriend, dismissInvite } from "../lib/social.js";
   import Shell from "./Shell.svelte";
 
@@ -17,7 +17,11 @@
     note = error ? { err: true, msg: error } : { err: false, msg: `Request sent to ${addName}.` };
     if (!error) addName = "";
   }
-  async function joinInvite(inv) { goScreen("lobby"); await joinByCode(inv.code); dismissInvite(inv.id); }
+  async function joinInvite(inv) {
+    dismissInvite(inv.id);
+    if (inv.status === "lobby") { goScreen("lobby"); await joinByCode(inv.code); } // pre-start → join the lobby
+    else { await resumeById(inv.gameId); } // in-progress → rejoin (resume) where it left off
+  }
 </script>
 
 <Shell bg="menu" label="Players">
@@ -31,9 +35,9 @@
         <h3>📨 Game invites</h3>
         {#each $gameInvites as inv (inv.id)}
           <div class="row">
-            <span><strong>{inv.fromName}</strong> invited you ({inv.code})</span>
+            <span>{#if inv.status === "lobby"}<strong>{inv.fromName}</strong> invited you ({inv.code}){:else}<strong>{inv.fromName}</strong> reopened your game ({inv.code}) — jump back in{/if}</span>
             <span class="acts">
-              <button class="go" onclick={() => joinInvite(inv)}>Join</button>
+              <button class="go" onclick={() => joinInvite(inv)}>{inv.status === "lobby" ? "Join" : "Return"}</button>
               <button class="mini" onclick={() => dismissInvite(inv.id)}>Dismiss</button>
             </span>
           </div>
