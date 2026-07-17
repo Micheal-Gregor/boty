@@ -46,20 +46,6 @@
       <!-- Online home: host or join -->
       <h1>🌐 Play Online</h1>
 
-      {#if !loadingResume && resumable.length}
-        <div class="resume">
-          <h2>▶ Resume a game</h2>
-          <p class="muted">You've got game{resumable.length > 1 ? "s" : ""} in progress — jump back in. A stand-in has been covering your seat.</p>
-          {#each resumable as g (g.id)}
-            <button class="resume-row" disabled={$lobbyBusy} onclick={() => resumeGame(g)}>
-              <span class="rcode">{g.code}</span>
-              <span class="muted">· {cap2(g.difficulty)}{#if g.status === "paused"} · paused{/if}</span>
-              <span class="rgo">Resume ▶</span>
-            </button>
-          {/each}
-        </div>
-      {/if}
-
       <div class="cards">
         <div class="card">
           <h2>Host a game</h2>
@@ -80,6 +66,20 @@
           <button class="primary" disabled={$lobbyBusy || !code.trim()} onclick={() => joinByCode(code)}>{$lobbyBusy ? "Joining…" : "Join ▶"}</button>
         </div>
       </div>
+
+      {#if !loadingResume && resumable.length}
+        <div class="resume">
+          <h2>▶ Resume a game</h2>
+          <p class="muted">You've got game{resumable.length > 1 ? "s" : ""} in progress — jump back in. A stand-in has been covering your seat.</p>
+          {#each resumable as g (g.id)}
+            <button class="resume-row" disabled={$lobbyBusy} onclick={() => resumeGame(g)}>
+              <span class="rcode">{g.code}</span>
+              <span class="muted">· {cap2(g.difficulty)}{#if g.status === "paused"} · paused{/if}</span>
+              <span class="rgo">Resume ▶</span>
+            </button>
+          {/each}
+        </div>
+      {/if}
     {:else}
       <!-- In a lobby -->
       <h1>Lobby</h1>
@@ -153,7 +153,7 @@
   .back:hover { color: var(--accent, #e0b341); border-color: var(--accent, #e0b341); }
   h1 { margin: 0 0 16px; }
   h2 { margin: 0 0 6px; font-size: 1.1rem; }
-  .resume { background: rgba(87,201,138,0.08); border: 1px solid #3f6f56; border-radius: 14px; padding: 16px; margin-bottom: 16px; }
+  .resume { background: rgba(87,201,138,0.08); border: 1px solid #3f6f56; border-radius: 14px; padding: 16px; margin-top: 16px; }
   .resume h2 { color: #7fdca0; }
   .resume-row { display: flex; align-items: center; gap: 8px; width: 100%; margin-top: 8px; text-align: left; border-color: #3f6f56; }
   .resume-row:hover:not(:disabled) { border-color: #7fdca0; }
