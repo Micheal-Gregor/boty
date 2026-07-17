@@ -150,6 +150,39 @@ export async function fetchGameRow() {
   return error ? null : data;
 }
 
+// --- Presence (Phase 3.7): heartbeat, seat snapshot, host hand-off, resume list ---------------
+
+/** Stamp MY seat's heartbeat (last_seen = now). The store calls this every tick while in a game, so
+ *  other clients can tell I'm still connected. RLS seats_write admits my own seat. */
+export async function heartbeatSeat() {
+  const g = get(onlineGame), me = get(user); if (!g || !me) return;
+  await supabase.from("game_seats").update({ last_seen: new Date().toISOString() }).eq("game_id", g.id).eq("user_id", me.id);
+}
+
+/** Read all seats (with last_seen) for the current game — the store's presence tick uses this to decide
+ *  host election (is the host's heartbeat stale?) and AI-takeover (is the active seat absent?). */
+export async function fetchSeats() {
+  const g = get(onlineGame); if (!g) return [];
+  const { data } = await supabase.from("game_seats").select("*").eq("game_id", g.id).order("seat");
+  return data ?? [];
+}
+
+/** Ask the server to hand me the host role IF the current host's heartbeat is stale (RPC enforces it,
+ *  security-definer so RLS can't block the games.host_id rewrite). Returns the effective host_id. */
+export async function claimHost() {
+  const g = get(onlineGame); if (!g) return null;
+  const { data, error } = await supabase.rpc("claim_host", { g: g.id });
+  if (error) throw error;
+  return data;
+}
+
+/** My in-flight (active|paused) games where I hold a seat — powers the Resume list. */
+export async function myGames() {
+  if (!supabaseReady) return [];
+  const { data, error } = await supabase.rpc("my_games");
+  return error ? [] : (data ?? []);
+}
+
 // --- internals -------------------------------------------------------------------------------
 async function enterGame(game) {
   onlineGame.set(game);

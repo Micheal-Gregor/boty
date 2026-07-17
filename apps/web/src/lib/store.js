@@ -16,7 +16,7 @@ import { npcIntroFor } from "./townsfolk.js";
 import { crewIdentity } from "./crew.js";
 import { session as authSession, user as authUser } from "./auth.js";
 import { supabaseReady } from "./supabase.js";
-import { onlineGame, onlineSeats, writeGameState, replaceSeats, fetchGameRow, leaveGame } from "./games.js";
+import { onlineGame, onlineSeats, writeGameState, replaceSeats, fetchGameRow, leaveGame, heartbeatSeat, fetchSeats, claimHost } from "./games.js";
 import { flow } from "./flowlog.js";
 
 const { economy, decks, flavor } = loadContent();
@@ -602,7 +602,7 @@ function subscribeOnlineRoom() {
   });
 }
 
-function resetOnline() { online = false; realGame = null; pending = []; log = []; onlineCfg = null; mySeat = -1; isHostClient = false; hostDriving = false; confirmedLen = 0; writeInFlight = false; stopOnlineTick(); }
+function resetOnline() { online = false; realGame = null; pending = []; log = []; onlineCfg = null; mySeat = -1; isHostClient = false; hostDriving = false; confirmedLen = 0; writeInFlight = false; presenceStartedAt = 0; lastSeats = []; stopOnlineTick(); }
 
 // Online round start: when the round ticks over, FLUSH the previous round's piled-up pop-ups and
 // lead with the townfolk story card — a clean reset for the new round on every client. (Local play
@@ -659,8 +659,7 @@ function buildOnlineGame(row) {
   pending = [];
   game = recordable(realGame, pending);
   ai = {};
-  realGame.state.players.forEach((p, i) => { ai[p.id] = onlineCfg.seats[i].is_ai ? "balanced" : null; });
-  realGame.state.humanIds = realGame.state.players.filter((p) => !ai[p.id]).map((p) => p.id); // human seats DEFER contract routing to a modal
+  deriveOnlineAI(); // config-based init; re-derived after replay to fold in any taken-over (aiControlled) seats
   mySeat = onlineCfg.seats.findIndex((s) => s.user_id === me?.id);
   isHostClient = row.host_id === me?.id;
   online = true;
@@ -672,7 +671,7 @@ function buildOnlineGame(row) {
   log = [];
   const moves = row.state.moves ?? [];
   firstRollShown = moves.length > 0; // fresh game → show the dice; reconnect mid-game → skip it
-  if (moves.length) { replay(realGame, moves, 0); log = [...moves]; }
+  if (moves.length) { replay(realGame, moves, 0); log = [...moves]; deriveOnlineAI(); } // fold in seats a drop handed to the bot
   // Surfacing guards, set AFTER replay: a FRESH game (no moves) shows the round-1 card + opening reveals
   // (guards start "before" them); a RECONNECT or any rebuild mid-game must NOT replay them — otherwise
   // every remote sync that rebuilt the game re-fired the round-1 card and re-scanned the whole log.
@@ -686,6 +685,9 @@ function buildOnlineGame(row) {
     writeGameState({ state: { ...onlineCfg, moves: [...log] }, active_seat: realGame.state.activePlayerIndex });
   }
   confirmedLen = log.length; // we built from this row, so its moves are already persisted
+  presenceStartedAt = Date.now(); // start the host-election startup grace from now (this join)
+  lastSeats = [];
+  heartbeatSeat().catch(() => {}); // seed my presence immediately so others never read me as "never seen"
   startOnlineTick();         // begin the flaky-link poll/retry safety net for this game
   push({ screen: "board", economy, error: null, aiActing: null, threat: null, picking: null, reckoning: null, final: null, court: null }); // push fires the round-1 dice + townfolk card (economy reset — a prior tutorial may have set the 6-round one)
   surfaceNewOutcomes();
@@ -697,6 +699,7 @@ function buildOnlineGame(row) {
 
 function syncFromRow(row) {
   const moves = row.state?.moves ?? [];
+  isHostClient = row.host_id === get(authUser)?.id; // the row is authoritative on who hosts — tracks host hand-off
   flow("sync", { seat: mySeat, movesIn: moves.length, have: log.length, rowActive: row.active_seat, status: row.status });
   if (moves.length >= log.length) confirmedLen = Math.max(confirmedLen, log.length); // the row carries (at least) all our moves
   if (moves.length > log.length) {
@@ -710,6 +713,7 @@ function syncFromRow(row) {
       return;
     }
     log = [...moves];
+    deriveOnlineAI(); // a takeover/reclaim move may have arrived — re-derive which seats are bot-driven
     push({ aiActing: aiBanner() }); // watchers see the bots' turns too: "🤖 playing" when an AI holds the seat, else cleared
     surfaceNewOutcomes();
     if (realGame.state.over) { playSfx("chime", 0.5); playMusic("gala", 0.3); recordMyOutcome(); return push({ screen: "gala", final: finalReport() }); }
@@ -786,9 +790,108 @@ async function onlinePoll() {
       persistLog();
     }
   }
+  // Presence: heartbeat + host election + absent-seat takeover/reclaim (keeps the game alive when
+  // someone drops). Safe no-op offline or before Start (mySeat < 0). Uses the row we just pulled.
+  await presenceTick(online ? (row ?? get(onlineGame)) : null);
 }
 function startOnlineTick() { if (!onlineTick) onlineTick = setInterval(onlinePoll, 2500); }
 function stopOnlineTick() { if (onlineTick) { clearInterval(onlineTick); onlineTick = null; } }
+
+// Re-derive which seats are bot-driven from REPLAYED state, not the frozen lobby config: a seat is a
+// bot if it was configured AI (onlineCfg) OR a player dropped and the host handed it to the bot
+// (player.aiControlled — a recorded move, so every client agrees the instant they replay it). Call
+// after any replay. humanIds tracks the still-human seats (they defer contract routing to a modal +
+// take Last Licks); a taken-over seat is treated as a bot everywhere.
+function deriveOnlineAI() {
+  if (!realGame || !onlineCfg) return;
+  realGame.state.players.forEach((p, i) => { ai[p.id] = (onlineCfg.seats[i]?.is_ai || p.aiControlled) ? "balanced" : null; });
+  realGame.state.humanIds = realGame.state.players.filter((p) => !ai[p.id]).map((p) => p.id);
+}
+
+let presenceStartedAt = 0; // when this client's online session began — a startup grace before any host election
+let lastSeats = [];        // latest game_seats snapshot (with last_seen) from the presence tick; read by the drive loop
+const isFresh = (seat, ms) => !!seat?.last_seen && (Date.now() - new Date(seat.last_seen).getTime()) < ms;
+// Presence windows. Overridable via URL params (dev/E2E only — the defaults ship): a test can shrink
+// them (e.g. ?grace=1500) to exercise takeover/host-migration without waiting the real ~30-40s.
+const _qp = (typeof location !== "undefined") ? new URLSearchParams(location.search) : new URLSearchParams();
+const HB_FRESH = Number(_qp.get("hbfresh")) || 12000;    // heartbeat newer than this = the player is connected (writes every 2.5s)
+const HOST_STALE = Number(_qp.get("hoststale")) || 30000;  // host silent this long → a connected player may claim the host role
+const SEAT_GRACE = Number(_qp.get("grace")) || 40000;  // active human seat silent this long → the host hands it to the bot
+
+// Presence tick (runs inside onlinePoll every 2.5s while in a game): stamp my heartbeat, then keep the
+// game alive — elect a new host if the host went dark, and (as host) hand absent seats to the bot /
+// give them back when their player returns. Every STATE change here is still a recorded move written
+// by the single authority (the host), so lockstep stays deterministic — presence is only the trigger.
+async function presenceTick(row) {
+  if (!online || mySeat < 0) return;
+  try { await heartbeatSeat(); } catch { /* transient */ }
+  let seats;
+  try { seats = await fetchSeats(); } catch { return; }
+  if (!online || !seats.length) return;
+  lastSeats = seats; // the drive loop reads this to reclaim a returned seat at the top of its own turn
+  if (!isHostClient) { await maybeElectHost(row, seats); return; }
+  maybeTakeoverAbsentSeat(seats);
+}
+
+// Non-host: if the host's heartbeat is stale and I'm the lowest-seat CONNECTED human, claim the host
+// role (the RPC re-checks staleness server-side, so a rare double-claim self-corrects, last write wins).
+async function maybeElectHost(row, seats) {
+  if (!row || isHostClient) return;
+  // Startup grace: never elect within the first HOST_STALE window of joining. A live host heartbeats
+  // every 2.5s, so by the time this elapses it is provably fresh (or provably gone) — this is what
+  // stops the boot-time flap where a not-yet-written last_seen reads as "host stale" and a second
+  // client wrongly grabs host, leaving two hosts fighting over the write lock (the freeze).
+  if (Date.now() - presenceStartedAt < HOST_STALE) return;
+  const hostSeat = seats.find((s) => s.user_id === row.host_id);
+  if (isFresh(hostSeat, HOST_STALE)) return; // host still beating — leave it
+  const eligible = seats
+    .filter((s) => s.user_id && !s.is_ai && s.user_id !== row.host_id && isFresh(s, HB_FRESH))
+    .map((s) => s.seat);
+  eligible.push(mySeat); // I'm here by definition (I just wrote my own heartbeat)
+  if (Math.min(...eligible) !== mySeat) return; // let the lowest connected seat be the one to claim
+  try {
+    const newHost = await claimHost();
+    if (newHost && newHost === get(authUser)?.id) {
+      isHostClient = true;
+      flow("host", { claimed: true, seat: mySeat });
+      push({ aiActing: aiBanner() });
+      maybeDriveAI(); // now that I'm host, drive any bot/absent seat that was stuck
+    }
+  } catch (e) { console.warn("[online] claim_host failed:", e?.message ?? e); }
+}
+
+// Host: the active seat is a human whose player has gone silent past the grace window → hand it to the
+// bot with a RECORDED takeoverSeat move, then drive it. Generalizes passStuckFoldedSeat (which only
+// rescues a *bankrupt* active seat) to also cover a live-but-absent human seat that would otherwise
+// pin active_seat forever. Never takes over my own seat (I'm the host, present) or a configured bot.
+function maybeTakeoverAbsentSeat(seats) {
+  if (!isHostClient || !realGame || realGame.state.over || realGame.state.phase === "reckoning") return;
+  const seat = realGame.state.activePlayerIndex;
+  const p = realGame.state.players[seat];
+  if (!p || p.bankrupt || p.aiControlled || ai[p.id]) return; // already bot / folded / handled
+  if (seat === mySeat) return;                                 // that's me, and I'm here
+  const s = seats.find((x) => x.seat === seat);
+  if (!s?.user_id || s.is_ai) return;                          // only an owned human seat can be "absent"
+  if (isFresh(s, SEAT_GRACE)) return;                          // they're still here — wait for them
+  try {
+    game.takeoverSeat(seat); // recorded → every client flips this seat to AI on replay
+    deriveOnlineAI();        // reflect it locally now so maybeDriveAI will run the bot
+    flow("takeover", { seat, name: p.name });
+    push({ aiActing: aiBanner() });
+    flushMoves();            // persist the takeover move immediately
+    maybeDriveAI();          // and play the seat out as a bot
+  } catch (e) { console.warn("[online] takeover failed:", e?.message ?? e); }
+}
+
+// Has the human owner of a taken-over seat returned (fresh heartbeat)? Read from the last presence
+// snapshot. A configured CPU seat (is_ai) is never "returned" — it has no human owner to reclaim it.
+// Reclaim itself happens in the drive loop, at the TOP of the seat's own turn, where the host is the
+// sole writer — writing it from the presence tick (mid another player's turn) would race their move.
+function ownerReturned(seat) {
+  if (!onlineCfg || onlineCfg.seats[seat]?.is_ai) return false;
+  const s = lastSeats.find((x) => x.seat === seat);
+  return !!s?.user_id && isFresh(s, HB_FRESH);
+}
 
 // The "🤖 playing" banner payload when an AI holds the active seat (else null) — so watchers see the
 // bots take their turns online, not just the host. Reads the AI's draw + its recent log lines.
@@ -1218,6 +1321,12 @@ async function advanceUntilHuman(initialCtx) {
   let lastCtx = initialCtx;
   while (!game.state.over) {
     const p = game.currentPlayer;
+    // A taken-over seat whose player has RETURNED (fresh heartbeat): give it back at the top of their
+    // turn, where the host is the sole writer (no clash with the human). reclaimSeat is recorded +
+    // flushed, so once ai[] re-derives to human the loop breaks and hands them their live turn.
+    if (online && isHostClient && p.aiControlled && ownerReturned(game.state.activePlayerIndex)) {
+      try { game.reclaimSeat(game.state.activePlayerIndex); deriveOnlineAI(); flushMoves(); flow("reclaim", { seat: game.state.activePlayerIndex, name: p.name }); } catch { /* not writable now — retry next pass */ }
+    }
     if (!ai[p.id]) {
       if (!p.bankrupt) break; // a solvent human is up — hand them their turn
       // A human folded at their own upkeep. Surface their 💀 once (closing it is the last act), then

@@ -117,6 +117,31 @@ class Channel {
   _teardown() { if (this._onStorage) window.removeEventListener("storage", this._onStorage); const i = liveChannels.indexOf(this); if (i >= 0) liveChannels.splice(i, 1); }
 }
 
+// claim_host: hand me the host role IF the current host's seat heartbeat is stale (>30s) or missing —
+// mirrors the SQL RPC. Used by the two-tab E2E for host migration (a test shrinks the window via URL).
+function mockClaimHost(g) {
+  const games = readTbl("games");
+  const row = games.find((r) => r.id === g);
+  if (!row) return null;
+  const me = myId();
+  if (!row.host_id || row.host_id === me) return row.host_id ?? null;
+  const seats = readTbl("game_seats").filter((s) => s.game_id === g);
+  if (!seats.some((s) => s.user_id === me)) return row.host_id; // only a seated player may claim
+  const hostSeat = seats.find((s) => s.user_id === row.host_id);
+  const stale = !hostSeat?.last_seen || (Date.now() - new Date(hostSeat.last_seen).getTime()) > 30000;
+  if (!stale) return row.host_id;
+  row.host_id = me;
+  writeTbl("games", games, { eventType: "UPDATE", new: row });
+  return me;
+}
+
+// my_games: the caller's in-flight games (active|paused) where they hold a seat — powers Resume.
+function mockMyGames() {
+  const me = myId();
+  const mine = new Set(readTbl("game_seats").filter((s) => s.user_id === me).map((s) => s.game_id));
+  return readTbl("games").filter((r) => mine.has(r.id) && (r.status === "active" || r.status === "paused"));
+}
+
 export function makeMockSupabase() {
   const session = { user: { id: myId(), email: `${myId()}@mock.test` } };
   // Auto-seed a profile so the username prompt never blocks the E2E.
@@ -127,7 +152,12 @@ export function makeMockSupabase() {
     from: (t) => new Query(t),
     channel: () => new Channel(),
     removeChannel: (ch) => ch?._teardown?.(),
-    rpc: async () => ok(null), // record_result — no-op for the test
+    // Faithful stand-ins for the security-definer RPCs the store calls. record_result stays a no-op.
+    rpc: async (fn, args) => {
+      if (fn === "claim_host") return ok(mockClaimHost(args?.g));
+      if (fn === "my_games") return ok(mockMyGames());
+      return ok(null);
+    },
     auth: {
       getSession: async () => ok({ session }),
       onAuthStateChange: (cb) => { cb("SIGNED_IN", session); return { data: { subscription: { unsubscribe() {} } } }; },
