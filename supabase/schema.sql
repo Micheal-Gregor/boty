@@ -154,3 +154,62 @@ $$;
 
 do $$ begin alter publication supabase_realtime add table public.game_invites; exception when duplicate_object then null; end $$;
 do $$ begin alter publication supabase_realtime add table public.friendships;  exception when duplicate_object then null; end $$;
+
+-- ============================================================================
+-- BOTY — session resilience (v3): presence heartbeat, host hand-off, resume.
+-- Re-runnable: paste the WHOLE file again any time; everything here is idempotent.
+--
+-- The engine already treats a "taken-over" seat as a recorded move (aiControlled),
+-- so the AUTHORITY question — who is allowed to write the takeover/turn-advance —
+-- stays exactly as before (host or active seat). This block only adds the TRIGGERS:
+--   • a per-seat heartbeat so clients can tell who's actually connected,
+--   • a status the Resume list can filter on ('paused'),
+--   • an RLS-safe way to hand off the host when the host's device goes dark,
+--   • a clean "my games" lookup for the Resume list.
+-- Presence is never part of replayed game state — it only decides who records moves.
+-- ============================================================================
+
+-- Heartbeat: each client stamps its own seat every ~2.5s (allowed by seats_write for your own seat).
+-- A null/stale last_seen = that player is absent → their seat gets AI-taken-over by the host.
+alter table public.game_seats add column if not exists last_seen timestamptz;
+
+-- Allow a 'paused' game (the Resume list labels it; set when the last connected human leaves).
+alter table public.games drop constraint if exists games_status_check;
+alter table public.games add  constraint games_status_check check (status in ('lobby', 'active', 'paused', 'done'));
+
+-- Host hand-off: if the current host's heartbeat is missing or stale, a seated player may claim host.
+-- Security definer so it can rewrite games.host_id without loosening the games_update policy. The
+-- store only calls this when *I* am the lowest-seat connected human, so a double-claim is rare and
+-- self-corrects (last write wins on host_id, re-checked next tick). Returns the effective host_id.
+create or replace function public.claim_host(g uuid)
+  returns uuid language plpgsql security definer set search_path = public as $$
+declare
+  cur_host  uuid;
+  host_seen timestamptz;
+begin
+  if not public.is_player(g) then
+    return null;                                    -- only a seated player may take the host role
+  end if;
+  select host_id into cur_host from public.games where id = g;
+  if cur_host is null or cur_host = auth.uid() then
+    return cur_host;                                -- nothing to do / already host
+  end if;
+  select max(last_seen) into host_seen              -- the current host's own seat heartbeat
+    from public.game_seats where game_id = g and user_id = cur_host;
+  if host_seen is null or host_seen < now() - interval '30 seconds' then
+    update public.games set host_id = auth.uid(), updated_at = now() where id = g;
+    return auth.uid();
+  end if;
+  return cur_host;                                  -- host is still alive — no hand-off
+end;
+$$;
+
+-- The Resume list: the caller's in-flight games where they hold a seat. RLS already permits reading
+-- these (is_player), but a definer RPC avoids a client-side seat→game join and returns them directly.
+create or replace function public.my_games()
+  returns setof public.games language sql security definer stable set search_path = public as $$
+  select g.* from public.games g
+   where g.status in ('active', 'paused')
+     and exists (select 1 from public.game_seats s where s.game_id = g.id and s.user_id = auth.uid())
+   order by g.updated_at desc;
+$$;
