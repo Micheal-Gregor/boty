@@ -34,6 +34,32 @@ async function step(page) {
 }
 const atGala = (page) => page.locator("h1", { hasText: /Gala/i }).isVisible().catch(() => false);
 
+// Single active session per player: the SAME account opening the game in a second tab makes the older
+// tab read-only, so one profile's two sessions can't write the move log at once and desync the game.
+test("same account in two tabs → the older tab goes read-only", async ({ browser }) => {
+  const ctx = await browser.newContext();
+  const tab1 = await ctx.newPage();
+  await setup(tab1, "alice");
+  await tab1.getByRole("button", { name: /host a game/i }).click();
+  await tab1.getByRole("button", { name: /add cpu/i }).click();
+  await tab1.getByRole("button", { name: /start game/i }).click();
+  await expect(tab1.locator(".turn-strip")).toBeVisible({ timeout: 10000 }); // tab1 is in the game (active)
+
+  // Same account, second tab → resume the in-progress game. This claims the session.
+  const tab2 = await ctx.newPage();
+  await setup(tab2, "alice");
+  await tab2.getByRole("button", { name: /resume ▶/i }).first().click();
+
+  // The older tab (tab1) becomes read-only; the newer tab (tab2) is the active one.
+  await expect(tab1.locator("main")).toContainText(/open in another window/i, { timeout: 15000 });
+  await expect(tab2.locator("main")).not.toContainText(/open in another window/i);
+
+  // "Play here" on tab1 hands control back → tab1 active again, tab2 goes read-only.
+  await tab1.getByRole("button", { name: /play here/i }).click();
+  await expect(tab2.locator("main")).toContainText(/open in another window/i, { timeout: 15000 });
+  await expect(tab1.locator("main")).not.toContainText(/open in another window/i);
+});
+
 // Licensing: when the host leaves and no LICENSED player remains, the game is saved and the unlicensed
 // player is told (rather than silently stalling). alice is licensed + hosts; bob is unlicensed.
 test("host leaves + no licensed player left → the game is saved and the player is told", async ({ browser }) => {

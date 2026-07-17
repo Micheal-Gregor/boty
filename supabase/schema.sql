@@ -173,6 +173,12 @@ do $$ begin alter publication supabase_realtime add table public.friendships;  e
 -- absent → their seat gets AI-taken-over by the host.
 alter table public.game_seats add column if not exists last_seen timestamptz;
 
+-- Single active session per player: each browser tab stamps a random token here on entry. Only the tab
+-- whose token matches is the ACTIVE writer/host-driver; the same account's other tabs go read-only. This
+-- prevents one profile's multiple sessions from writing the move log concurrently (which desyncs a game,
+-- worst when that profile is the host). Newest tab wins; RLS seats_write already lets you set your own.
+alter table public.game_seats add column if not exists session_id text;
+
 -- Stamp the caller's heartbeat with the SERVER clock (now()), not the device clock — so presence is
 -- judged consistently across devices whose wall clocks disagree (else a live player reads as "absent"
 -- and gets booted). Security-definer so it also can't be blocked by an RLS edge case.

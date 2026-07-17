@@ -185,6 +185,13 @@ export async function heartbeatSeat() {
   if (error) await supabase.from("game_seats").update({ last_seen: new Date().toISOString() }).eq("game_id", g.id).eq("user_id", me.id);
 }
 
+/** Claim the active session for MY seat (single-session lock). Stamps this tab's token on the seat;
+ *  the same account's other tabs then see a different token and go read-only. RLS admits my own seat. */
+export async function claimSession(token) {
+  const g = get(onlineGame), me = get(user); if (!g || !me) return;
+  await supabase.from("game_seats").update({ session_id: token }).eq("game_id", g.id).eq("user_id", me.id);
+}
+
 /** Remove a game from MY Resume list: if I host it, close it for everyone (delete the row); otherwise
  *  just give up my seat (so my_games no longer returns it for me). */
 export async function removeGame(row) {

@@ -16,7 +16,7 @@ import { npcIntroFor } from "./townsfolk.js";
 import { crewIdentity } from "./crew.js";
 import { session as authSession, user as authUser } from "./auth.js";
 import { supabaseReady } from "./supabase.js";
-import { onlineGame, onlineSeats, writeGameState, replaceSeats, fetchGameRow, leaveGame, heartbeatSeat, fetchSeats, claimHost } from "./games.js";
+import { onlineGame, onlineSeats, writeGameState, replaceSeats, fetchGameRow, leaveGame, heartbeatSeat, fetchSeats, claimHost, claimSession } from "./games.js";
 import { flow } from "./flowlog.js";
 
 const { economy, decks, flavor } = loadContent();
@@ -472,6 +472,7 @@ function viewOf() {
   ];
   return {
     lawsuits, pmContracts, observer: iAmOut(), // observer: this client has folded — read-only, watch or leave
+    readOnlySession: online && !activeSession, // this account has the game open in another tab → read-only here
     turn: s.turn, activePlayerIndex: s.activePlayerIndex, meIndex: mi, over: s.over, phase: s.phase,
     mustStaffBoon: game.unstaffedBoon.length > 0, // Chief Boon's mandatory job blocks end-turn until staffed
     log: s.log.slice(-8),
@@ -539,6 +540,11 @@ let onlineCfg = null;    // { seed, seats } — the immutable game config
 let mySeat = -1;         // my seat index (== activePlayerIndex when it's my turn)
 let isHostClient = false;
 let hostDriving = false; // guard so the host runs the AI loop only once at a time
+// Single-session lock: a random token unique to THIS tab. Only the tab whose token is stamped on the
+// seat is the ACTIVE writer/host-driver; the same account's other tabs go read-only (activeSession=false)
+// so one profile's multiple sessions can't write the move log concurrently and desync the game.
+const sessionToken = (typeof crypto !== "undefined" && crypto.randomUUID) ? crypto.randomUUID() : `t${Date.now()}-${Math.floor(Math.random() * 1e9)}`;
+let activeSession = true; // am I the active session for my seat? (optimistic until the first tick reads it)
 
 /** Every human seat has folded (offline / one-screen play). */
 function humansAllOut() {
@@ -551,8 +557,15 @@ function humansAllOut() {
 export const iAmOut = () => !!game && (online ? mySeat >= 0 && !!game.state.players[mySeat]?.bankrupt : humansAllOut());
 
 /** True for local play, or in online play when it's my seat's turn (used to gate the UI). A folded seat
- *  is never "my turn" — a bankrupt shop has no moves left. */
-export const myTurn = () => !iAmOut() && (!online || !!(realGame && !realGame.state.over && realGame.state.activePlayerIndex === mySeat && !ai[realGame.currentPlayer.id]));
+ *  is never "my turn" — a bankrupt shop has no moves left. A read-only tab (same account open elsewhere)
+ *  is never "my turn" either — it can't act until it claims the session. */
+export const myTurn = () => !iAmOut() && (!online || !!(activeSession && realGame && !realGame.state.over && realGame.state.activePlayerIndex === mySeat && !ai[realGame.currentPlayer.id]));
+/** This tab is a read-only observer because the same account has this game open in another window. */
+export const isReadOnlySession = () => online && !activeSession;
+/** "Play here" — make THIS tab the active session (the other window goes read-only on its next tick). */
+export async function claimThisSession() {
+  try { await claimSession(sessionToken); activeSession = true; push({}); maybeDriveAI(); } catch (e) { console.warn("[online] claim session failed:", e?.message ?? e); }
+}
 export const isOnline = () => online;
 
 // Diagnostics: type botyState() in the browser console (both windows) to compare clients.
@@ -606,7 +619,7 @@ function subscribeOnlineRoom() {
   });
 }
 
-function resetOnline() { online = false; realGame = null; pending = []; log = []; onlineCfg = null; mySeat = -1; isHostClient = false; hostDriving = false; confirmedLen = 0; writeInFlight = false; presenceStartedAt = 0; lastSeats = []; lastPresenceSig = ""; absentSince = {}; hostGoneShown = false; stopOnlineTick(); }
+function resetOnline() { online = false; realGame = null; pending = []; log = []; onlineCfg = null; mySeat = -1; isHostClient = false; hostDriving = false; confirmedLen = 0; writeInFlight = false; presenceStartedAt = 0; lastSeats = []; lastPresenceSig = ""; absentSince = {}; hostGoneShown = false; activeSession = true; stopOnlineTick(); }
 
 // Online round start: when the round ticks over, FLUSH the previous round's piled-up pop-ups and
 // lead with the townfolk story card — a clean reset for the new round on every client. (Local play
@@ -691,6 +704,8 @@ function buildOnlineGame(row) {
   confirmedLen = log.length; // we built from this row, so its moves are already persisted
   presenceStartedAt = Date.now(); // start the host-election startup grace from now (this join)
   lastSeats = []; lastPresenceSig = ""; absentSince = {}; hostGoneShown = false;
+  activeSession = true; // opening the game here → claim the active session for this tab (newest wins)
+  claimSession(sessionToken).catch(() => {}); // stamp my token; the same account's other tabs go read-only
   heartbeatSeat().catch(() => {}); // seed my presence immediately so others never read me as "never seen"
   startOnlineTick();         // begin the flaky-link poll/retry safety net for this game
   push({ screen: "board", economy, error: null, aiActing: null, threat: null, picking: null, reckoning: null, final: null, court: null }); // push fires the round-1 dice + townfolk card (economy reset — a prior tutorial may have set the 6-round one)
@@ -759,6 +774,7 @@ function persistLog() {
 
 function flushMoves() {
   if (!online || !pending.length) return;
+  if (!activeSession) return; // read-only tab (this game is open in another window) — never write the log
   const row = get(onlineGame);
   const canWrite = isHostClient || (row && row.active_seat === mySeat);
   flow("flush", { seat: mySeat, pending: pending.length, have: log.length, rowActive: row?.active_seat, canWrite, engineActive: realGame?.state?.activePlayerIndex });
@@ -872,10 +888,16 @@ async function presenceTick(row) {
   try { seats = await fetchSeats(); } catch { return; }
   if (!online || !seats.length) return;
   lastSeats = seats; // the drive loop reads this to reclaim a returned seat at the top of its own turn
+  // Single-session lock: am I still the active session for my seat? (null = nobody claimed → active, for
+  // backward-compat before the column exists.) A superseded tab becomes a read-only observer below.
+  const mine = seats.find((s) => s.seat === mySeat);
+  const wasActive = activeSession;
+  activeSession = !mine?.session_id || mine.session_id === sessionToken;
   // viewOf reads lastSeats only at push time, so refresh the UI when any seat's connected-status flips
-  // (a dot goes green/grey). Signature-gated so an idle table doesn't re-render every 2.5s for nothing.
-  const sig = seats.map((s) => `${s.seat}:${s.seat === mySeat || connected(seats, s) ? 1 : 0}:${s.is_ai ? 1 : 0}`).join("|");
-  if (sig !== lastPresenceSig) { lastPresenceSig = sig; push({}); }
+  // (a dot goes green/grey) or when this tab's read-only status changes. Signature-gated to avoid churn.
+  const sig = `${activeSession ? 1 : 0}|` + seats.map((s) => `${s.seat}:${s.seat === mySeat || connected(seats, s) ? 1 : 0}:${s.is_ai ? 1 : 0}`).join("|");
+  if (sig !== lastPresenceSig || wasActive !== activeSession) { lastPresenceSig = sig; push({}); }
+  if (!activeSession) return; // this account is playing this game in another tab → observe only, don't write
   if (!isHostClient) {
     await maybeElectHost(row, seats);          // licensed players take over hosting; the game plays on
     if (!isHostClient) maybeHostAbandoned(row, seats); // still not host → maybe the host is gone for good
@@ -977,7 +999,7 @@ function aiBanner() {
 
 // Host only: drive the deterministic AI seats and persist each, until a human is up or the game ends.
 async function maybeDriveAI() {
-  if (!online || !isHostClient || hostDriving) return;
+  if (!online || !isHostClient || hostDriving || !activeSession) return; // read-only tab never drives the AI
   if (!realGame || realGame.state.over) return;
   if (!ai[realGame.currentPlayer.id]) return; // a human is up
   hostDriving = true;
@@ -990,6 +1012,7 @@ async function maybeDriveAI() {
  *  left stuck from before that engine fix, and any edge where a fold lands on the active seat. */
 function passStuckFoldedSeat() {
   if (!online || !realGame || realGame.state.over) return false;
+  if (!activeSession) return false; // read-only tab — never write (the active session handles it)
   if (!realGame.state.players[realGame.state.activePlayerIndex]?.bankrupt) return false;
   if (!(isHostClient || realGame.state.activePlayerIndex === mySeat)) return false; // RLS admits only these writers
   let ctx;
@@ -1121,6 +1144,7 @@ export function skipTutorial() { tutorialMode = false; ui.update((v) => ({ ...v,
 /** Run an engine action for the current (human) player, catching illegal moves. */
 export function act(fn) {
   if (iAmOut()) return; // you've folded — observer only, no actions
+  if (online && !activeSession) return; // read-only tab (game open in another window) — never record locally
   if (game && ai[game.currentPlayer.id]) return; // a rival is acting — ignore stray human input
   if (online && game.state.activePlayerIndex !== mySeat) return; // online: not your turn — ignore
   const before = game ? game.state.log.length : 0;
