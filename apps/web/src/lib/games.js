@@ -115,14 +115,33 @@ export async function removeSeat(seat) {
   await refreshSeats(g.id);
 }
 
-/** Leave the lobby — the host closes the whole game; a guest just frees their seat. */
+/** Leave — behaviour depends on whether the game has STARTED:
+ *  • In the lobby (pre-start): the host closes the room; a guest frees their seat (as before).
+ *  • Mid-game (active/paused): NON-DESTRUCTIVE. Keep the row AND my seat so I can resume later — I just
+ *    stop heartbeating, so I go "absent" and the host's bot covers my turns. (A leaving host is handled
+ *    by host-migration on the other clients.) This is the "Save & leave" path. */
 export async function leaveGame() {
   const g = get(onlineGame), me = get(user);
-  if (g && me) {
+  if (g && me && g.status === "lobby") {
     if (g.host_id === me.id) await supabase.from("games").delete().eq("id", g.id);
     else await supabase.from("game_seats").delete().eq("game_id", g.id).eq("user_id", me.id);
   }
+  teardown(); // drop this client's transport either way; the row/seat persist for an active game
+}
+
+/** Host: end a game for good — it drops off everyone's Resume list. (Distinct from Save & leave.) */
+export async function endGame() {
+  const g = get(onlineGame), me = get(user);
+  if (g && me && g.host_id === me.id) await supabase.from("games").update({ status: "done" }).eq("id", g.id);
   teardown();
+}
+
+/** Resume a game you still hold a seat in (chosen from the Resume list). Re-enters its room + transport;
+ *  the store rebuilds the engine from the move log, and the host reclaims your seat on your next turn. */
+export async function resumeGame(row) {
+  if (!supabaseReady) return fail("Online play isn't configured.");
+  lobbyError.set(null); lobbyNote.set(null);
+  await enterGame(row);
 }
 
 /** Replace the seat rows with a contiguous 0..n-1 set (called at Start). Keeps the engine's seat

@@ -38,6 +38,9 @@
   // Online turn gating: recompute whenever the view changes (rev bumps on every push/replay).
   const onlineWaiting = $derived.by(() => { void $ui.rev; return isOnline() && !myTurn(); });
   const activeName = $derived(s ? (s.players[s.activePlayerIndex]?.name ?? "") : "");
+  const activeCovered = $derived(!!s?.players?.[s.activePlayerIndex]?.aiControlled); // the active seat's player dropped → bot is covering
+  const meIdx = $derived(s ? (s.meIndex ?? s.activePlayerIndex) : 0);
+  const pres = $derived($ui.view?.presence ?? {}); // seat → { connected, is_ai, human } from the heartbeat snapshot
 
   // On YOUR fresh turn, land on the SHOP — that's where you act. The draw is already shown by the
   // reveal pop-ups, so there's no need to park on the Fortune tab first. (On wide screens all three
@@ -72,7 +75,22 @@
   </header>
 
   {#if isOnline()}
-    <div class="turn-strip" class:mine={!onlineWaiting}>{onlineWaiting ? `⏳ ${activeName} is up — they're playing` : `🎯 Your turn, ${me?.name ?? "you"} — make your move!`}</div>
+    <div class="turn-strip" class:mine={!onlineWaiting} class:covered={onlineWaiting && activeCovered}>
+      {#if !onlineWaiting}🎯 Your turn, {me?.name ?? "you"} — make your move!
+      {:else if activeCovered}🤖 {activeName} stepped away — a stand-in is covering their turn
+      {:else}⏳ {activeName} is up — they're playing{/if}
+    </div>
+  {/if}
+  {#if $ui.notice}<div class="presence-toast">{$ui.notice}</div>{/if}
+
+  {#if isOnline() && s.players.length > 1}
+    <div class="roster" title="Who's connected">
+      {#each s.players as p, i}{#if i !== meIdx}
+        <span class="rmate" class:folded={p.bankrupt}>
+          <span class="pdot" class:on={pres[i]?.is_ai || pres[i]?.connected}></span>{p.name}{#if p.aiControlled}<span class="botmark" title="stand-in covering">🤖</span>{:else if p.bankrupt}💀{/if}
+        </span>
+      {/if}{/each}
+    </div>
   {/if}
 
   <RivalShop />

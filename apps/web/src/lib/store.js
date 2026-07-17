@@ -37,7 +37,7 @@ export const ui = writable({
   screen: "loading", game: null, view: null, ctx: null, flavor, economy, error: null, rev: 0,
   aiActing: null, threat: null, picking: null, reckoning: null, final: null, court: null, damages: null, settle: null, estate: null, routingDecision: null,
   cardView: null, popups: [], settingsOpen: false, flash: null, entityCard: null, handView: false, rivalView: false, assignWorker: null, tutorial: null,
-  rulesOpen: false, confirm: null,
+  rulesOpen: false, confirm: null, notice: null,
 });
 
 export function openRules() { push({ rulesOpen: true }); }
@@ -479,8 +479,9 @@ function viewOf() {
     bs: balanceSheet(s.players[mi]),
     recurring: recurringExpenses(s, s.players[mi]), // the turn-start exec summary
     season: seasonFor({ turn: s.turn, economy, flavor }),
+    presence: online ? presenceView() : null, // per-seat connected/absent, from the heartbeat snapshot
     players: s.players.map((p) => ({
-      id: p.id, name: p.name, service: p.service, cash: p.cash, bankrupt: p.bankrupt, building: p.building, capacityBonus: p.capacityBonus ?? 0, bbbThisTurn: !!p.bbbThisTurn, pendingExpansion: p.pendingExpansion ? { ...p.pendingExpansion } : null,
+      id: p.id, name: p.name, service: p.service, cash: p.cash, bankrupt: p.bankrupt, aiControlled: !!p.aiControlled, building: p.building, capacityBonus: p.capacityBonus ?? 0, bbbThisTurn: !!p.bbbThisTurn, pendingExpansion: p.pendingExpansion ? { ...p.pendingExpansion } : null,
       drewThisTurn: (p.drewThisTurn ?? []).map((d) => ({ ...d })), // online Fortune tab reads this (replay loses the turn ctx)
       tradesmen: p.tradesmen.map((t) => {
         const tool = p.equipment.find((e) => e.assigned_to === t.id);
@@ -602,7 +603,7 @@ function subscribeOnlineRoom() {
   });
 }
 
-function resetOnline() { online = false; realGame = null; pending = []; log = []; onlineCfg = null; mySeat = -1; isHostClient = false; hostDriving = false; confirmedLen = 0; writeInFlight = false; presenceStartedAt = 0; lastSeats = []; stopOnlineTick(); }
+function resetOnline() { online = false; realGame = null; pending = []; log = []; onlineCfg = null; mySeat = -1; isHostClient = false; hostDriving = false; confirmedLen = 0; writeInFlight = false; presenceStartedAt = 0; lastSeats = []; lastPresenceSig = ""; stopOnlineTick(); }
 
 // Online round start: when the round ticks over, FLUSH the previous round's piled-up pop-ups and
 // lead with the townfolk story card — a clean reset for the new round on every client. (Local play
@@ -686,7 +687,7 @@ function buildOnlineGame(row) {
   }
   confirmedLen = log.length; // we built from this row, so its moves are already persisted
   presenceStartedAt = Date.now(); // start the host-election startup grace from now (this join)
-  lastSeats = [];
+  lastSeats = []; lastPresenceSig = "";
   heartbeatSeat().catch(() => {}); // seed my presence immediately so others never read me as "never seen"
   startOnlineTick();         // begin the flaky-link poll/retry safety net for this game
   push({ screen: "board", economy, error: null, aiActing: null, threat: null, picking: null, reckoning: null, final: null, court: null }); // push fires the round-1 dice + townfolk card (economy reset — a prior tutorial may have set the 6-round one)
@@ -810,7 +811,25 @@ function deriveOnlineAI() {
 
 let presenceStartedAt = 0; // when this client's online session began — a startup grace before any host election
 let lastSeats = [];        // latest game_seats snapshot (with last_seen) from the presence tick; read by the drive loop
+let lastPresenceSig = "";  // last connected-status signature we pushed a UI refresh for (avoids idle re-renders)
 const isFresh = (seat, ms) => !!seat?.last_seen && (Date.now() - new Date(seat.last_seen).getTime()) < ms;
+
+// Per-seat connected/absent for the UI (a green/grey dot + "covering" copy), keyed by seat index. My own
+// seat is always connected (I'm rendering). Empty until the first heartbeat snapshot lands.
+function presenceView() {
+  const out = {};
+  for (const s of lastSeats) out[s.seat] = { connected: s.seat === mySeat || isFresh(s, HB_FRESH), is_ai: !!s.is_ai, human: !!s.user_id };
+  return out;
+}
+
+// A brief on-screen toast ("🤖 X stepped away — a stand-in's covering", "↩️ X is back") when the host
+// hands a seat to the bot or gives it back. Auto-clears; it's a courtesy notice, not game state.
+let noticeTimer = null;
+function noticeFlash(msg) {
+  push({ notice: msg });
+  if (noticeTimer) clearTimeout(noticeTimer);
+  noticeTimer = setTimeout(() => push({ notice: null }), 4500);
+}
 // Presence windows. Overridable via URL params (dev/E2E only — the defaults ship): a test can shrink
 // them (e.g. ?grace=1500) to exercise takeover/host-migration without waiting the real ~30-40s.
 const _qp = (typeof location !== "undefined") ? new URLSearchParams(location.search) : new URLSearchParams();
@@ -829,6 +848,10 @@ async function presenceTick(row) {
   try { seats = await fetchSeats(); } catch { return; }
   if (!online || !seats.length) return;
   lastSeats = seats; // the drive loop reads this to reclaim a returned seat at the top of its own turn
+  // viewOf reads lastSeats only at push time, so refresh the UI when any seat's connected-status flips
+  // (a dot goes green/grey). Signature-gated so an idle table doesn't re-render every 2.5s for nothing.
+  const sig = seats.map((s) => `${s.seat}:${s.seat === mySeat || isFresh(s, HB_FRESH) ? 1 : 0}:${s.is_ai ? 1 : 0}`).join("|");
+  if (sig !== lastPresenceSig) { lastPresenceSig = sig; push({}); }
   if (!isHostClient) { await maybeElectHost(row, seats); return; }
   maybeTakeoverAbsentSeat(seats);
 }
@@ -877,6 +900,7 @@ function maybeTakeoverAbsentSeat(seats) {
     game.takeoverSeat(seat); // recorded → every client flips this seat to AI on replay
     deriveOnlineAI();        // reflect it locally now so maybeDriveAI will run the bot
     flow("takeover", { seat, name: p.name });
+    noticeFlash(`🤖 ${p.name} stepped away — a stand-in is covering their turns.`);
     push({ aiActing: aiBanner() });
     flushMoves();            // persist the takeover move immediately
     maybeDriveAI();          // and play the seat out as a bot
@@ -942,23 +966,28 @@ export function backToMenu() {
   push({
     screen: "menu", popups: [], dice: null, confirm: null, aiActing: null, threat: null, picking: null,
     reckoning: null, final: null, court: null, damages: null, settle: null, estate: null, routingDecision: null,
-    cardView: null, entityCard: null, handView: false, rivalView: false, rulesOpen: false, settingsOpen: false, flash: null, assignWorker: null, tutorial: null,
+    cardView: null, entityCard: null, handView: false, rivalView: false, rulesOpen: false, settingsOpen: false, flash: null, assignWorker: null, tutorial: null, notice: null,
   });
 }
 
-/** Quit the current game and return to the menu. Online: leave the room first (a guest frees their
- *  seat; the host closes it for the table — the host drives the AI, so the match can't go on without
- *  them), which teardown→resetOnline clears. Offline: just drop back; the next New Game rebuilds. */
+/** Return to the menu. Online mid-game: leaveGame is non-destructive — it tears down THIS client's
+ *  transport (→ resetOnline) but keeps the row + my seat, so a stand-in covers me and I can resume.
+ *  In a lobby it still closes/frees the seat. Offline: just drop back; the next New Game rebuilds. */
 export function quitToMenu() {
   if (online) { try { leaveGame(); } catch (e) { console.warn("[quit] leaveGame failed:", e?.message ?? e); } }
   backToMenu();
 }
-/** Quit button: confirm before bailing — leaving a game can't be undone. */
+/** Quit button: confirm before bailing. Online, leaving mid-game is now non-destructive — the table
+ *  keeps going with a stand-in and you can rejoin from Play Online → Resume. */
 export function confirmQuit() {
-  const body = online
-    ? (isHostClient ? "Leave this game and return to the menu. As host, this closes the room for everyone." : "Leave this game and return to the menu — you'll drop out of the match.")
-    : "Leave this game and return to the main menu. This game's progress will be lost.";
-  openConfirm({ title: "Quit to menu?", body, yes: "Quit" }, quitToMenu);
+  if (online) {
+    openConfirm(
+      { title: "Save & leave?", body: "The game keeps going — a stand-in covers your seat while you're away, and you can jump back in any time from Play Online → Resume.", yes: "Save & leave" },
+      quitToMenu,
+    );
+    return;
+  }
+  openConfirm({ title: "Quit to menu?", body: "Leave this game and return to the main menu. This game's progress will be lost.", yes: "Quit" }, quitToMenu);
 }
 
 // Reactively follow auth: a magic-link sign-in advances the gate to the menu; signing out from the
@@ -1325,7 +1354,7 @@ async function advanceUntilHuman(initialCtx) {
     // turn, where the host is the sole writer (no clash with the human). reclaimSeat is recorded +
     // flushed, so once ai[] re-derives to human the loop breaks and hands them their live turn.
     if (online && isHostClient && p.aiControlled && ownerReturned(game.state.activePlayerIndex)) {
-      try { game.reclaimSeat(game.state.activePlayerIndex); deriveOnlineAI(); flushMoves(); flow("reclaim", { seat: game.state.activePlayerIndex, name: p.name }); } catch { /* not writable now — retry next pass */ }
+      try { game.reclaimSeat(game.state.activePlayerIndex); deriveOnlineAI(); flushMoves(); flow("reclaim", { seat: game.state.activePlayerIndex, name: p.name }); noticeFlash(`↩️ ${p.name} is back at the table.`); } catch { /* not writable now — retry next pass */ }
     }
     if (!ai[p.id]) {
       if (!p.bankrupt) break; // a solvent human is up — hand them their turn

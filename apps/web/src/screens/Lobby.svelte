@@ -3,10 +3,18 @@
   import { user } from "../lib/auth.js";
   import {
     onlineGame, onlineSeats, lobbyBusy, lobbyError, lobbyNote,
-    hostGame, joinByCode, pickTrade, setSeatTrade, addAiSeat, removeSeat, leaveGame,
+    hostGame, joinByCode, pickTrade, setSeatTrade, addAiSeat, removeSeat, leaveGame, myGames, resumeGame,
   } from "../lib/games.js";
   import { friends, inviteFriend } from "../lib/social.js";
   import Shell from "./Shell.svelte";
+
+  // Games you can jump back into (you hold a seat, it's still in progress). Loaded when the online home
+  // is shown; a stand-in has been covering your seat while you were away.
+  let resumable = $state([]);
+  let loadingResume = $state(true);
+  async function loadResumable() { loadingResume = true; resumable = await myGames(); loadingResume = false; }
+  $effect(() => { if (!$onlineGame) loadResumable(); });
+  const cap2 = (t) => (t ? t.charAt(0).toUpperCase() + t.slice(1) : "");
 
   let invited = $state(new Set());
   async function invite(f) {
@@ -37,6 +45,21 @@
     {#if !$onlineGame}
       <!-- Online home: host or join -->
       <h1>🌐 Play Online</h1>
+
+      {#if !loadingResume && resumable.length}
+        <div class="resume">
+          <h2>▶ Resume a game</h2>
+          <p class="muted">You've got game{resumable.length > 1 ? "s" : ""} in progress — jump back in. A stand-in has been covering your seat.</p>
+          {#each resumable as g (g.id)}
+            <button class="resume-row" disabled={$lobbyBusy} onclick={() => resumeGame(g)}>
+              <span class="rcode">{g.code}</span>
+              <span class="muted">· {cap2(g.difficulty)}{#if g.status === "paused"} · paused{/if}</span>
+              <span class="rgo">Resume ▶</span>
+            </button>
+          {/each}
+        </div>
+      {/if}
+
       <div class="cards">
         <div class="card">
           <h2>Host a game</h2>
@@ -130,6 +153,12 @@
   .back:hover { color: var(--accent, #e0b341); border-color: var(--accent, #e0b341); }
   h1 { margin: 0 0 16px; }
   h2 { margin: 0 0 6px; font-size: 1.1rem; }
+  .resume { background: rgba(87,201,138,0.08); border: 1px solid #3f6f56; border-radius: 14px; padding: 16px; margin-bottom: 16px; }
+  .resume h2 { color: #7fdca0; }
+  .resume-row { display: flex; align-items: center; gap: 8px; width: 100%; margin-top: 8px; text-align: left; border-color: #3f6f56; }
+  .resume-row:hover:not(:disabled) { border-color: #7fdca0; }
+  .rcode { font-weight: 800; letter-spacing: 0.05em; color: var(--accent, #e0b341); }
+  .rgo { margin-left: auto; color: #7fdca0; font-weight: 800; }
   .cards { display: flex; gap: 14px; flex-wrap: wrap; }
   .card { flex: 1 1 220px; background: rgba(16,18,24,0.78); border: 1px solid var(--line, #2a2f3a); border-radius: 14px; padding: 18px; display: flex; flex-direction: column; gap: 10px; }
   .muted { color: var(--muted, #9aa0aa); font-size: 0.9rem; }

@@ -178,7 +178,17 @@ button.thumb { background: none; border: none; color: var(--ink); font: inherit;
 .town-effect.bad { color: #ff9387; font-weight: 700; text-decoration-style: solid; }
 .turn-strip { text-align: center; font-weight: 700; padding: 7px 12px; border-radius: 8px; margin-bottom: 10px; background: rgba(154,160,170,0.14); border: 1px solid var(--line, #2a2f3a); color: var(--muted, #9aa0aa); }
 .turn-strip.mine { background: rgba(224,179,65,0.2); border-color: var(--accent, #e0b341); color: var(--accent, #e0b341); font-weight: 800; animation: turn-pulse 1.6s ease-in-out infinite; }
+.turn-strip.covered { background: rgba(120,150,210,0.16); border-color: #6f86bf; color: #b9c6e6; }
 @keyframes turn-pulse { 0%,100% { box-shadow: 0 0 0 0 rgba(224,179,65,0.0); } 50% { box-shadow: 0 0 14px 1px rgba(224,179,65,0.45); } }
+.presence-toast { text-align: center; font-size: 0.86rem; font-weight: 600; padding: 6px 12px; margin-bottom: 10px; border-radius: 8px; background: rgba(120,150,210,0.14); border: 1px solid #56628a; color: #c3cfe8; animation: toast-in 0.3s ease-out; }
+@keyframes toast-in { from { opacity: 0; transform: translateY(-4px); } to { opacity: 1; transform: none; } }
+/* Presence dots (lobby/roster): connected = green, away = grey */
+.pdot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: #4a5160; margin-right: 5px; vertical-align: middle; }
+.pdot.on { background: #57c98a; box-shadow: 0 0 6px rgba(87,201,138,0.6); }
+.roster { display: flex; flex-wrap: wrap; gap: 6px 14px; justify-content: center; margin: -4px 0 10px; font-size: 0.82rem; color: var(--muted, #9aa0aa); }
+.roster .rmate { display: inline-flex; align-items: center; gap: 2px; }
+.roster .rmate.folded { opacity: 0.6; text-decoration: line-through; }
+.roster .botmark { margin-left: 3px; }
 .ai-head { display: flex; align-items: center; justify-content: space-between; font-weight: 600; }
 .ai-head .skip { background: transparent; color: var(--accent); border: 1px solid var(--accent); padding: 2px 10px; font-size: 0.75rem; border-radius: 6px; }
 .ai-drew { color: var(--ink); font-weight: 400; font-size: 0.82rem; margin-top: 4px; }
