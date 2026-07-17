@@ -187,6 +187,23 @@ create or replace function public.heartbeat(g uuid)
   update public.game_seats set last_seen = now() where game_id = g and user_id = auth.uid();
 $$;
 
+-- Seat-specific heartbeat: stamp ONLY the seat this tab is actually playing. So if a player somehow held
+-- more than one seat in a game (see the one-per-user index below), the seats they AREN'T playing go idle
+-- and the host converts them to bots (graceful degrade) instead of the game deadlocking on an "alive but
+-- unplayed" seat. Normal (one-seat) play is identical.
+create or replace function public.heartbeat(g uuid, s integer)
+  returns void language sql security definer set search_path = public as $$
+  update public.game_seats set last_seen = now() where game_id = g and user_id = auth.uid() and seat = s;
+$$;
+
+-- One seat per account per game. A DB unique index is ATOMIC, so it can't be beaten by a timing race the
+-- way an app-level check can — it's the real guarantee against a player occupying 2-3 seats in ONE game.
+-- Partial: open/AI seats (null user_id) are exempt. If this ever errors on pre-existing duplicate rows,
+-- de-dup first (keeps the lowest seat per user):
+--   delete from public.game_seats a using public.game_seats b
+--    where a.game_id=b.game_id and a.user_id=b.user_id and a.user_id is not null and a.seat > b.seat;
+create unique index if not exists game_seats_one_per_user on public.game_seats (game_id, user_id) where user_id is not null;
+
 -- Allow a 'paused' game (the Resume list labels it; set when the last connected human leaves).
 alter table public.games drop constraint if exists games_status_check;
 alter table public.games add  constraint games_status_check check (status in ('lobby', 'active', 'paused', 'done'));

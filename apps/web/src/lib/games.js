@@ -40,9 +40,16 @@ async function claimSeat(gameId, rowFor) {
     const { data: seats } = await supabase.from("game_seats").select("seat").eq("game_id", gameId);
     const seat = firstOpenSeat(seats ?? []);
     if (seat >= MAX_SEATS) return -1;
-    const { error } = await supabase.from("game_seats").insert({ game_id: gameId, seat, ...rowFor(seat) });
+    const row = { game_id: gameId, seat, ...rowFor(seat) };
+    const { error } = await supabase.from("game_seats").insert(row);
     if (!error) return seat;
     if (error.code !== "23505" && !/duplicate|unique|conflict/i.test(error.message ?? "")) throw error; // a real error, not a seat race
+    // One-seat-per-account: I lost a same-instant join race and am already seated — land in that seat,
+    // don't keep trying (every next seat would hit the same rule). (Only for human joins with a user_id.)
+    if (row.user_id && /one_per_user/i.test(`${error.message ?? ""} ${error.details ?? ""}`)) {
+      const { data: mine } = await supabase.from("game_seats").select("seat").eq("game_id", gameId).eq("user_id", row.user_id).maybeSingle();
+      if (mine) return mine.seat;
+    }
     // else: someone took that seat between fetch and insert — refetch and try the next one
   }
   throw new Error("The lobby's busy filling seats — try again.");
@@ -176,13 +183,12 @@ export async function fetchGameRow() {
  *  device's wall clock. Critical: presence is judged by comparing seats' last_seen, so if each device
  *  stamped its OWN clock, two phones a few seconds apart would read each other as "absent" and boot a
  *  live player. The RPC is security-definer, so it also can't be blocked by an RLS edge case. */
-export async function heartbeatSeat() {
-  const g = get(onlineGame), me = get(user); if (!g || !me) return;
-  const { error } = await supabase.rpc("heartbeat", { g: g.id });
-  // Transitional fallback: if the heartbeat RPC isn't in the DB yet (schema v3.1 not re-run), still
-  // stamp last_seen the old way so clients don't ALL read as absent and trigger mass takeovers. Once
-  // the RPC exists, the server clock is used and cross-device presence is correct.
-  if (error) await supabase.from("game_seats").update({ last_seen: new Date().toISOString() }).eq("game_id", g.id).eq("user_id", me.id);
+export async function heartbeatSeat(seat) {
+  const g = get(onlineGame), me = get(user); if (!g || !me || seat == null || seat < 0) return;
+  const { error } = await supabase.rpc("heartbeat", { g: g.id, s: seat }); // stamp ONLY the seat this tab plays
+  // Transitional fallback: if the seat-specific RPC isn't in the DB yet (schema not re-run), still stamp
+  // last_seen so clients don't ALL read as absent and mass-takeover. Once the RPC exists it's server-clock.
+  if (error) await supabase.from("game_seats").update({ last_seen: new Date().toISOString() }).eq("game_id", g.id).eq("user_id", me.id).eq("seat", seat);
 }
 
 /** Claim the active session for MY seat (single-session lock). Stamps this tab's token on the seat;

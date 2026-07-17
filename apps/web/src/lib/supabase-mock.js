@@ -118,10 +118,11 @@ class Channel {
 }
 
 // heartbeat: stamp my seat's last_seen with "server" time (one browser clock here, so skew is moot).
-function mockHeartbeat(g) {
+// With a seat arg, stamp only that seat (matches the seat-specific RPC); without, all my seats.
+function mockHeartbeat(g, seat) {
   const seats = readTbl("game_seats");
   const me = myId();
-  const s = seats.find((x) => x.game_id === g && x.user_id === me);
+  const s = seats.find((x) => x.game_id === g && x.user_id === me && (seat == null || x.seat === seat));
   if (s) { s.last_seen = new Date().toISOString(); writeTbl("game_seats", seats, { eventType: "UPDATE", new: s }); }
   return null;
 }
@@ -165,7 +166,7 @@ export function makeMockSupabase() {
     removeChannel: (ch) => ch?._teardown?.(),
     // Faithful stand-ins for the security-definer RPCs the store calls. record_result stays a no-op.
     rpc: async (fn, args) => {
-      if (fn === "heartbeat") return ok(mockHeartbeat(args?.g));
+      if (fn === "heartbeat") return ok(mockHeartbeat(args?.g, args?.s));
       if (fn === "claim_host") return ok(mockClaimHost(args?.g));
       if (fn === "my_games") return ok(mockMyGames());
       return ok(null);

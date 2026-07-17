@@ -706,7 +706,7 @@ function buildOnlineGame(row) {
   lastSeats = []; lastPresenceSig = ""; absentSince = {}; hostGoneShown = false;
   activeSession = true; // opening the game here → claim the active session for this tab (newest wins)
   claimSession(sessionToken).catch(() => {}); // stamp my token; the same account's other tabs go read-only
-  heartbeatSeat().catch(() => {}); // seed my presence immediately so others never read me as "never seen"
+  heartbeatSeat(mySeat).catch(() => {}); // seed my presence immediately so others never read me as "never seen"
   startOnlineTick();         // begin the flaky-link poll/retry safety net for this game
   push({ screen: "board", economy, error: null, aiActing: null, threat: null, picking: null, reckoning: null, final: null, court: null }); // push fires the round-1 dice + townfolk card (economy reset — a prior tutorial may have set the 6-round one)
   surfaceNewOutcomes();
@@ -883,7 +883,7 @@ function noticeFlash(msg) {
 // by the single authority (the host), so lockstep stays deterministic — presence is only the trigger.
 async function presenceTick(row) {
   if (!online || mySeat < 0) return;
-  try { await heartbeatSeat(); } catch { /* transient */ }
+  try { await heartbeatSeat(mySeat); } catch { /* transient */ }
   let seats;
   try { seats = await fetchSeats(); } catch { return; }
   if (!online || !seats.length) return;
