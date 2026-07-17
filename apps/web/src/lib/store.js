@@ -606,7 +606,7 @@ function subscribeOnlineRoom() {
   });
 }
 
-function resetOnline() { online = false; realGame = null; pending = []; log = []; onlineCfg = null; mySeat = -1; isHostClient = false; hostDriving = false; confirmedLen = 0; writeInFlight = false; presenceStartedAt = 0; lastSeats = []; lastPresenceSig = ""; absentSince = {}; stopOnlineTick(); }
+function resetOnline() { online = false; realGame = null; pending = []; log = []; onlineCfg = null; mySeat = -1; isHostClient = false; hostDriving = false; confirmedLen = 0; writeInFlight = false; presenceStartedAt = 0; lastSeats = []; lastPresenceSig = ""; absentSince = {}; hostGoneShown = false; stopOnlineTick(); }
 
 // Online round start: when the round ticks over, FLUSH the previous round's piled-up pop-ups and
 // lead with the townfolk story card — a clean reset for the new round on every client. (Local play
@@ -690,7 +690,7 @@ function buildOnlineGame(row) {
   }
   confirmedLen = log.length; // we built from this row, so its moves are already persisted
   presenceStartedAt = Date.now(); // start the host-election startup grace from now (this join)
-  lastSeats = []; lastPresenceSig = ""; absentSince = {};
+  lastSeats = []; lastPresenceSig = ""; absentSince = {}; hostGoneShown = false;
   heartbeatSeat().catch(() => {}); // seed my presence immediately so others never read me as "never seen"
   startOnlineTick();         // begin the flaky-link poll/retry safety net for this game
   push({ screen: "board", economy, error: null, aiActing: null, threat: null, picking: null, reckoning: null, final: null, court: null }); // push fires the round-1 dice + townfolk card (economy reset — a prior tutorial may have set the 6-round one)
@@ -876,7 +876,11 @@ async function presenceTick(row) {
   // (a dot goes green/grey). Signature-gated so an idle table doesn't re-render every 2.5s for nothing.
   const sig = seats.map((s) => `${s.seat}:${s.seat === mySeat || connected(seats, s) ? 1 : 0}:${s.is_ai ? 1 : 0}`).join("|");
   if (sig !== lastPresenceSig) { lastPresenceSig = sig; push({}); }
-  if (!isHostClient) { await maybeElectHost(row, seats); return; }
+  if (!isHostClient) {
+    await maybeElectHost(row, seats);          // licensed players take over hosting; the game plays on
+    if (!isHostClient) maybeHostAbandoned(row, seats); // still not host → maybe the host is gone for good
+    return;
+  }
   maybeTakeoverAbsentSeat(seats);
 }
 
@@ -907,6 +911,26 @@ async function maybeElectHost(row, seats) {
       maybeDriveAI(); // now that I'm host, drive any bot/absent seat that was stuck
     }
   } catch (e) { console.warn("[online] claim_host failed:", e?.message ?? e); }
+}
+
+// Non-host who CAN'T take over (unlicensed): if the host is gone past the grace and no licensed player
+// claimed it (one would have by now), tell the player the game's saved and offer the menu. The row
+// persists, so a licensed player resumes it later. One-shot; resets if the host (or a new host) returns.
+let hostGoneShown = false;
+function maybeHostAbandoned(row, seats) {
+  if (!online || !realGame || realGame.state.over) return;
+  if (get(myProfile)?.licensed) return;                       // a licensed player claims host instead of bailing
+  const hostSeat = seats.find((s) => s.user_id === row.host_id);
+  if (connected(seats, hostSeat)) { hostGoneShown = false; return; } // host is present — reset the one-shot
+  if (hostGoneShown) return;
+  if (Date.now() - presenceStartedAt < HOST_STALE) return;    // startup grace
+  if (!sustainedAbsent(seats, hostSeat, `host:${row.host_id}`, HOST_STALE)) return;
+  hostGoneShown = true;
+  push({ aiActing: null });
+  openConfirm(
+    { title: "The host has left", body: "The game's been saved — a player with the full license can pick it back up from ▶ Resume a game. Head back to the menu now? (Choose No to keep waiting in case the host returns.)", yes: "Back to menu" },
+    () => { try { leaveGame(); } catch { /* ignore */ } backToMenu(); },
+  );
 }
 
 // Host: the active seat is a human whose player has gone silent past the grace window → hand it to the

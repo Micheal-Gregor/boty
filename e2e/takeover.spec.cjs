@@ -34,6 +34,35 @@ async function step(page) {
 }
 const atGala = (page) => page.locator("h1", { hasText: /Gala/i }).isVisible().catch(() => false);
 
+// Licensing: when the host leaves and no LICENSED player remains, the game is saved and the unlicensed
+// player is told (rather than silently stalling). alice is licensed + hosts; bob is unlicensed.
+test("host leaves + no licensed player left → the game is saved and the player is told", async ({ browser }) => {
+  const ctx = await browser.newContext();
+  await ctx.addInitScript(() => {
+    if (!localStorage.getItem("mock:tbl:profiles")) {
+      localStorage.setItem("mock:tbl:profiles", JSON.stringify([
+        { id: "alice", username: "alice", games_played: 0, games_won: 0, licensed: true },
+        { id: "bob", username: "bob", games_played: 0, games_won: 0, licensed: false },
+      ]));
+    }
+  });
+  const alice = await ctx.newPage();
+  const bob = await ctx.newPage();
+  await setup(alice, "alice");
+  await setup(bob, "bob");
+  await alice.getByRole("button", { name: /host a game/i }).click();
+  const code = (await alice.locator("text=/MAPLE-[A-Z0-9]{4}/").first().textContent()).match(/MAPLE-[A-Z0-9]{4}/)[0];
+  await bob.getByPlaceholder(/MAPLE/i).fill(code);
+  await bob.getByRole("button", { name: /^join/i }).click();
+  await expect(alice.locator(".seats")).toContainText("bob", { timeout: 10000 });
+  await alice.getByRole("button", { name: /start game/i }).click();
+
+  await bob.waitForTimeout(1500);
+  await alice.close(); // the host drops; bob is unlicensed and can't take over
+  // bob is told the host left (and, implicitly, the game is saved / resumable by a licensed player).
+  await expect(bob.locator("main")).toContainText(/host has left/i, { timeout: 30000 });
+});
+
 // The bug this guards: two REAL players, both present, were wrongly booted to CPU (or the host's turn
 // skipped) because presence was judged too eagerly. Both stay connected here → NO takeover may fire,
 // and BOTH seats must actually take turns.

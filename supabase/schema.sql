@@ -237,7 +237,11 @@ alter table public.profiles add column if not exists licensed boolean not null d
 -- only the service role (dashboard SQL / future webhook) may. Superuser/service updates pass through.
 create or replace function public.protect_licensed() returns trigger language plpgsql security definer as $$
 begin
-  if new.licensed is distinct from old.licensed and auth.role() = 'authenticated' then
+  -- current_user is the effective role: PostgREST client requests run as 'authenticated'/'anon', while
+  -- the dashboard SQL editor + the service-role key run as 'postgres'/'service_role'. So a signed-in
+  -- client can't flip its own license, but you (dashboard) or a future Stripe webhook still can. Using
+  -- current_user (a SQL built-in) instead of auth.role() keeps this portable across Postgres setups.
+  if new.licensed is distinct from old.licensed and current_user in ('authenticated', 'anon') then
     new.licensed := old.licensed; -- silently ignore a client's attempt to grant itself a license
   end if;
   return new;
