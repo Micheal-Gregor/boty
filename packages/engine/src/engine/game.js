@@ -93,6 +93,33 @@ export class Game {
     return { reckoning: true, order: this.state.reckoningOrder };
   }
 
+  // --- Seat control: a live human seat can be handed to the bot (drop/quit) and reclaimed (return). --
+  // These are RECORDED intents: the flip lives in replayed state, so every client agrees a seat is
+  // bot-driven the instant they replay the move. Unlike `bankrupt`, an aiControlled seat keeps playing
+  // (the store's ai-map re-derives from this flag and drives it) and is NOT skipped by advanceTurn.
+
+  /** Hand seat `seat` (index into state.players) to the bot after that player drops or quits. */
+  takeoverSeat(seat) {
+    const p = this.state.players[seat];
+    if (!p) throw new GameError(`No seat ${seat}`);
+    if (p.aiControlled) return `${p.name} is already AI-controlled`;
+    p.aiControlled = true;
+    const line = `🤖 ${p.name} stepped away — the bot is running their shop.`;
+    this.state.log.push(line);
+    return line;
+  }
+
+  /** The original player returned — give seat `seat` back to the human. Mirrors takeoverSeat. */
+  reclaimSeat(seat) {
+    const p = this.state.players[seat];
+    if (!p) throw new GameError(`No seat ${seat}`);
+    if (!p.aiControlled) return `${p.name} is already player-controlled`;
+    p.aiControlled = false;
+    const line = `↩️ ${p.name} is back at the helm.`;
+    this.state.log.push(line);
+    return line;
+  }
+
   /** Advance Last Licks to the next solvent HUMAN seat (bots take no last licks), or close the books
    *  when every human has had their turn. A recorded intent, so all clients step it in lockstep. */
   advanceReckoning() {

@@ -150,6 +150,8 @@ export function createPlayer(economy, { name, service }) {
     service,
     cash: economy.starting_cash,
     bankrupt: false,
+    aiControlled: false, // a human seat handed to the bot after the player drops/quits (they reclaim on return); distinct from bankrupt — the seat keeps playing
+
     building: economy.starting_building,
     capacityBonus: 0, // capitalised leasehold improvements add capacity (lost on relocate)
     pendingExpansion: null, // a deferred capital project (readying a move / capacity bump) in flight
