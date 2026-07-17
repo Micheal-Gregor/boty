@@ -11,7 +11,9 @@ const ADVANCE = /next|continue|got it|^ok\b|close|^✓|play ▶|begin|^roll\b|re
 // any option just to keep the table moving; the resilience feature is what's under test, not strategy.
 const DECIDE = /settle|concede|take to court|^pay|accept|decline|keep|resolve|dismiss|no thanks|not now|done/i;
 const END = /end turn|done — pass|done.*pass/i;
-const FAST = "grace=1200&hoststale=1200&hbfresh=700"; // short presence windows for the test
+// Short presence windows for the test. stale MUST stay above the 2.5s heartbeat interval, else a
+// present player reads stale between beats — the very over-eagerness we're guarding against.
+const FAST = "stale=4000&grace=1500&hoststale=1500";
 
 async function setup(page, user) {
   await page.addInitScript((s) => localStorage.setItem("boty.settings", s), SETTINGS);
@@ -31,6 +33,40 @@ async function step(page) {
   return null;
 }
 const atGala = (page) => page.locator("h1", { hasText: /Gala/i }).isVisible().catch(() => false);
+
+// The bug this guards: two REAL players, both present, were wrongly booted to CPU (or the host's turn
+// skipped) because presence was judged too eagerly. Both stay connected here → NO takeover may fire,
+// and BOTH seats must actually take turns.
+test("both present players keep their seats and get their turns — no spurious takeover", async ({ browser }) => {
+  const ctx = await browser.newContext();
+  const alice = await ctx.newPage();
+  const bob = await ctx.newPage();
+  let takeovers = 0;
+  const activeSeen = new Set();
+  const watch = (pg) => pg.on("console", (m) => {
+    const t = m.text();
+    if (/\[BOTY:takeover\]/.test(t)) takeovers++;
+    const a = /"active":(\d+)/.exec(t); if (a) activeSeen.add(+a[1]);
+  });
+  watch(alice); watch(bob);
+  await setup(alice, "alice");
+  await setup(bob, "bob");
+  await alice.getByRole("button", { name: /host a game/i }).click();
+  const code = (await alice.locator("text=/MAPLE-[A-Z0-9]{4}/").first().textContent()).match(/MAPLE-[A-Z0-9]{4}/)[0];
+  await bob.getByPlaceholder(/MAPLE/i).fill(code);
+  await bob.getByRole("button", { name: /^join/i }).click();
+  await expect(alice.locator(".seats")).toContainText("bob", { timeout: 10000 });
+  await alice.getByRole("button", { name: /start game/i }).click();
+
+  // Both stay and play, well past the (short) grace, so an over-eager takeover would have fired by now.
+  for (let i = 0; i < 70; i++) {
+    if ((await atGala(alice)) && (await atGala(bob))) break;
+    await step(alice); await step(bob);
+    await alice.waitForTimeout(250);
+  }
+  expect(takeovers, "no seat was taken over while both players were present").toBe(0);
+  expect(activeSeen.has(0) && activeSeen.has(1), "both seats actually took their turns").toBe(true);
+});
 
 test("a dropped player's seat is taken over by the host's bot; the game reaches the Gala", async ({ browser }) => {
   const ctx = await browser.newContext();

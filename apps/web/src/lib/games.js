@@ -171,11 +171,25 @@ export async function fetchGameRow() {
 
 // --- Presence (Phase 3.7): heartbeat, seat snapshot, host hand-off, resume list ---------------
 
-/** Stamp MY seat's heartbeat (last_seen = now). The store calls this every tick while in a game, so
- *  other clients can tell I'm still connected. RLS seats_write admits my own seat. */
+/** Stamp MY seat's heartbeat via the server-side RPC so last_seen is the DB clock (now()), NOT this
+ *  device's wall clock. Critical: presence is judged by comparing seats' last_seen, so if each device
+ *  stamped its OWN clock, two phones a few seconds apart would read each other as "absent" and boot a
+ *  live player. The RPC is security-definer, so it also can't be blocked by an RLS edge case. */
 export async function heartbeatSeat() {
   const g = get(onlineGame), me = get(user); if (!g || !me) return;
-  await supabase.from("game_seats").update({ last_seen: new Date().toISOString() }).eq("game_id", g.id).eq("user_id", me.id);
+  const { error } = await supabase.rpc("heartbeat", { g: g.id });
+  // Transitional fallback: if the heartbeat RPC isn't in the DB yet (schema v3.1 not re-run), still
+  // stamp last_seen the old way so clients don't ALL read as absent and trigger mass takeovers. Once
+  // the RPC exists, the server clock is used and cross-device presence is correct.
+  if (error) await supabase.from("game_seats").update({ last_seen: new Date().toISOString() }).eq("game_id", g.id).eq("user_id", me.id);
+}
+
+/** Remove a game from MY Resume list: if I host it, close it for everyone (delete the row); otherwise
+ *  just give up my seat (so my_games no longer returns it for me). */
+export async function removeGame(row) {
+  const me = get(user); if (!me || !row) return;
+  if (row.host_id === me.id) await supabase.from("games").delete().eq("id", row.id);
+  else await supabase.from("game_seats").delete().eq("game_id", row.id).eq("user_id", me.id);
 }
 
 /** Read all seats (with last_seen) for the current game — the store's presence tick uses this to decide

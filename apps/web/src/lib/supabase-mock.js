@@ -117,6 +117,15 @@ class Channel {
   _teardown() { if (this._onStorage) window.removeEventListener("storage", this._onStorage); const i = liveChannels.indexOf(this); if (i >= 0) liveChannels.splice(i, 1); }
 }
 
+// heartbeat: stamp my seat's last_seen with "server" time (one browser clock here, so skew is moot).
+function mockHeartbeat(g) {
+  const seats = readTbl("game_seats");
+  const me = myId();
+  const s = seats.find((x) => x.game_id === g && x.user_id === me);
+  if (s) { s.last_seen = new Date().toISOString(); writeTbl("game_seats", seats, { eventType: "UPDATE", new: s }); }
+  return null;
+}
+
 // claim_host: hand me the host role IF the current host's seat heartbeat is stale (>30s) or missing —
 // mirrors the SQL RPC. Used by the two-tab E2E for host migration (a test shrinks the window via URL).
 function mockClaimHost(g) {
@@ -154,6 +163,7 @@ export function makeMockSupabase() {
     removeChannel: (ch) => ch?._teardown?.(),
     // Faithful stand-ins for the security-definer RPCs the store calls. record_result stays a no-op.
     rpc: async (fn, args) => {
+      if (fn === "heartbeat") return ok(mockHeartbeat(args?.g));
       if (fn === "claim_host") return ok(mockClaimHost(args?.g));
       if (fn === "my_games") return ok(mockMyGames());
       return ok(null);

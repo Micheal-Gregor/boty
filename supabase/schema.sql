@@ -169,9 +169,17 @@ do $$ begin alter publication supabase_realtime add table public.friendships;  e
 -- Presence is never part of replayed game state — it only decides who records moves.
 -- ============================================================================
 
--- Heartbeat: each client stamps its own seat every ~2.5s (allowed by seats_write for your own seat).
--- A null/stale last_seen = that player is absent → their seat gets AI-taken-over by the host.
+-- Heartbeat: each client stamps its own seat every ~2.5s. A null/stale last_seen = that player is
+-- absent → their seat gets AI-taken-over by the host.
 alter table public.game_seats add column if not exists last_seen timestamptz;
+
+-- Stamp the caller's heartbeat with the SERVER clock (now()), not the device clock — so presence is
+-- judged consistently across devices whose wall clocks disagree (else a live player reads as "absent"
+-- and gets booted). Security-definer so it also can't be blocked by an RLS edge case.
+create or replace function public.heartbeat(g uuid)
+  returns void language sql security definer set search_path = public as $$
+  update public.game_seats set last_seen = now() where game_id = g and user_id = auth.uid();
+$$;
 
 -- Allow a 'paused' game (the Resume list labels it; set when the last connected human leaves).
 alter table public.games drop constraint if exists games_status_check;

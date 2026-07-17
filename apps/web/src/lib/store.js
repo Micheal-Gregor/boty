@@ -161,6 +161,9 @@ function recordMyOutcome() {
   const live = game.state.players.filter((p) => !p.bankrupt);
   const winner = live.length ? live.reduce((a, b) => (b.cash > a.cash ? b : a)) : null;
   recordResult(!!winner && game.state.players.indexOf(winner) === mySeat);
+  // The game is finished — the host closes the room so it drops off everyone's Resume list (a game
+  // only lingers there while it's genuinely mid-play). Host-only; RLS lets the host update status.
+  if (isHostClient) { try { writeGameState({ status: "done" }); } catch { /* best effort */ } }
 }
 function finalReport() {
   const players = game.state.players.map((p) => ({
@@ -603,7 +606,7 @@ function subscribeOnlineRoom() {
   });
 }
 
-function resetOnline() { online = false; realGame = null; pending = []; log = []; onlineCfg = null; mySeat = -1; isHostClient = false; hostDriving = false; confirmedLen = 0; writeInFlight = false; presenceStartedAt = 0; lastSeats = []; lastPresenceSig = ""; stopOnlineTick(); }
+function resetOnline() { online = false; realGame = null; pending = []; log = []; onlineCfg = null; mySeat = -1; isHostClient = false; hostDriving = false; confirmedLen = 0; writeInFlight = false; presenceStartedAt = 0; lastSeats = []; lastPresenceSig = ""; absentSince = {}; stopOnlineTick(); }
 
 // Online round start: when the round ticks over, FLUSH the previous round's piled-up pop-ups and
 // lead with the townfolk story card — a clean reset for the new round on every client. (Local play
@@ -687,7 +690,7 @@ function buildOnlineGame(row) {
   }
   confirmedLen = log.length; // we built from this row, so its moves are already persisted
   presenceStartedAt = Date.now(); // start the host-election startup grace from now (this join)
-  lastSeats = []; lastPresenceSig = "";
+  lastSeats = []; lastPresenceSig = ""; absentSince = {};
   heartbeatSeat().catch(() => {}); // seed my presence immediately so others never read me as "never seen"
   startOnlineTick();         // begin the flaky-link poll/retry safety net for this game
   push({ screen: "board", economy, error: null, aiActing: null, threat: null, picking: null, reckoning: null, final: null, court: null }); // push fires the round-1 dice + townfolk card (economy reset — a prior tutorial may have set the 6-round one)
@@ -812,13 +815,40 @@ function deriveOnlineAI() {
 let presenceStartedAt = 0; // when this client's online session began — a startup grace before any host election
 let lastSeats = [];        // latest game_seats snapshot (with last_seen) from the presence tick; read by the drive loop
 let lastPresenceSig = "";  // last connected-status signature we pushed a UI refresh for (avoids idle re-renders)
-const isFresh = (seat, ms) => !!seat?.last_seen && (Date.now() - new Date(seat.last_seen).getTime()) < ms;
+let absentSince = {};      // key (seat idx / host uid) → local ts we first saw it CONTINUOUSLY stale; cleared on any heartbeat
+
+// Presence windows. Overridable via URL params (dev/E2E only — the defaults ship). ALL comparisons are
+// in SERVER time (the heartbeat RPC stamps last_seen with the DB clock), so two devices whose wall clocks
+// disagree still agree on who's present — the bug that booted a live player as "absent".
+const _qp = (typeof location !== "undefined") ? new URLSearchParams(location.search) : new URLSearchParams();
+const HB_STALE = Number(_qp.get("stale")) || 10000;       // heartbeat gap beyond this = "not currently connected" (beats every 2.5s)
+const SEAT_GRACE = Number(_qp.get("grace")) || 35000;     // active human seat CONTINUOUSLY stale this long → host hands it to the bot
+const HOST_STALE = Number(_qp.get("hoststale")) || 35000; // host CONTINUOUSLY stale this long → a connected player may claim host
+
+// "Server now" ≈ the newest heartbeat across all seats (someone beats every 2.5s). Because last_seen is
+// the DB clock, this and every gap below are immune to any one device's wall clock being off.
+function serverNow(seats) {
+  let m = 0;
+  for (const s of seats) if (s.last_seen) { const t = new Date(s.last_seen).getTime(); if (t > m) m = t; }
+  return m || Date.now();
+}
+const seatGap = (seats, s) => (s?.last_seen ? serverNow(seats) - new Date(s.last_seen).getTime() : Infinity);
+const connected = (seats, s) => seatGap(seats, s) < HB_STALE;
+
+// Sustained-absence gate: a seat must read stale on EVERY tick for `graceMs` before we act on it. A
+// single fresh heartbeat in that window (a real player sends one every 2.5s) resets the timer — so a
+// transient blip, a throttled mobile timer, or a moment of clock disagreement never boots anyone.
+function sustainedAbsent(seats, s, key, graceMs) {
+  if (connected(seats, s)) { delete absentSince[key]; return false; } // heartbeat seen — reset the clock
+  if (!absentSince[key]) { absentSince[key] = Date.now(); return false; } // first stale reading — start the clock
+  return Date.now() - absentSince[key] > graceMs; // continuously stale past the grace
+}
 
 // Per-seat connected/absent for the UI (a green/grey dot + "covering" copy), keyed by seat index. My own
 // seat is always connected (I'm rendering). Empty until the first heartbeat snapshot lands.
 function presenceView() {
   const out = {};
-  for (const s of lastSeats) out[s.seat] = { connected: s.seat === mySeat || isFresh(s, HB_FRESH), is_ai: !!s.is_ai, human: !!s.user_id };
+  for (const s of lastSeats) out[s.seat] = { connected: s.seat === mySeat || connected(lastSeats, s), is_ai: !!s.is_ai, human: !!s.user_id };
   return out;
 }
 
@@ -830,12 +860,6 @@ function noticeFlash(msg) {
   if (noticeTimer) clearTimeout(noticeTimer);
   noticeTimer = setTimeout(() => push({ notice: null }), 4500);
 }
-// Presence windows. Overridable via URL params (dev/E2E only — the defaults ship): a test can shrink
-// them (e.g. ?grace=1500) to exercise takeover/host-migration without waiting the real ~30-40s.
-const _qp = (typeof location !== "undefined") ? new URLSearchParams(location.search) : new URLSearchParams();
-const HB_FRESH = Number(_qp.get("hbfresh")) || 12000;    // heartbeat newer than this = the player is connected (writes every 2.5s)
-const HOST_STALE = Number(_qp.get("hoststale")) || 30000;  // host silent this long → a connected player may claim the host role
-const SEAT_GRACE = Number(_qp.get("grace")) || 40000;  // active human seat silent this long → the host hands it to the bot
 
 // Presence tick (runs inside onlinePoll every 2.5s while in a game): stamp my heartbeat, then keep the
 // game alive — elect a new host if the host went dark, and (as host) hand absent seats to the bot /
@@ -850,7 +874,7 @@ async function presenceTick(row) {
   lastSeats = seats; // the drive loop reads this to reclaim a returned seat at the top of its own turn
   // viewOf reads lastSeats only at push time, so refresh the UI when any seat's connected-status flips
   // (a dot goes green/grey). Signature-gated so an idle table doesn't re-render every 2.5s for nothing.
-  const sig = seats.map((s) => `${s.seat}:${s.seat === mySeat || isFresh(s, HB_FRESH) ? 1 : 0}:${s.is_ai ? 1 : 0}`).join("|");
+  const sig = seats.map((s) => `${s.seat}:${s.seat === mySeat || connected(seats, s) ? 1 : 0}:${s.is_ai ? 1 : 0}`).join("|");
   if (sig !== lastPresenceSig) { lastPresenceSig = sig; push({}); }
   if (!isHostClient) { await maybeElectHost(row, seats); return; }
   maybeTakeoverAbsentSeat(seats);
@@ -866,9 +890,9 @@ async function maybeElectHost(row, seats) {
   // client wrongly grabs host, leaving two hosts fighting over the write lock (the freeze).
   if (Date.now() - presenceStartedAt < HOST_STALE) return;
   const hostSeat = seats.find((s) => s.user_id === row.host_id);
-  if (isFresh(hostSeat, HOST_STALE)) return; // host still beating — leave it
+  if (!sustainedAbsent(seats, hostSeat, `host:${row.host_id}`, HOST_STALE)) return; // host still (intermittently) alive
   const eligible = seats
-    .filter((s) => s.user_id && !s.is_ai && s.user_id !== row.host_id && isFresh(s, HB_FRESH))
+    .filter((s) => s.user_id && !s.is_ai && s.user_id !== row.host_id && connected(seats, s))
     .map((s) => s.seat);
   eligible.push(mySeat); // I'm here by definition (I just wrote my own heartbeat)
   if (Math.min(...eligible) !== mySeat) return; // let the lowest connected seat be the one to claim
@@ -895,7 +919,7 @@ function maybeTakeoverAbsentSeat(seats) {
   if (seat === mySeat) return;                                 // that's me, and I'm here
   const s = seats.find((x) => x.seat === seat);
   if (!s?.user_id || s.is_ai) return;                          // only an owned human seat can be "absent"
-  if (isFresh(s, SEAT_GRACE)) return;                          // they're still here — wait for them
+  if (!sustainedAbsent(seats, s, `seat:${seat}`, SEAT_GRACE)) return; // must be CONTINUOUSLY absent past the grace
   try {
     game.takeoverSeat(seat); // recorded → every client flips this seat to AI on replay
     deriveOnlineAI();        // reflect it locally now so maybeDriveAI will run the bot
@@ -914,7 +938,7 @@ function maybeTakeoverAbsentSeat(seats) {
 function ownerReturned(seat) {
   if (!onlineCfg || onlineCfg.seats[seat]?.is_ai) return false;
   const s = lastSeats.find((x) => x.seat === seat);
-  return !!s?.user_id && isFresh(s, HB_FRESH);
+  return !!s?.user_id && connected(lastSeats, s);
 }
 
 // The "🤖 playing" banner payload when an AI holds the active seat (else null) — so watchers see the
