@@ -6,7 +6,12 @@
     hostGame, joinByCode, pickTrade, setSeatTrade, addAiSeat, removeSeat, leaveGame, myGames, resumeGame, removeGame,
   } from "../lib/games.js";
   import { friends, inviteFriend, licensed } from "../lib/social.js";
+  import { startCheckout } from "../lib/billing.js";
   import Shell from "./Shell.svelte";
+
+  let buying = $state(false);
+  async function buyLicense() { buying = true; const r = await startCheckout("license"); if (r?.error) { lobbyError.set(r.error); buying = false; } }
+  async function donate() { const r = await startCheckout("donate", 500); if (r?.error) lobbyError.set(r.error); }
 
   // Games you can jump back into (you hold a seat, it's still in progress). Loaded when the online home
   // is shown; a stand-in has been covering your seat while you were away.
@@ -61,8 +66,8 @@
           {#if $licensed}
             <button class="primary" disabled={$lobbyBusy} onclick={() => hostGame(difficulty)}>{$lobbyBusy ? "Creating…" : "Host a game ▶"}</button>
           {:else}
-            <button class="primary locked" disabled title="Hosting needs the full license">🔒 Hosting needs the full license</button>
-            <p class="muted locknote">Solo play and joining games are free. The one-time license unlocks hosting multiplayer.</p>
+            <button class="primary unlock" disabled={buying} onclick={buyLicense}>{buying ? "Opening checkout…" : "🔓 Unlock hosting — $5"}</button>
+            <p class="muted locknote">A one-time <strong>$5</strong> license unlocks hosting multiplayer, for life. Solo play and joining games stay free.</p>
           {/if}
         </div>
         <div class="card">
@@ -89,6 +94,8 @@
           {/each}
         </div>
       {/if}
+
+      <p class="donate-line">Enjoying Maple Hollow? <button class="donate-link" onclick={donate}>☕ Chip in $5</button></p>
     {:else}
       <!-- In a lobby -->
       <h1>Lobby</h1>
@@ -181,8 +188,11 @@
   button:hover:not(:disabled) { border-color: var(--accent, #e0b341); }
   button:disabled { opacity: 0.55; cursor: default; }
   button.primary { background: var(--accent, #e0b341); color: #1a1a1a; border: none; }
-  button.primary.locked { background: var(--panel-2, #1b1f27); color: var(--muted, #9aa0aa); border: 1px dashed var(--line, #2a2f3a); cursor: default; }
+  button.primary.unlock { background: linear-gradient(180deg, #57c98a, #3f9d6a); color: #0c1a12; border: none; }
+  button.primary.unlock:hover:not(:disabled) { filter: brightness(1.06); }
   .locknote { margin-top: 6px; font-size: 0.8rem; }
+  .donate-line { text-align: center; color: var(--muted, #9aa0aa); font-size: 0.85rem; margin-top: 18px; }
+  .donate-link { background: none; border: none; color: var(--accent, #e0b341); cursor: pointer; font: inherit; text-decoration: underline; padding: 0; }
   .codebar { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-bottom: 14px; }
   .code { font-size: 1.2rem; font-weight: 800; letter-spacing: 0.06em; color: var(--accent, #e0b341); background: var(--panel-2, #1b1f27); border: 1px dashed var(--accent, #e0b341); }
   .seats { display: flex; flex-direction: column; gap: 6px; margin-bottom: 14px; }

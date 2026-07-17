@@ -2,6 +2,7 @@
   import { onMount } from "svelte";
   import { ui } from "./lib/store.js";
   import { playSfx } from "./lib/sound.js";
+  import { handleCheckoutReturn } from "./lib/billing.js";
   import Loading from "./screens/Loading.svelte";
   import Login from "./screens/Login.svelte";
   import Menu from "./screens/Menu.svelte";
@@ -42,9 +43,23 @@
     document.addEventListener("click", onClick, true);
     return () => document.removeEventListener("click", onClick, true);
   });
+
+  // Returning from Stripe Checkout: confirm the purchase and reflect the license.
+  let checkoutMsg = $state(null);
+  onMount(async () => {
+    const r = await handleCheckoutReturn();
+    if (!r) return;
+    if (r.status === "cancel") checkoutMsg = { ok: false, text: "Checkout cancelled — no charge was made." };
+    else if (r.licensed) checkoutMsg = { ok: true, text: "🎉 Thanks! Your host license is active — you can host games now." };
+    else checkoutMsg = { ok: true, text: "Payment received — thank you! Your unlock will appear in a moment." };
+    setTimeout(() => (checkoutMsg = null), 8000);
+  });
 </script>
 
 <main>
+  {#if checkoutMsg}
+    <div class="checkout-toast" class:err={!checkoutMsg.ok} role="status">{checkoutMsg.text}</div>
+  {/if}
   {#if $ui.screen === "loading"}
     <Loading />
   {:else if $ui.screen === "login"}
