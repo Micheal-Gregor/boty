@@ -221,3 +221,62 @@ create or replace function public.my_games()
      and exists (select 1 from public.game_seats s where s.game_id = g.id and s.user_id = auth.uid())
    order by g.updated_at desc;
 $$;
+
+-- ============================================================================
+-- BOTY — licensing (v3.2): a one-time lifetime license unlocks HOSTING and being a game's
+-- host-authority. Free players play solo, JOIN any game, and reclaim their own seat if they drop.
+-- Re-runnable/additive. Grant a license by hand (dashboard) for now; a Stripe webhook can set it later.
+--
+-- ROLLOUT ORDER MATTERS: flag your host accounts `licensed = true` BEFORE this gate goes live, or no
+-- one can host. e.g.  update public.profiles set licensed = true where username = 'yourname';
+-- ============================================================================
+alter table public.profiles add column if not exists licensed boolean not null default false;
+-- profiles_select is already `using (true)`, so co-players can read who's licensed (needed to pick the
+-- next host / decide to pause). It's not sensitive. But profiles_update lets a user edit their OWN row —
+-- which would let them self-license. Block that: a normal signed-in client can never flip `licensed`;
+-- only the service role (dashboard SQL / future webhook) may. Superuser/service updates pass through.
+create or replace function public.protect_licensed() returns trigger language plpgsql security definer as $$
+begin
+  if new.licensed is distinct from old.licensed and auth.role() = 'authenticated' then
+    new.licensed := old.licensed; -- silently ignore a client's attempt to grant itself a license
+  end if;
+  return new;
+end $$;
+drop trigger if exists trg_protect_licensed on public.profiles;
+create trigger trg_protect_licensed before update on public.profiles for each row execute function public.protect_licensed();
+
+-- Small helper: is the CALLER licensed? (security definer so it reads profiles regardless of RLS.)
+create or replace function public.am_licensed()
+  returns boolean language sql security definer stable set search_path = public as $$
+  select coalesce((select licensed from public.profiles where id = auth.uid()), false);
+$$;
+
+-- HOSTING is licensed-only: a free player literally cannot create a game row (client also gates for UX).
+drop policy if exists games_insert on public.games;
+create policy games_insert on public.games for insert to authenticated
+  with check (host_id = auth.uid() and public.am_licensed());
+
+-- HOST-AUTHORITY is licensed-only: only a licensed player may take over hosting. If no licensed player
+-- is present when the host drops, nobody claims it → the game simply waits (saved) for one to return —
+-- it is never handed to free players. (Redefines the v3 claim_host with the extra guard.)
+create or replace function public.claim_host(g uuid)
+  returns uuid language plpgsql security definer set search_path = public as $$
+declare
+  cur_host  uuid;
+  host_seen timestamptz;
+begin
+  if not public.is_player(g) then return null; end if;              -- only a seated player
+  if not public.am_licensed() then                                  -- free players can't be the host
+    select host_id into cur_host from public.games where id = g;
+    return cur_host;
+  end if;
+  select host_id into cur_host from public.games where id = g;
+  if cur_host is null or cur_host = auth.uid() then return cur_host; end if;
+  select max(last_seen) into host_seen from public.game_seats where game_id = g and user_id = cur_host;
+  if host_seen is null or host_seen < now() - interval '30 seconds' then
+    update public.games set host_id = auth.uid(), updated_at = now() where id = g;
+    return auth.uid();
+  end if;
+  return cur_host;
+end;
+$$;

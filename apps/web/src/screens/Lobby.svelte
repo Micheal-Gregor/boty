@@ -5,7 +5,7 @@
     onlineGame, onlineSeats, lobbyBusy, lobbyError, lobbyNote,
     hostGame, joinByCode, pickTrade, setSeatTrade, addAiSeat, removeSeat, leaveGame, myGames, resumeGame, removeGame,
   } from "../lib/games.js";
-  import { friends, inviteFriend } from "../lib/social.js";
+  import { friends, inviteFriend, licensed } from "../lib/social.js";
   import Shell from "./Shell.svelte";
 
   // Games you can jump back into (you hold a seat, it's still in progress). Loaded when the online home
@@ -52,13 +52,18 @@
           <h2>Host a game</h2>
           <p class="muted">Create a table and share the code with your invited players.</p>
           <label class="diff">Difficulty
-            <select bind:value={difficulty}>
+            <select bind:value={difficulty} disabled={!$licensed}>
               <option value="steady">Steady</option>
               <option value="standard">Standard</option>
               <option value="cutthroat">Cutthroat</option>
             </select>
           </label>
-          <button class="primary" disabled={$lobbyBusy} onclick={() => hostGame(difficulty)}>{$lobbyBusy ? "Creating…" : "Host a game ▶"}</button>
+          {#if $licensed}
+            <button class="primary" disabled={$lobbyBusy} onclick={() => hostGame(difficulty)}>{$lobbyBusy ? "Creating…" : "Host a game ▶"}</button>
+          {:else}
+            <button class="primary locked" disabled title="Hosting needs the full license">🔒 Hosting needs the full license</button>
+            <p class="muted locknote">Solo play and joining games are free. The one-time license unlocks hosting multiplayer.</p>
+          {/if}
         </div>
         <div class="card">
           <h2>Join a game</h2>
@@ -176,6 +181,8 @@
   button:hover:not(:disabled) { border-color: var(--accent, #e0b341); }
   button:disabled { opacity: 0.55; cursor: default; }
   button.primary { background: var(--accent, #e0b341); color: #1a1a1a; border: none; }
+  button.primary.locked { background: var(--panel-2, #1b1f27); color: var(--muted, #9aa0aa); border: 1px dashed var(--line, #2a2f3a); cursor: default; }
+  .locknote { margin-top: 6px; font-size: 0.8rem; }
   .codebar { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-bottom: 14px; }
   .code { font-size: 1.2rem; font-weight: 800; letter-spacing: 0.06em; color: var(--accent, #e0b341); background: var(--panel-2, #1b1f27); border: 1px dashed var(--accent, #e0b341); }
   .seats { display: flex; flex-direction: column; gap: 6px; margin-bottom: 14px; }

@@ -58,14 +58,17 @@ test("both present players keep their seats and get their turns — no spurious 
   await expect(alice.locator(".seats")).toContainText("bob", { timeout: 10000 });
   await alice.getByRole("button", { name: /start game/i }).click();
 
-  // Both stay and play, well past the (short) grace, so an over-eager takeover would have fired by now.
-  for (let i = 0; i < 70; i++) {
+  // Both stay and play. We only need to run well past the grace window with both present — no need to
+  // babysit the click-bot all the way to the Gala. Stop once BOTH seats have taken a turn AND we're
+  // comfortably past the (short) grace, so an over-eager takeover would already have fired if broken.
+  for (let i = 0; i < 90; i++) {
     if ((await atGala(alice)) && (await atGala(bob))) break;
+    if (activeSeen.has(0) && activeSeen.has(1) && i >= 50) break; // both played + ~12s elapsed (grace is 1.5s)
     await step(alice); await step(bob);
     await alice.waitForTimeout(250);
   }
-  expect(takeovers, "no seat was taken over while both players were present").toBe(0);
   expect(activeSeen.has(0) && activeSeen.has(1), "both seats actually took their turns").toBe(true);
+  expect(takeovers, "no seat was taken over while both players were present").toBe(0);
 });
 
 test("a dropped player's seat is taken over by the host's bot; the game reaches the Gala", async ({ browser }) => {

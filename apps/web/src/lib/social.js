@@ -1,11 +1,12 @@
 // Social layer — public usernames, friends, game invites, and the leaderboard. Everything is gated on
 // supabaseReady and the signed-in user; offline it just stays empty. Real emails never leave
 // auth.users — only the username is ever read or shown. Profiles load automatically on sign-in.
-import { writable, get } from "svelte/store";
+import { writable, get, derived } from "svelte/store";
 import { supabase, supabaseReady } from "./supabase.js";
 import { user } from "./auth.js";
 
-export const myProfile = writable(null);      // { id, username, games_played, games_won } | null
+export const myProfile = writable(null);      // { id, username, games_played, games_won, licensed } | null
+export const licensed = derived(myProfile, ($p) => !!$p?.licensed); // the $5 lifetime license: host + host-authority
 export const needsUsername = writable(false); // signed in but no profile yet → prompt for a username
 export const friends = writable([]);          // [{ id, username }]
 export const friendRequests = writable([]);   // incoming pending: [{ rowId, id, username }]

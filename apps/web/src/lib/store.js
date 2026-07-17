@@ -9,7 +9,7 @@ import { botActions } from "@boty/engine/bots";
 import { loadContent } from "./content.js";
 import { unlockAudio, playSfx, playSting, playMusic } from "./sound.js";
 import { checkInvariants, noteRoundSurfaced } from "./invariants.js";
-import { recordResult } from "./social.js";
+import { recordResult, myProfile } from "./social.js";
 import { dealTownlife, townlifeForRound } from "./townlife.js";
 import { setMoneyRate } from "./money.js";
 import { npcIntroFor } from "./townsfolk.js";
@@ -884,6 +884,8 @@ async function presenceTick(row) {
 // role (the RPC re-checks staleness server-side, so a rare double-claim self-corrects, last write wins).
 async function maybeElectHost(row, seats) {
   if (!row || isHostClient) return;
+  if (!get(myProfile)?.licensed) return; // only LICENSED players may become host; else the game waits (saved) for one
+  // (claim_host also enforces this server-side — the client guard just avoids a futile RPC round-trip.)
   // Startup grace: never elect within the first HOST_STALE window of joining. A live host heartbeats
   // every 2.5s, so by the time this elapses it is provably fresh (or provably gone) — this is what
   // stops the boot-time flap where a not-yet-written last_seen reads as "host stale" and a second

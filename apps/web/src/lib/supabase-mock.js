@@ -134,6 +134,8 @@ function mockClaimHost(g) {
   if (!row) return null;
   const me = myId();
   if (!row.host_id || row.host_id === me) return row.host_id ?? null;
+  const meProfile = readTbl("profiles").find((p) => p.id === me);
+  if (!meProfile?.licensed) return row.host_id; // only a LICENSED player may become host
   const seats = readTbl("game_seats").filter((s) => s.game_id === g);
   if (!seats.some((s) => s.user_id === me)) return row.host_id; // only a seated player may claim
   const hostSeat = seats.find((s) => s.user_id === row.host_id);
@@ -155,7 +157,7 @@ export function makeMockSupabase() {
   const session = { user: { id: myId(), email: `${myId()}@mock.test` } };
   // Auto-seed a profile so the username prompt never blocks the E2E.
   const profiles = readTbl("profiles");
-  if (!profiles.some((p) => p.id === myId())) { profiles.push({ id: myId(), username: myId(), games_played: 0, games_won: 0 }); writeTbl("profiles", profiles); }
+  if (!profiles.some((p) => p.id === myId())) { profiles.push({ id: myId(), username: myId(), games_played: 0, games_won: 0, licensed: true }); writeTbl("profiles", profiles); } // test users are licensed so hosting works in the E2E
   return {
     __mock: true,
     from: (t) => new Query(t),
