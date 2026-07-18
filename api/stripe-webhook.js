@@ -8,7 +8,8 @@ import { createClient } from "@supabase/supabase-js";
 
 export const config = { api: { bodyParser: false } }; // Stripe needs the exact raw bytes to verify the signature
 
-const SUPABASE_URL = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL;
+// .trim() every secret — a stray space/newline pasted into a Vercel env var yields "Invalid API key".
+const SUPABASE_URL = (process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL)?.trim();
 
 async function readRaw(req) {
   const chunks = [];
@@ -18,9 +19,9 @@ async function readRaw(req) {
 
 export default async function handler(req, res) {
   if (req.method !== "POST") return res.status(405).end();
-  const key = process.env.STRIPE_SECRET_KEY;
-  const whsec = process.env.STRIPE_WEBHOOK_SECRET;
-  const svc = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  const key = process.env.STRIPE_SECRET_KEY?.trim();
+  const whsec = process.env.STRIPE_WEBHOOK_SECRET?.trim();
+  const svc = process.env.SUPABASE_SERVICE_ROLE_KEY?.trim();
   // Report WHICH env var is missing (names only — never the values) so a 500 is diagnosable from Stripe's
   // delivery log. If you just added these in Vercel, you must REDEPLOY for the function to see them.
   const missing = [];
