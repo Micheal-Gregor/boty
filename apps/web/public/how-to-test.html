@@ -1,0 +1,169 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<meta name="theme-color" content="#161a22" />
+<meta name="description" content="How to playtest Business of the Year — sign-in, the fake $5 test purchase, scenarios to try, and how to send feedback." />
+<title>Test BOTY — Playtest Guide</title>
+<style>
+  :root {
+    --bg: #f3f1ea; --panel: #ffffff; --panel-2: #efece2;
+    --ink: #23272f; --muted: #6a6f79; --line: #e2ddce;
+    --accent: #9c7113; --accent-fill: #e0b341; --accent-on: #241a05;
+    --green: #2f8f57; --green-soft: #e6f2ea;
+    --chip-bg: #1b2029; --chip-ink: #f0ead9; --chip-accent: #e6bd55;
+    --shadow: 0 1px 2px rgba(30,26,10,.05), 0 8px 24px rgba(30,26,10,.06);
+    --font-display: Georgia, "Times New Roman", serif;
+    --font-body: system-ui, -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    --font-mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #12151c; --panel: #1a1f2a; --panel-2: #161b24;
+      --ink: #e8e7e2; --muted: #99a0ab; --line: #2a303c;
+      --accent: #e0b341; --accent-fill: #e0b341; --accent-on: #201803;
+      --green: #6cd39a; --green-soft: #16261d;
+      --chip-bg: #0d1017; --chip-ink: #f0ead9; --chip-accent: #e6bd55;
+      --shadow: 0 1px 2px rgba(0,0,0,.3), 0 10px 30px rgba(0,0,0,.35);
+    }
+  }
+  * { box-sizing: border-box; }
+  html { -webkit-text-size-adjust: 100%; }
+  body { margin: 0; background: var(--bg); color: var(--ink); font-family: var(--font-body); line-height: 1.6; -webkit-font-smoothing: antialiased; }
+  .wrap { max-width: 680px; margin: 0 auto; padding: 32px 20px 72px; }
+
+  header { text-align: center; padding: 30px 22px 26px; border: 1px solid var(--line); border-radius: 16px;
+           background: var(--panel); box-shadow: var(--shadow); position: relative; }
+  header::before { content: ""; position: absolute; inset: 7px; border: 1px solid var(--accent); opacity: .32; border-radius: 11px; pointer-events: none; }
+  .eyebrow { font-size: .72rem; letter-spacing: .16em; text-transform: uppercase; color: var(--accent); font-weight: 700; margin: 0 0 10px; }
+  header h1 { font-family: var(--font-display); font-weight: 700; font-size: clamp(1.9rem, 6vw, 2.7rem); line-height: 1.08; margin: 0; text-wrap: balance; }
+  header .lede { color: var(--muted); font-size: 1rem; margin: 12px auto 0; max-width: 46ch; text-wrap: pretty; }
+  .cta { display: inline-block; margin-top: 20px; padding: 11px 22px; border-radius: 10px; background: var(--accent-fill); color: var(--accent-on);
+         font-weight: 800; text-decoration: none; box-shadow: 0 4px 14px rgba(224,179,65,.28); }
+  .cta:hover { filter: brightness(1.05); }
+  .cta small { display: block; font-weight: 600; opacity: .8; font-size: .72rem; letter-spacing: .02em; }
+
+  section { margin-top: 34px; }
+  .sec-head { display: flex; align-items: baseline; gap: 12px; margin: 0 0 14px; }
+  .sec-head h2 { font-family: var(--font-display); font-size: 1.35rem; font-weight: 700; margin: 0; }
+  .sec-head .num { font-family: var(--font-mono); font-size: .78rem; color: var(--accent); font-weight: 700; letter-spacing: .05em; padding-top: 3px; }
+  p { margin: 0 0 12px; }
+  p.note { color: var(--muted); }
+  a { color: var(--accent); text-decoration: underline; text-underline-offset: 2px; }
+
+  .callout { background: var(--chip-bg); color: var(--chip-ink); border-radius: 14px; padding: 20px 22px; box-shadow: var(--shadow); }
+  .callout h3 { margin: 0 0 6px; font-family: var(--font-display); font-size: 1.15rem; color: var(--chip-accent); }
+  .callout p { color: #c7ccd6; margin: 0 0 14px; }
+  .card-num { font-family: var(--font-mono); font-size: clamp(1.15rem, 5.5vw, 1.6rem); letter-spacing: .12em; font-variant-numeric: tabular-nums;
+              color: #fff; background: rgba(255,255,255,.06); border: 1px dashed var(--chip-accent); border-radius: 10px; padding: 12px 14px; text-align: center; }
+  .card-meta { display: flex; flex-wrap: wrap; gap: 8px 20px; margin-top: 12px; font-size: .85rem; color: #aeb4c0; }
+  .card-meta b { color: #e8e7e2; font-weight: 600; }
+
+  .scenarios { display: flex; flex-direction: column; gap: 14px; }
+  .scn { background: var(--panel); border: 1px solid var(--line); border-radius: 14px; padding: 16px 18px; box-shadow: var(--shadow); }
+  .scn h3 { margin: 0 0 10px; font-size: 1.05rem; display: flex; align-items: center; gap: 9px; }
+  .scn h3 .ic { font-size: 1.15rem; line-height: 1; }
+  .rows { display: grid; grid-template-columns: auto 1fr; gap: 6px 12px; align-items: start; }
+  .lbl { font-size: .68rem; text-transform: uppercase; letter-spacing: .1em; font-weight: 700; padding-top: 3px; white-space: nowrap; }
+  .lbl.try { color: var(--accent); }
+  .lbl.exp { color: var(--green); }
+  .rows span { font-size: .95rem; }
+  .exp-text { color: var(--ink); }
+
+  .feedback { background: var(--green-soft); border: 1px solid color-mix(in srgb, var(--green) 40%, transparent); border-radius: 14px; padding: 18px 20px; }
+  .feedback h2 { font-family: var(--font-display); margin: 0 0 8px; font-size: 1.25rem; }
+  .feedback .pill { display: inline-block; background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 2px 9px; font-weight: 700; font-size: .9rem; }
+
+  footer { margin-top: 42px; text-align: center; color: var(--muted); font-size: .82rem; }
+  footer .rule { width: 46px; height: 2px; background: var(--accent); opacity: .5; margin: 0 auto 16px; border-radius: 2px; }
+  a:focus-visible, .cta:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; border-radius: 6px; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <p class="eyebrow">🎀 Better Business Bureau · Playtest</p>
+    <h1>Help test Business of the Year</h1>
+    <p class="lede">You're one of the first to play Maple Hollow's online multiplayer. Here's what to try — and how to flag anything that feels off.</p>
+    <a class="cta" href="https://boty.probookkeeping.net">Open the game &#9654;<small>boty.probookkeeping.net</small></a>
+  </header>
+
+  <section>
+    <div class="sec-head"><span class="num">01</span><h2>Getting in</h2></div>
+    <p>Open the game and sign in with the <b>email you were invited on</b>. You'll get a one-tap magic link — no password to remember. (Not invited yet? Send me your email and I'll add you.)</p>
+    <p class="note">Works on your phone and your computer. It installs like an app if you tap "Add to Home Screen".</p>
+  </section>
+
+  <section>
+    <div class="sec-head"><span class="num">02</span><h2>About the "$5"</h2></div>
+    <p>Solo play and <b>joining</b> games are always free. Only <b>hosting</b> a multiplayer game needs a one-time license. During this test the money is <b>fake</b> — if you want to host, you'll see <b>"Unlock hosting — $5"</b>; pay with the test card below and nothing is charged.</p>
+    <div class="callout">
+      <h3>Test card — no real charge</h3>
+      <p>Use this on the Stripe checkout page:</p>
+      <div class="card-num">4242&nbsp;4242&nbsp;4242&nbsp;4242</div>
+      <div class="card-meta"><span>Expiry: <b>any future date</b> (e.g. 12/34)</span><span>CVC: <b>any 3 digits</b></span><span>ZIP: <b>any</b></span></div>
+    </div>
+  </section>
+
+  <section>
+    <div class="sec-head"><span class="num">03</span><h2>What to try</h2></div>
+    <p class="note">The interesting stuff is what happens when people come and go mid-game. Each card below is a thing to poke at — and what you should see if it's working.</p>
+    <div class="scenarios">
+
+      <div class="scn">
+        <h3><span class="ic">🎲</span> Play a full game</h3>
+        <div class="rows">
+          <span class="lbl try">Try</span><span>Host or join a table with a friend (add a CPU or two to fill seats), then play a full year through to the Gala.</span>
+          <span class="lbl exp">Expect</span><span class="exp-text">Turns pass cleanly between everyone; the game reaches the awards Gala without freezing.</span>
+        </div>
+      </div>
+
+      <div class="scn">
+        <h3><span class="ic">📴</span> Drop &amp; come back</h3>
+        <div class="rows">
+          <span class="lbl try">Try</span><span>Mid-game, one player force-quits the app (or loses signal) for a minute — then reopens it and taps <b>&#9654; Resume a game</b>.</span>
+          <span class="lbl exp">Expect</span><span class="exp-text">A stand-in bot covers their seat so the table keeps moving; when they return, they get their seat back where it left off.</span>
+        </div>
+      </div>
+
+      <div class="scn">
+        <h3><span class="ic">👋</span> The host leaves</h3>
+        <div class="rows">
+          <span class="lbl try">Try</span><span>Have the <b>host</b> quit mid-game while others are still playing. Then have the host come back and resume it.</span>
+          <span class="lbl exp">Expect</span><span class="exp-text">The game saves; the others get a "the host has left" note. When the host returns, everyone gets a <b>Return</b> badge on 👥 Players to jump back in.</span>
+        </div>
+      </div>
+
+      <div class="scn">
+        <h3><span class="ic">🖥️</span> Two windows, one game</h3>
+        <div class="rows">
+          <span class="lbl try">Try</span><span>Open the same game in a second tab or device on the <b>same account</b>.</span>
+          <span class="lbl exp">Expect</span><span class="exp-text">The older window goes read-only ("this game is open in another window") with a <b>Play here</b> button to move control over.</span>
+        </div>
+      </div>
+
+      <div class="scn">
+        <h3><span class="ic">🔓</span> Buy your way to hosting</h3>
+        <div class="rows">
+          <span class="lbl try">Try</span><span>On an account that can't host yet, tap <b>Unlock hosting — $5</b> and pay with the test card.</span>
+          <span class="lbl exp">Expect</span><span class="exp-text">You bounce back to the game and, within a second or two, the <b>Host a game</b> button unlocks on its own — no one has to flip a switch for you.</span>
+        </div>
+      </div>
+
+    </div>
+  </section>
+
+  <section class="feedback">
+    <h2>💬 Tell me what you find</h2>
+    <p>Anything weird, confusing, or just an idea — tap <span class="pill">💬 Send feedback</span> on the main menu, or inside <b>⚙️ Settings</b> during a game. It comes straight to me, with a note of which screen you were on.</p>
+    <p class="note" style="margin-bottom:0">The more specific the better: what you did, what you expected, what actually happened.</p>
+  </section>
+
+  <footer>
+    <div class="rule"></div>
+    Business of the Year · Maple Hollow · thanks for playing 🏆
+  </footer>
+</div>
+</body>
+</html>
