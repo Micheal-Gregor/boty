@@ -307,3 +307,21 @@ begin
   return cur_host;
 end;
 $$;
+
+-- ============================================================================
+-- BOTY — tester feedback (v3.3). A signed-in player can leave feedback from inside the app; it lands
+-- here for the owner to read in the dashboard. Insert-only for players (they can't read others' notes);
+-- the owner reads via the Table Editor / service role. Re-runnable.
+-- ============================================================================
+create table if not exists public.feedback (
+  id         uuid primary key default gen_random_uuid(),
+  user_id    uuid references auth.users (id) on delete set null,
+  username   text,
+  message    text not null,
+  context    text,                                    -- e.g. which screen they were on
+  created_at timestamptz not null default now()
+);
+alter table public.feedback enable row level security;
+drop policy if exists feedback_insert on public.feedback;
+create policy feedback_insert on public.feedback for insert to authenticated with check (user_id = auth.uid());
+-- (no select policy → players can't read the feedback table; the owner reads it in the dashboard.)

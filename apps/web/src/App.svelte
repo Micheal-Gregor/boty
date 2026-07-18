@@ -34,6 +34,7 @@
   import UsernamePrompt from "./components/UsernamePrompt.svelte";
   import ObserverBanner from "./components/ObserverBanner.svelte";
   import SessionBanner from "./components/SessionBanner.svelte";
+  import Feedback from "./components/Feedback.svelte";
 
   // One soft click for EVERY button press, app-wide (capture phase, so it still fires when a modal
   // stops propagation). Card opens / litigation / the Gala layer their own accent (flip/gavel/chime)
@@ -89,6 +90,7 @@
   <!-- Overlays render above any screen (incl. Reckoning/Last Licks + Gala) -->
   <ObserverBanner />
   <SessionBanner />
+  <Feedback />
   <Popup />
   <EntityCard />
   <HandView />

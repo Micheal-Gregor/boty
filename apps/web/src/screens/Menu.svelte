@@ -1,5 +1,6 @@
 <script>
   import { goScreen, openSettings } from "../lib/store.js";
+  import { openFeedback } from "../lib/feedback.js";
   import { user, signOut } from "../lib/auth.js";
   import { supabaseReady } from "../lib/supabase.js";
   import { friendRequests, gameInvites } from "../lib/social.js";
@@ -20,6 +21,7 @@
       <button onclick={() => goScreen("history")}>📜 The Story of Maple Hollow</button>
       <button onclick={() => goScreen("faq")}>❔ How to Play &amp; FAQ</button>
       <button onclick={openSettings}>⚙️ Settings</button>
+      {#if supabaseReady && $user}<button class="feedback" onclick={openFeedback}>💬 Send feedback</button>{/if}
       <button onclick={() => goScreen("credits")}>🎬 Credits</button>
     </nav>
     {#if supabaseReady && $user}

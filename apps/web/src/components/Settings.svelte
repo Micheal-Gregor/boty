@@ -1,6 +1,8 @@
 <script>
   import { ui, closeSettings } from "../lib/store.js";
   import { settings, setSetting } from "../lib/settings.js";
+  import { openFeedback } from "../lib/feedback.js";
+  import { user } from "../lib/auth.js";
 
   const open = $derived($ui.settingsOpen);
   const rivalOptions = [
@@ -64,6 +66,7 @@
       </div>
       <p class="muted hint">“Interesting” = civic projects, big projects, building incidents, and any move against you.</p>
 
+      {#if $user}<button class="fb-row" onclick={() => { closeSettings(); openFeedback(); }}>💬 Send feedback to the developer</button>{/if}
       <button class="pop-close" onclick={closeSettings}>Done</button>
     </div>
   </div>
@@ -83,5 +86,6 @@
   .seg-btn { flex: 1; padding: 8px; background: var(--panel-2, #1b1f27); border: 1px solid var(--line, #2a2f3a); border-radius: 8px; }
   .seg-btn.on { border-color: var(--accent, #e0b341); color: var(--accent, #e0b341); font-weight: 700; }
   .hint { font-size: 0.8em; margin: 8px 0 0; }
-  .pop-close { margin-top: 16px; width: 100%; padding: 10px; font-weight: 700; }
+  .fb-row { margin-top: 16px; width: 100%; padding: 10px; font-weight: 700; background: var(--panel-2, #1b1f27); color: var(--accent, #e0b341); border: 1px solid var(--accent, #e0b341); border-radius: 8px; cursor: pointer; }
+  .pop-close { margin-top: 8px; width: 100%; padding: 10px; font-weight: 700; }
 </style>
