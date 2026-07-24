@@ -2,7 +2,7 @@
   import { ui, closeSettings } from "../lib/store.js";
   import { settings, setSetting } from "../lib/settings.js";
   import { openFeedback } from "../lib/feedback.js";
-  import { user } from "../lib/auth.js";
+  import { user, deleteAccount } from "../lib/auth.js";
 
   const open = $derived($ui.settingsOpen);
   const rivalOptions = [
@@ -10,6 +10,22 @@
     ["all", "All cards"],
     ["none", "None"],
   ];
+
+  let confirmDelete = $state(false);
+  let deleting = $state(false);
+  let delError = $state("");
+
+  async function doDelete() {
+    if (deleting) return;
+    deleting = true;
+    delError = "";
+    const { error } = await deleteAccount();
+    if (error) { delError = error; deleting = false; return; }
+    // Success → deleteAccount() signed us out; the app routes back to sign-in. Tidy the modal.
+    deleting = false;
+    confirmDelete = false;
+    closeSettings();
+  }
 </script>
 
 {#if open}
@@ -68,6 +84,21 @@
 
       {#if $user}<button class="fb-row" onclick={() => { closeSettings(); openFeedback(); }}>💬 Send feedback to the developer</button>{/if}
       <button class="pop-close" onclick={closeSettings}>Done</button>
+
+      {#if $user}
+        <div class="danger-zone">
+          {#if !confirmDelete}
+            <button class="danger-row" onclick={() => { delError = ""; confirmDelete = true; }}>🗑️ Delete my account</button>
+          {:else}
+            <p class="danger-warn">This permanently deletes your account and everything tied to it — your profile, your host license, and your seat in every game. It can't be undone.</p>
+            {#if delError}<p class="err">{delError}</p>{/if}
+            <div class="danger-actions">
+              <button class="danger-confirm" onclick={doDelete} disabled={deleting}>{deleting ? "Deleting…" : "Yes, delete everything"}</button>
+              <button class="danger-cancel" onclick={() => { confirmDelete = false; delError = ""; }} disabled={deleting}>Cancel</button>
+            </div>
+          {/if}
+        </div>
+      {/if}
     </div>
   </div>
 {/if}
@@ -88,4 +119,13 @@
   .hint { font-size: 0.8em; margin: 8px 0 0; }
   .fb-row { margin-top: 16px; width: 100%; padding: 10px; font-weight: 700; background: var(--panel-2, #1b1f27); color: var(--accent, #e0b341); border: 1px solid var(--accent, #e0b341); border-radius: 8px; cursor: pointer; }
   .pop-close { margin-top: 8px; width: 100%; padding: 10px; font-weight: 700; }
+  .danger-zone { margin-top: 18px; padding-top: 14px; border-top: 1px solid var(--line, #2a2f3a); }
+  .danger-row { width: 100%; padding: 9px; font-weight: 600; font-size: 0.9em; background: none; color: var(--muted, #9aa0aa); border: 1px solid var(--line, #2a2f3a); border-radius: 8px; cursor: pointer; }
+  .danger-row:hover { color: #e0564b; border-color: #e0564b; }
+  .danger-warn { font-size: 0.86em; color: #e7c9c6; line-height: 1.45; margin: 0 0 10px; }
+  .danger-actions { display: flex; gap: 8px; }
+  .danger-confirm { flex: 1; padding: 10px; font-weight: 700; background: #b23a2e; color: #fff; border: none; border-radius: 8px; cursor: pointer; }
+  .danger-confirm:disabled { opacity: 0.6; cursor: default; }
+  .danger-cancel { flex: 1; padding: 10px; font-weight: 700; background: var(--panel-2, #1b1f27); color: var(--ink, #e7e7ea); border: 1px solid var(--line, #2a2f3a); border-radius: 8px; cursor: pointer; }
+  .err { color: #e0564b; font-size: 0.86em; margin: 0 0 8px; }
 </style>

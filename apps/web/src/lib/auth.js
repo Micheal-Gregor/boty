@@ -68,3 +68,23 @@ export async function signOut() {
   if (supabaseReady) { try { await supabase.auth.signOut(); } catch { /* ignore */ } }
   session.set(null);
 }
+
+/** Permanently delete the signed-in user's account (and, by cascade, all their data). Calls the
+ *  service-role `/api/delete-account` function, then signs out. Returns { error } — null on success. */
+export async function deleteAccount() {
+  if (!supabaseReady) return { error: "Sign-in isn't configured yet." };
+  const { data: { session: s } = {} } = await supabase.auth.getSession();
+  const token = s?.access_token;
+  if (!token) return { error: "Sign in first." };
+  try {
+    const resp = await fetch("/api/delete-account", { method: "POST", headers: { Authorization: `Bearer ${token}` } });
+    if (!resp.ok) {
+      const body = await resp.json().catch(() => ({}));
+      return { error: body.error || "Couldn't delete the account." };
+    }
+  } catch {
+    return { error: "Couldn't reach the server — check your connection and try again." };
+  }
+  await signOut();
+  return { error: null };
+}
