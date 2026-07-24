@@ -636,7 +636,16 @@ function surfaceRoundStart() {
   const roll = s.turn === 1 ? buildFirstRoll() : null; // round 1 opens with the "who goes first" dice
   const roundCard = { kind: "round", turn: s.turn, season: view?.season, town: flavor?.town, townlife: tl?.id ?? null, townlifeFlavor: tl?.flavor ?? null, lead, leadIsMe: s.activePlayerIndex === mySeat };
   noteRoundSurfaced(s.turn); // dev-only: flags a re-fire (the looping-card bug)
-  ui.update((v) => ({ ...v, rev: v.rev + 1, popups: roll ? [roll, roundCard] : [roundCard] }));
+  const head = [roll, roundCard].filter(Boolean);
+  const leftovers = get(ui).popups ?? [];
+  // The flush: lead with the round card, drop the leftovers we captured, but KEEP anything enqueued in
+  // the meantime (e.g. this player's fresh draws), so nothing is dropped.
+  const flush = () => ui.update((v) => ({ ...v, rev: v.rev + 1, popups: [...head, ...v.popups.filter((p) => !leftovers.includes(p))] }));
+  // Pushback: give the card that's on screen a beat before the new round yanks it — a round card 1.0s,
+  // any other card 0.5s. Skipped at game start (turn 1): the opening dice/round ceremony sequences
+  // synchronously and can't tolerate a deferred flush.
+  const hold = s.turn > 1 && leftovers[0] ? (leftovers[0].kind === "round" ? 1000 : 500) : 0;
+  if (hold) setTimeout(flush, hold); else flush();
 }
 
 // Online: reveal the ACTIVE player's fortune draw on every client — your own cards (no label), or a
