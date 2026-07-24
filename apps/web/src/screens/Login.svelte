@@ -1,20 +1,43 @@
 <script>
-  import { sendMagicLink } from "../lib/auth.js";
+  import { sendLoginCode, verifyLoginCode } from "../lib/auth.js";
   import Shell from "./Shell.svelte";
 
   let email = $state("");
-  let status = $state("idle"); // idle | sending | sent | error
+  let code = $state("");
+  let step = $state("email"); // email | code
+  let status = $state("idle"); // idle | sending | verifying | error
   let errorMsg = $state("");
 
-  async function submit(e) {
+  async function sendCode(e) {
     e?.preventDefault?.();
     if (status === "sending") return;
     status = "sending";
     errorMsg = "";
-    const { error } = await sendMagicLink(email);
+    const { error } = await sendLoginCode(email);
     if (error) { status = "error"; errorMsg = error; }
-    else status = "sent";
+    else { status = "idle"; step = "code"; code = ""; }
   }
+
+  async function verify(e) {
+    e?.preventDefault?.();
+    if (status === "verifying") return;
+    status = "verifying";
+    errorMsg = "";
+    const { error } = await verifyLoginCode(email, code);
+    // On success onAuthStateChange swaps this screen out — nothing more to do here.
+    if (error) { status = "error"; errorMsg = error; }
+  }
+
+  async function resend() {
+    errorMsg = "";
+    code = "";
+    status = "sending";
+    const { error } = await sendLoginCode(email);
+    status = error ? "error" : "idle";
+    if (error) errorMsg = error;
+  }
+
+  function restart() { step = "email"; status = "idle"; errorMsg = ""; code = ""; }
 </script>
 
 <Shell bg="menu" label="Sign in">
@@ -22,19 +45,38 @@
     <p class="bbb">🎀 Better Business Bureau · Est. 1867</p>
     <h1>Business of the Year</h1>
 
-    {#if status === "sent"}
-      <div class="card">
-        <h2>📬 Check your email</h2>
-        <p>A one-time sign-in link is on its way to <strong>{email}</strong>. Open it on this device to
-          enter Maple Hollow. (Give it a minute, and peek in spam if it's slow.)</p>
-        <button onclick={() => { status = "idle"; }}>Use a different email</button>
-      </div>
+    {#if step === "code"}
+      <form class="card" onsubmit={verify}>
+        <h2>📬 Enter your code</h2>
+        <p>We emailed a 6-digit code to <strong>{email}</strong>. Type it in below.
+          (Give it a minute, and peek in spam if it's slow.)</p>
+        <input
+          class="code"
+          inputmode="numeric"
+          autocomplete="one-time-code"
+          pattern="[0-9]*"
+          maxlength="6"
+          placeholder="••••••"
+          bind:value={code}
+          required
+        />
+        <button class="primary" type="submit" disabled={status === "verifying"}>
+          {status === "verifying" ? "Checking…" : "Sign in ▶"}
+        </button>
+        {#if status === "error"}<p class="err">{errorMsg}</p>{/if}
+        <div class="row">
+          <button type="button" class="link" onclick={resend} disabled={status === "sending"}>
+            {status === "sending" ? "Sending…" : "Resend code"}
+          </button>
+          <button type="button" class="link" onclick={restart}>Use a different email</button>
+        </div>
+      </form>
     {:else}
-      <form class="card" onsubmit={submit}>
-        <p class="lede">Testers sign in with a one-time email link — no password to remember.</p>
+      <form class="card" onsubmit={sendCode}>
+        <p class="lede">Testers sign in with a one-time email code — no password to remember.</p>
         <input type="email" placeholder="you@example.com" bind:value={email} autocomplete="email" required />
         <button class="primary" type="submit" disabled={status === "sending"}>
-          {status === "sending" ? "Sending…" : "Email me a link ▶"}
+          {status === "sending" ? "Sending…" : "Email me a code ▶"}
         </button>
         {#if status === "error"}<p class="err">{errorMsg}</p>{/if}
         <p class="hint">Invite-only while we're testing. Not on the list yet? Ask for an invite.</p>
@@ -53,6 +95,11 @@
   .lede { color: var(--muted, #9aa0aa); }
   input { padding: 12px 14px; font-size: 1rem; border-radius: 10px; border: 1px solid var(--line, #2a2f3a); background: var(--panel-2, #1b1f27); color: var(--ink, #e7e7ea); }
   input:focus { outline: none; border-color: var(--accent, #e0b341); }
+  input.code { text-align: center; font-size: 1.6rem; letter-spacing: 0.5em; font-variant-numeric: tabular-nums; padding-left: 0.5em; }
+  .row { display: flex; justify-content: space-between; gap: 8px; margin-top: 2px; }
+  button.link { background: none; border: none; box-shadow: none; padding: 4px 2px; font-size: 0.82rem; font-weight: 600; color: var(--muted, #9aa0aa); cursor: pointer; }
+  button.link:hover { color: var(--accent, #e0b341); }
+  button.link:disabled { opacity: 0.6; cursor: default; }
   button { padding: 12px 16px; font-size: 1rem; font-weight: 700; border-radius: 10px; background: var(--panel, #161a22); color: var(--ink, #e7e7ea); border: 1px solid var(--line, #2a2f3a); cursor: pointer; }
   button:hover { border-color: var(--accent, #e0b341); }
   button.primary { background: var(--accent, #e0b341); color: #1a1a1a; border: none; box-shadow: 0 6px 20px rgba(224,179,65,0.3); }
