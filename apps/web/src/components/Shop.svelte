@@ -3,6 +3,7 @@
   import { money } from "../lib/money.js";
   import { findBuilding, findEquipment, SERVICES } from "@boty/engine";
   import { crewIdentity } from "../lib/crew.js";
+  import { settings } from "../lib/settings.js";
   import Art from "./Art.svelte";
   import Flash from "./Flash.svelte";
 
@@ -121,7 +122,7 @@
     {#each player.tradesmen as t (t.id)}
       <div class="slot person" class:busy={t.assignedJob} class:out={sidelined(t)}>
         <button class="thumb" onclick={() => openEntity("worker", t.id)}>
-          <Art kind="crew" id={t.id} label="portrait" small />
+          <Art kind="crew" id={t.id} label="portrait" small autoplay={$settings.animateCards} />
           <div class="slot-id"><span class="nm">{crewIdentity(t.id).name}</span><span class="prod" title="work score / turn">⚡{t.productivity}</span></div>
           <div class="muted">{t.id} · {t.tool ?? "bare-handed"}</div>
           <div class="muted">{sidelined(t) ? "out until t" + t.out_until : t.assignedJob ? "on " + t.assignedJob : "idle"}</div>
