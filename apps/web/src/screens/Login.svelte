@@ -79,7 +79,7 @@
           {status === "sending" ? "Sending…" : "Email me a code ▶"}
         </button>
         {#if status === "error"}<p class="err">{errorMsg}</p>{/if}
-        <p class="hint">Invite-only while we're testing. Not on the list yet? Ask for an invite.</p>
+        <p class="hint">New here? Just enter your email — we'll send a code and set you up. No password, ever.</p>
       </form>
     {/if}
   </div>

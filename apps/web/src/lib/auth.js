@@ -26,8 +26,8 @@ const cleanEmail = (email) => (email ?? "").trim().toLowerCase();
 const validEmail = (e) => /^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(e);
 
 /** Email a one-time SIGN-IN CODE. With no `emailRedirectTo`, Supabase's email includes the `{{ .Token }}`
- *  code — make sure that token is in your "Magic Link" email template. `shouldCreateUser` stays false
- *  during the invite-only test; flip it to true at public launch to open self-registration.
+ *  code — make sure that token is in your "Magic Link" email template. `shouldCreateUser:true` = OPEN
+ *  self-registration (anyone can sign up); set it back to false to return to invite-only.
  *  Returns { error } — null on success. */
 export async function sendLoginCode(email) {
   if (!supabaseReady) return { error: "Sign-in isn't configured yet." };
@@ -35,13 +35,15 @@ export async function sendLoginCode(email) {
   if (!validEmail(clean)) return { error: "Enter a valid email address." };
   const { error } = await supabase.auth.signInWithOtp({
     email: clean,
-    options: { shouldCreateUser: false },
+    options: { shouldCreateUser: true },
   });
   if (error) {
-    // Most failures here mean the email isn't on the invite list (signups are off for testing).
-    const msg = /signup|not allowed|disabled|user/i.test(error.message)
-      ? "That email isn't invited yet — ask for an invite, then try again."
-      : error.message;
+    // With open signups the usual failure is the email rate limit, not an invite gate.
+    const msg = /rate|limit|too many/i.test(error.message)
+      ? "Too many requests right now — wait a minute and try again."
+      : /signup|not allowed|disabled/i.test(error.message)
+        ? "Sign-ups are paused right now — try again later."
+        : error.message;
     return { error: msg };
   }
   return { error: null };
