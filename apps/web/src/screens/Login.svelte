@@ -48,15 +48,15 @@
     {#if step === "code"}
       <form class="card" onsubmit={verify}>
         <h2>📬 Enter your code</h2>
-        <p>We emailed a 6-digit code to <strong>{email}</strong>. Type it in below.
+        <p>We emailed a sign-in code to <strong>{email}</strong>. Type it in below.
           (Give it a minute, and peek in spam if it's slow.)</p>
         <input
           class="code"
           inputmode="numeric"
           autocomplete="one-time-code"
           pattern="[0-9]*"
-          maxlength="6"
-          placeholder="••••••"
+          maxlength="10"
+          placeholder="Enter code"
           bind:value={code}
           required
         />
@@ -95,7 +95,8 @@
   .lede { color: var(--muted, #9aa0aa); }
   input { padding: 12px 14px; font-size: 1rem; border-radius: 10px; border: 1px solid var(--line, #2a2f3a); background: var(--panel-2, #1b1f27); color: var(--ink, #e7e7ea); }
   input:focus { outline: none; border-color: var(--accent, #e0b341); }
-  input.code { text-align: center; font-size: 1.6rem; letter-spacing: 0.5em; font-variant-numeric: tabular-nums; padding-left: 0.5em; }
+  input.code { text-align: center; font-size: 1.5rem; letter-spacing: 0.3em; font-variant-numeric: tabular-nums; padding-left: 0.3em; }
+  input.code::placeholder { font-size: 1rem; letter-spacing: normal; }
   .row { display: flex; justify-content: space-between; gap: 8px; margin-top: 2px; }
   button.link { background: none; border: none; box-shadow: none; padding: 4px 2px; font-size: 0.82rem; font-weight: 600; color: var(--muted, #9aa0aa); cursor: pointer; }
   button.link:hover { color: var(--accent, #e0b341); }

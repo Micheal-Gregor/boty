@@ -53,7 +53,7 @@ export async function verifyLoginCode(email, code) {
   if (!supabaseReady) return { error: "Sign-in isn't configured yet." };
   const clean = cleanEmail(email);
   const token = (code ?? "").replace(/\D/g, ""); // digits only — tolerate spaces the user pastes in
-  if (token.length < 6) return { error: "Enter the 6-digit code from your email." };
+  if (token.length < 6) return { error: "Enter the code from your email." };
   const { error } = await supabase.auth.verifyOtp({ email: clean, token, type: "email" });
   if (error) {
     const msg = /expired/i.test(error.message) ? "That code expired — tap Resend for a fresh one."
