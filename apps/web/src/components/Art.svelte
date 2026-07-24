@@ -1,4 +1,5 @@
 <script module>
+  import { crewKey } from "../lib/crewpool.js";
   // The Grok asset pipeline: drop a STILL at `src/assets/art/<kind>/<id>.{png,jpg,webp,svg}` and/or
   // an ANIMATION at `src/assets/art/<kind>/<id>.{mp4,webm}` and it appears automatically — no code
   // change. The animation's first frame IS the still (used as the video poster). Until any asset
@@ -13,16 +14,9 @@
   const stills = build(imgMods);
   const anims = build(vidMods);
 
-  // The crew is a POOL: drop any number of portraits in art/crew/ (named anything) and each worker
-  // is assigned a stable one by hashing its id — so ~20 faces cover a whole table, and a worker keeps
-  // the same face all game. An exact crew/<id> file still wins if you ever want to pin one.
-  const crewPool = [...new Set([...Object.keys(stills), ...Object.keys(anims)].filter((k) => k.startsWith("crew/")))].sort();
-  export function crewKey(id) {
-    const exact = `crew/${id}`;
-    if (stills[exact] || anims[exact] || !crewPool.length) return exact;
-    const h = [...String(id)].reduce((a, c) => a + c.charCodeAt(0), 0);
-    return crewPool[h % crewPool.length];
-  }
+  // The crew is a POOL (art/crew/): each worker is assigned a stable face — and a matching-sex name —
+  // by lib/crewpool.js, so Art here and crew.js there never disagree on which face a worker wears.
+  export { crewKey };
 
   const has = (k) => !!(stills[k] || anims[k]);
   const allArtKeys = [...new Set([...Object.keys(stills), ...Object.keys(anims)])];

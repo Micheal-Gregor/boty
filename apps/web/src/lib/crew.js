@@ -1,11 +1,17 @@
 // Crew identities — every tradesperson gets a name and a one-line personality, derived from their
 // worker id so it's stable all game (and pairs with their pooled portrait). Purely cosmetic; the
-// engine never sees these. Edit the pools freely — 24 × 20 first/last = 480 names × 20 quips.
+// engine never sees these. The FIRST name is drawn from the pool that MATCHES the worker's portrait
+// sex (see lib/crewpool.js — label a face female with a …_f / …-f filename; default is male), so a
+// woman's face never gets a man's name. Edit the pools freely.
+import { crewSex } from "./crewpool.js";
 
-const FIRST = [
-  "Hank", "Dale", "Marge", "Ruth", "Earl", "Cletus", "Vern", "Opal", "Gus", "Wanda",
-  "Floyd", "Della", "Roy", "Hazel", "Otis", "Pearl", "Bud", "Edna", "Clyde", "Mabel",
-  "Walt", "Iris", "Stan", "Lottie",
+const MALE = [
+  "Hank", "Dale", "Earl", "Cletus", "Vern", "Gus", "Floyd", "Roy",
+  "Otis", "Bud", "Clyde", "Walt", "Stan", "Merle", "Wade", "Chet",
+];
+const FEMALE = [
+  "Marge", "Ruth", "Opal", "Wanda", "Della", "Hazel", "Pearl", "Edna",
+  "Mabel", "Iris", "Lottie", "Verna", "Cora", "Nadine", "Etta", "Fern",
 ];
 const LAST = [
   "Morrow", "Tubbs", "Kowalski", "Hutchins", "Pratt", "Stroud", "Dabney", "Fenwick",
@@ -41,11 +47,12 @@ const hash = (s, salt) => {
   return h;
 };
 
-/** Stable {name, flavor} for a worker id (e.g. "T5"). */
+/** Stable {name, flavor} for a worker id (e.g. "T5") — the first name matches the portrait's sex. */
 export function crewIdentity(id) {
   const s = String(id);
+  const first = crewSex(id) === "f" ? FEMALE : MALE;
   return {
-    name: `${FIRST[hash(s, 1) % FIRST.length]} ${LAST[hash(s, 7) % LAST.length]}`,
+    name: `${first[hash(s, 1) % first.length]} ${LAST[hash(s, 7) % LAST.length]}`,
     flavor: FLAVOR[hash(s, 13) % FLAVOR.length],
   };
 }
