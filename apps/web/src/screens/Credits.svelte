@@ -5,8 +5,8 @@
   // Fill in your name / collaborators where it says Micheal Gregor.
   const credits = [
     ["Created &amp; designed by", ["Micheal Gregor"]],
-    ["Art &amp; animation", ["Micheal Gregor"]],
-    ["Music &amp; sound", ["Micheal Gregor"]],
+    ["Art &amp; animation", ["Micheal Gregor (with Grok Imagine)"]],
+    ["Music &amp; sound", ["Micheal Gregor (with Google Gemini)"]],
     ["World &amp; story — Maple Hollow", ["Original fiction, in the small-town-Americana tradition"]],
     ["Engine &amp; build", ["Crafted with Claude Code (Anthropic)"]],
     ["With thanks to", ["the pre-launch testers of Maple Hollow"]],
