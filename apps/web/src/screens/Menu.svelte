@@ -27,7 +27,7 @@
     </nav>
     {#if supabaseReady && $user}
       <div class="support">
-        <p class="free-note">Free to play — always. If Maple Hollow's brightened your day, a small tip keeps it running.</p>
+        <p class="free-note">Free to play. If Maple Hollow's brightened your day, a small tip keeps it going.</p>
         <Donate tone="ghost" />
       </div>
       <p class="acct">Signed in as <strong>{$user.email}</strong> · <button class="link" onclick={signOut}>Sign out</button></p>
