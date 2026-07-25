@@ -5,6 +5,7 @@
   import { supabaseReady } from "../lib/supabase.js";
   import { friendRequests, gameInvites } from "../lib/social.js";
   import Shell from "./Shell.svelte";
+  import Donate from "../components/Donate.svelte";
   const pings = $derived($friendRequests.length + $gameInvites.length);
 </script>
 
@@ -25,6 +26,10 @@
       <button onclick={() => goScreen("credits")}>🎬 Credits</button>
     </nav>
     {#if supabaseReady && $user}
+      <div class="support">
+        <p class="free-note">Free to play — always. If Maple Hollow's brightened your day, a small tip keeps it running.</p>
+        <Donate tone="ghost" />
+      </div>
       <p class="acct">Signed in as <strong>{$user.email}</strong> · <button class="link" onclick={signOut}>Sign out</button></p>
     {:else}
       <p class="acct">Playing as <strong>Guest</strong> · sign-in coming soon</p>
@@ -41,6 +46,8 @@
   nav button:hover { border-color: var(--accent, #e0b341); }
   nav button.primary { background: var(--accent, #e0b341); color: #1a1a1a; border: none; box-shadow: 0 6px 20px rgba(224,179,65,0.3); }
   .badge { display: inline-block; min-width: 1.4em; padding: 0 5px; border-radius: 10px; background: #e8746a; color: #fff; font-size: 0.8em; font-weight: 800; }
-  .acct { color: var(--muted, #9aa0aa); font-size: 0.85rem; margin-top: 26px; }
+  .support { max-width: 360px; margin: 24px auto 0; text-align: center; }
+  .free-note { color: var(--muted, #9aa0aa); font-size: 0.85rem; margin: 0 0 10px; line-height: 1.5; }
+  .acct { color: var(--muted, #9aa0aa); font-size: 0.85rem; margin-top: 18px; }
   .acct .link { background: none; border: none; color: var(--accent, #e0b341); cursor: pointer; font: inherit; padding: 0; text-decoration: underline; }
 </style>

@@ -2,6 +2,7 @@
   import { ui, restart } from "../lib/store.js";
   import { money } from "../lib/money.js";
   import Shell from "./Shell.svelte";
+  import Donate from "../components/Donate.svelte";
   const final = $derived($ui.final ?? {});
   const results = $derived(final.results ?? []);
   const awards = $derived(final.awards ?? []);
@@ -67,6 +68,10 @@
   {/if}
 
   <button class="start" onclick={restart}>New game</button>
+  <div class="gala-support">
+    <p>That's a wrap on the year. Business of the Year is free — if you had fun, you can tip the developer.</p>
+    <Donate tone="ghost" />
+  </div>
   </section>
 </Shell>
 
@@ -87,4 +92,6 @@
   .fin-row.sub span:first-child { color: var(--muted, #9aa0aa); padding-left: 8px; }
   .fin-row.tot { border-top: 1px solid var(--line, #2a2f3a); font-weight: 700; padding-top: 2px; margin-top: 2px; }
   .fin-row.split { color: var(--muted, #9aa0aa); font-size: 0.8em; margin-top: 4px; }
+  .gala-support { max-width: 420px; margin: 20px auto 0; text-align: center; border-top: 1px solid var(--line, #2a2f3a); padding-top: 16px; }
+  .gala-support p { color: var(--muted, #9aa0aa); font-size: 0.88rem; line-height: 1.5; margin: 0 0 12px; }
 </style>

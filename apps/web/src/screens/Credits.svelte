@@ -1,6 +1,7 @@
 <script>
   import { backToMenu } from "../lib/store.js";
   import Shell from "./Shell.svelte";
+  import Donate from "../components/Donate.svelte";
 
   // Fill in your name / collaborators where it says Micheal Gregor.
   const credits = [
@@ -24,6 +25,11 @@
         {#each names as n}<p class="name">{@html n}</p>{/each}
       </section>
     {/each}
+    <section class="cr support">
+      <p class="role">Free &amp; made by one person</p>
+      <p class="tip">The game costs nothing to play. If you'd like to chip in toward the hosting and the next update, thank you.</p>
+      <Donate tone="solid" />
+    </section>
     <p class="closer">Maple Hollow is open for business. It always was.</p>
   </div>
 </Shell>
@@ -37,5 +43,7 @@
   .cr { margin: 0 0 18px; }
   .role { color: var(--muted, #9aa0aa); font-size: 0.82rem; letter-spacing: 0.05em; text-transform: uppercase; margin: 0 0 2px; }
   .name { font-size: 1.1rem; font-weight: 600; margin: 0; }
+  .support { border-top: 1px solid var(--line, #2a2f3a); padding-top: 16px; }
+  .support .tip { color: var(--muted, #9aa0aa); font-size: 0.9rem; line-height: 1.5; margin: 0 auto 12px; max-width: 32ch; }
   .closer { color: var(--muted, #9aa0aa); font-style: italic; border-top: 1px solid var(--line, #2a2f3a); padding-top: 16px; margin-top: 8px; }
 </style>

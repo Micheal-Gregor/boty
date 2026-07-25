@@ -5,7 +5,7 @@
 import { writable, get } from "svelte/store";
 import { supabase, supabaseReady } from "./supabase.js";
 import { user } from "./auth.js";
-import { myProfile } from "./social.js";
+import { myProfile, licensed } from "./social.js";
 import economy from "@boty/engine/data/economy.json";
 
 const TRADES = economy.services ?? [];
@@ -59,7 +59,7 @@ async function claimSeat(gameId, rowFor) {
 export async function hostGame(difficulty = "standard") {
   if (!supabaseReady) return fail("Online play isn't configured.");
   const me = get(user); if (!me) return fail("Sign in first.");
-  if (!get(myProfile)?.licensed) return fail("Hosting multiplayer needs the full license. You can still play solo and join any game for free."); // server RLS also enforces this
+  if (!get(licensed)) return fail("Hosting multiplayer needs the full license. You can still play solo and join any game for free."); // server RLS also enforces this; free while HOSTING_FREE
   lobbyError.set(null); lobbyNote.set(null); lobbyBusy.set(true);
   let game = null;
   for (let tries = 0; tries < 5 && !game; tries++) {

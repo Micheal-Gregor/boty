@@ -273,9 +273,13 @@ drop trigger if exists trg_protect_licensed on public.profiles;
 create trigger trg_protect_licensed before update on public.profiles for each row execute function public.protect_licensed();
 
 -- Small helper: is the CALLER licensed? (security definer so it reads profiles regardless of RLS.)
+-- FREE-HOSTING BETA: this returns TRUE for everyone, so hosting is free (the game is donation-supported).
+-- To bring back the $5 paywall before store launch, restore the real body (the commented line) AND set
+-- HOSTING_FREE = false in apps/web/src/lib/social.js. Both flip together.
 create or replace function public.am_licensed()
   returns boolean language sql security definer stable set search_path = public as $$
-  select coalesce((select licensed from public.profiles where id = auth.uid()), false);
+  select true;
+  -- PAYWALL (restore to re-enable): select coalesce((select licensed from public.profiles where id = auth.uid()), false);
 $$;
 
 -- HOSTING is licensed-only: a free player literally cannot create a game row (client also gates for UX).

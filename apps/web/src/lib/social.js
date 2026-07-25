@@ -6,7 +6,13 @@ import { supabase, supabaseReady } from "./supabase.js";
 import { user } from "./auth.js";
 
 export const myProfile = writable(null);      // { id, username, games_played, games_won, licensed } | null
-export const licensed = derived(myProfile, ($p) => !!$p?.licensed); // the $5 lifetime license: host + host-authority
+
+// FREE-HOSTING BETA: hosting needs no license — the game is free, donations only. To bring the $5 paywall
+// back before store launch, set HOSTING_FREE = false AND restore the real body of am_licensed() in
+// supabase/schema.sql (it currently returns true). Both must flip together — the client flag is UX, the
+// SQL function is the real RLS gate. Everything checks the `licensed` store below, so this one line does it.
+export const HOSTING_FREE = true;
+export const licensed = derived(myProfile, ($p) => HOSTING_FREE || !!$p?.licensed); // true for all while free
 export const needsUsername = writable(false); // signed in but no profile yet → prompt for a username
 export const friends = writable([]);          // [{ id, username }]
 export const friendRequests = writable([]);   // incoming pending: [{ rowId, id, username }]
