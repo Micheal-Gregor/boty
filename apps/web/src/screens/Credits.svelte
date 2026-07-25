@@ -29,6 +29,7 @@
       <p class="role">Free &amp; made by one person</p>
       <p class="tip">The game costs nothing to play. If you'd like to chip in toward the hosting and the next update, thank you.</p>
       <Donate tone="solid" />
+      <p class="connect">Made by Micheal Gregor · <a href="https://www.linkedin.com/in/micheal-gregor-cpa-cma/" target="_blank" rel="noopener noreferrer">Connect on LinkedIn ↗</a></p>
     </section>
     <p class="closer">Maple Hollow is open for business. It always was.</p>
   </div>
@@ -45,5 +46,8 @@
   .name { font-size: 1.1rem; font-weight: 600; margin: 0; }
   .support { border-top: 1px solid var(--line, #2a2f3a); padding-top: 16px; }
   .support .tip { color: var(--muted, #9aa0aa); font-size: 0.9rem; line-height: 1.5; margin: 0 auto 12px; max-width: 32ch; }
+  .connect { color: var(--muted, #9aa0aa); font-size: 0.85rem; margin: 14px 0 0; }
+  .connect a { color: var(--accent, #e0b341); text-decoration: none; font-weight: 600; }
+  .connect a:hover { text-decoration: underline; }
   .closer { color: var(--muted, #9aa0aa); font-style: italic; border-top: 1px solid var(--line, #2a2f3a); padding-top: 16px; margin-top: 8px; }
 </style>
